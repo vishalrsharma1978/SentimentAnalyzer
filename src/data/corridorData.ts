@@ -192,6 +192,45 @@ export function getBrandDailyVolume(brandName: string): BrandDailyVolume | null 
   return BRAND_DAILY_VOLUMES[brandName] ?? null;
 }
 
+export type CorridorAverageFee = {
+  average: number;
+  coveredBrands: number;
+};
+
+export function feeMidpoint(range: CorridorFeeRange): number {
+  return (range.low + range.high) / 2;
+}
+
+export function getCorridorAverageFee(countryCode: string): CorridorAverageFee | null {
+  const corridor = getCorridorForCountry(countryCode);
+  if (!corridor) return null;
+  const midpoints = Object.values(corridor.fees).map(feeMidpoint);
+  if (!midpoints.length) return null;
+  const average = midpoints.reduce((sum, value) => sum + value, 0) / midpoints.length;
+  return { average, coveredBrands: midpoints.length };
+}
+
+export type FeeDelta = {
+  text: string;
+  direction: 'below' | 'above' | 'at';
+};
+
+export function getFeeDelta(range: CorridorFeeRange, average: number): FeeDelta {
+  const delta = feeMidpoint(range) - average;
+  const magnitude = Math.abs(delta);
+  if (magnitude < 0.05) return { text: 'At corridor avg', direction: 'at' };
+  return delta < 0
+    ? { text: `${magnitude.toFixed(1)}pp below corridor avg`, direction: 'below' }
+    : { text: `${magnitude.toFixed(1)}pp above corridor avg`, direction: 'above' };
+}
+
+export function getBenchmarkCostOnAmount(benchmarkAmount: string, percent: number): string | null {
+  const amount = Number(benchmarkAmount.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  const currency = benchmarkAmount.replace(/[0-9.,\s]/g, '') || '$';
+  return `≈ ${currency}${((amount * percent) / 100).toFixed(2)} on ${benchmarkAmount}`;
+}
+
 export function formatFeeRange(range: CorridorFeeRange): string {
   return `${range.low.toFixed(1)}–${range.high.toFixed(1)}%`;
 }
