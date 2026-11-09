@@ -1,0 +1,747 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useWindowDimensions } from 'react-native';
+import { SafeView } from '../src/components/SafeView';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { SunburstChart, SunburstMarket } from '../src/components/SunburstChart';
+import { SentimentMindMap } from '../src/components/SentimentMindMap';
+import { CustomerReviewFeed } from '../src/components/CustomerReviewFeed';
+import { SentimentIssueFunnel } from '../src/components/SentimentIssueFunnel';
+import { AIInsightsBrief } from '../src/components/AIInsightsBrief';
+import { countries } from '../src/data/demoData';
+import { fetchAppleCompetitors, fetchAppleStoreRating, fetchCompetitorSharePrices, fetchPlaystoreAggregateRating, fetchRedditMentions, fetchReviewCollector } from '../src/data/liveData';
+import type { CompetitorSharePrice, CustomerSentiment, LiveCompetitor } from '../src/data/liveData';
+import { CORRIDOR_FEE_PERIOD, CORRIDOR_FEE_SOURCE, formatDailyVolume, formatFeeRange, getBrandCorridorFee, getBrandDailyVolume, getCorridorForCountry } from '../src/data/corridorData';
+import { categorizeSentimentReviews } from '../src/data/sentimentCategories';
+import type { SentimentCategory, SentimentCategoryId } from '../src/data/sentimentCategories';
+import { sourceConfigs } from '../src/config/sourceConfig';
+import { colors } from '../src/theme';
+
+const nav = [
+  ['grid-outline', 'Overview'], ['chatbubbles-outline', 'Sentiment'], ['globe-outline', 'Markets'],
+  ['people-outline', 'Competitors'], ['sparkles-outline', 'AI Insights'], ['document-text-outline', 'Reports'],
+  ['notifications-outline', 'Alerts'], ['people-circle-outline', 'Team'], ['server-outline', 'Sources'], ['settings-outline', 'Settings'],
+];
+const regions = ['Global', 'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East & Africa'];
+
+const COUNTRY_METADATA: Record<string, { code: string; region: string; score: number; rank: number }> = {
+  'United States': { code: 'US', region: 'North America', score: 4.1, rank: 4 },
+  'United Kingdom': { code: 'GB', region: 'Europe', score: 4.0, rank: 7 },
+  India: { code: 'IN', region: 'Asia Pacific', score: 3.8, rank: 11 },
+  Germany: { code: 'DE', region: 'Europe', score: 3.7, rank: 14 },
+  Australia: { code: 'AU', region: 'Asia Pacific', score: 4.0, rank: 5 },
+  Philippines: { code: 'PH', region: 'Asia Pacific', score: 4.2, rank: 2 },
+  Mexico: { code: 'MX', region: 'Latin America', score: 3.9, rank: 9 },
+  UAE: { code: 'AE', region: 'Middle East & Africa', score: 4.0, rank: 6 },
+  France: { code: 'FR', region: 'Europe', score: 3.7, rank: 16 },
+  Canada: { code: 'CA', region: 'North America', score: 4.1, rank: 8 },
+  Brazil: { code: 'BR', region: 'Latin America', score: 3.9, rank: 10 },
+  Japan: { code: 'JP', region: 'Asia Pacific', score: 4.0, rank: 7 },
+  Singapore: { code: 'SG', region: 'Asia Pacific', score: 4.2, rank: 3 },
+  Sweden: { code: 'SE', region: 'Europe', score: 4.1, rank: 5 },
+  Norway: { code: 'NO', region: 'Europe', score: 4.1, rank: 5 },
+  Denmark: { code: 'DK', region: 'Europe', score: 4.1, rank: 5 },
+  Finland: { code: 'FI', region: 'Europe', score: 4.1, rank: 5 },
+  Iceland: { code: 'IS', region: 'Europe', score: 4.0, rank: 6 },
+  Argentina: { code: 'AR', region: 'Latin America', score: 3.8, rank: 12 },
+  Chile: { code: 'CL', region: 'Latin America', score: 3.9, rank: 11 },
+  Colombia: { code: 'CO', region: 'Latin America', score: 3.9, rank: 10 },
+  Peru: { code: 'PE', region: 'Latin America', score: 3.8, rank: 13 },
+  Italy: { code: 'IT', region: 'Europe', score: 3.8, rank: 12 },
+  Spain: { code: 'ES', region: 'Europe', score: 3.9, rank: 10 },
+  Netherlands: { code: 'NL', region: 'Europe', score: 4.0, rank: 7 },
+  'South Africa': { code: 'ZA', region: 'Middle East & Africa', score: 3.8, rank: 12 },
+  Egypt: { code: 'EG', region: 'Middle East & Africa', score: 3.7, rank: 14 },
+  Nigeria: { code: 'NG', region: 'Middle East & Africa', score: 3.7, rank: 15 },
+  'Saudi Arabia': { code: 'SA', region: 'Middle East & Africa', score: 4.0, rank: 7 },
+  Indonesia: { code: 'ID', region: 'Asia Pacific', score: 3.9, rank: 9 },
+  Malaysia: { code: 'MY', region: 'Asia Pacific', score: 4.0, rank: 7 },
+  'South Korea': { code: 'KR', region: 'Asia Pacific', score: 4.0, rank: 7 },
+};
+
+function buildSelectedMarkets(names: unknown): SunburstMarket[] {
+  const parsedNames = Array.isArray(names) ? names[0] : names;
+  let selectedNames: string[] = [];
+  try { selectedNames = JSON.parse(String(parsedNames || '[]')); } catch { selectedNames = []; }
+  if (!selectedNames.length) return countries;
+  return selectedNames.map((name, index) => {
+    const existing = countries.find((country) => country.name === name);
+    const metadata = COUNTRY_METADATA[name];
+    return existing ? { ...existing, score: 0, positive: 0, reviews: 0, rank: 0 } : {
+      name,
+      code: metadata?.code ?? name.slice(0, 2).toUpperCase(),
+      score: 0,
+      positive: 0,
+      reviews: 0,
+      rank: 0,
+      region: metadata?.region ?? 'Global',
+      share: Math.max(4, 100 - index * 5),
+    };
+  });
+}
+
+const POSITIVE_TERMS = ['easy', 'fast', 'helpful', 'love', 'recommend', 'best', 'great', 'excellent', 'quick', 'reliable', 'amazing', 'smooth', 'good'];
+const NEGATIVE_TERMS = ['slow', 'delay', 'problem', 'failed', 'fee', 'fees', 'scam', 'fraud', 'bad', 'terrible', 'laggy', 'stolen', 'support', 'charge', 'frustrating', 'wonky', 'sluggish'];
+
+function getSentimentWords(reviews: CustomerSentiment[]) {
+  const counts = new Map<string, { count: number; sentiment: 'positive' | 'negative' }>();
+  reviews.forEach((review) => {
+    const lower = review.text.toLowerCase();
+    if (review.sentiment === 'positive') {
+      POSITIVE_TERMS.forEach((word) => {
+        if (lower.includes(word)) counts.set(word, { count: (counts.get(word)?.count ?? 0) + 1, sentiment: 'positive' });
+      });
+    } else if (review.sentiment === 'negative') {
+      NEGATIVE_TERMS.forEach((word) => {
+        if (lower.includes(word)) counts.set(word, { count: (counts.get(word)?.count ?? 0) + 1, sentiment: 'negative' });
+      });
+    }
+  });
+  return [...counts.entries()].map(([word, value]) => ({ word, ...value })).sort((a, b) => b.count - a.count).slice(0, 16);
+}
+
+type PlatformRating = { rating: number | null; reviewCount: number; sourceCount: number };
+
+function getReviewIdentity(review: CustomerSentiment) {
+  return `${review.source}\u0000${review.author}\u0000${review.text}`;
+}
+
+function calculatePlatformRatings(reviews: CustomerSentiment[]) {
+  const averages: Record<'Google Play' | 'Apple App Store', PlatformRating> = {
+    'Google Play': { rating: null, reviewCount: 0, sourceCount: 0 },
+    'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
+  };
+  (Object.keys(averages) as ('Google Play' | 'Apple App Store')[]).forEach((source) => {
+    const sourceReviews = reviews.filter((review) => review.source === source && review.rating > 0);
+    if (sourceReviews.length) {
+      averages[source] = {
+        rating: sourceReviews.reduce((sum, review) => sum + review.rating, 0) / sourceReviews.length,
+        reviewCount: sourceReviews.length,
+        sourceCount: sourceReviews.length,
+      };
+    }
+  });
+  return averages;
+}
+
+function formatSharePrice(quote: CompetitorSharePrice) {
+  if (quote.price === null || !quote.currency) return 'Unavailable';
+  if (quote.currency === 'GBp') return `${quote.price.toFixed(2)} GBp`;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: quote.currency,
+      maximumFractionDigits: 2,
+    }).format(quote.price);
+  } catch {
+    return `${quote.price.toFixed(2)} ${quote.currency}`;
+  }
+}
+
+function formatQuoteTime(value: string | null) {
+  if (!value) return 'Time unavailable';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? 'Time unavailable'
+    : `As of ${date.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`;
+}
+
+function SentimentBreakdown({ reviews }: { reviews: CustomerSentiment[] }) {
+  const total = reviews.length;
+  const groups = [
+    ['Positive', reviews.filter((review) => review.sentiment === 'positive').length, colors.green],
+    ['Neutral', reviews.filter((review) => review.sentiment === 'neutral').length, colors.orange],
+    ['Negative', reviews.filter((review) => review.sentiment === 'negative').length, colors.red],
+  ] as const;
+  return <SafeView style={styles.chartWrap}>{total > 0 ? groups.map(([label, count, tone]) => {
+    const percent = total ? count / total * 100 : 0;
+    return <SafeView key={label} style={styles.emotionRow}><SafeView style={[styles.emotionDot, { backgroundColor: tone }]}/><Text style={styles.emotionLabel}>{label}</Text><SafeView style={styles.emotionTrack}><SafeView style={[styles.emotionFill, { width: `${percent}%`, backgroundColor: tone }]}/></SafeView><Text style={styles.emotionValue}>{count}</Text></SafeView>;
+  }) : <Text style={styles.emptyReviewText}>No verified sentiment records returned</Text>}</SafeView>;
+}
+
+export default function Dashboard() {
+  const { width } = useWindowDimensions();
+  const params = useLocalSearchParams();
+  const selectedMarkets = buildSelectedMarkets(params.countries);
+  const isWide = width >= 900;
+  const mainScrollRef = useRef<any>(null);
+  const reviewFeedOffset = useRef(0);
+  const feedbackListOffset = useRef(0);
+  const [activeSection, setActiveSection] = useState('Overview');
+  const [selectedRegion, setSelectedRegion] = useState('Global');
+  const [selectedCountry, setSelectedCountry] = useState<SunburstMarket>(selectedMarkets[0]);
+  const [liveCompetitors, setLiveCompetitors] = useState<LiveCompetitor[]>([]);
+  const [competitorSharePrices, setCompetitorSharePrices] = useState<CompetitorSharePrice[]>([]);
+  const [sharePricesLoading, setSharePricesLoading] = useState(false);
+  const [customerReviews, setCustomerReviews] = useState<CustomerSentiment[]>([]);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveError, setLiveError] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [alerts, setAlerts] = useState(true);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [sentimentFilter, setSentimentFilter] = useState<'all' | 'positive' | 'neutral' | 'negative'>('all');
+  const [durationMonths, setDurationMonths] = useState(1);
+  const [durationPickerVisible, setDurationPickerVisible] = useState(false);
+  const [durationPullVisible, setDurationPullVisible] = useState(false);
+  const [durationPullProgress, setDurationPullProgress] = useState(8);
+  const [dataRefreshNonce, setDataRefreshNonce] = useState(0);
+  const [themeFilter, setThemeFilter] = useState<string | null>(null);
+  const [issueCategoryId, setIssueCategoryId] = useState<SentimentCategoryId | null>(null);
+  const [issueCategoryLabel, setIssueCategoryLabel] = useState<string | null>(null);
+  const [issueReviewIdentities, setIssueReviewIdentities] = useState<string[]>([]);
+  const [targetReview, setTargetReview] = useState<CustomerSentiment | null>(null);
+  const [screenEntrance] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    const entrance = Animated.timing(screenEntrance, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    entrance.start();
+    return () => entrance.stop();
+  }, [screenEntrance]);
+  const handleThemeSelect = (sentiment: 'positive' | 'negative', word: string) => {
+    setIssueCategoryId(null);
+    setIssueCategoryLabel(null);
+    setIssueReviewIdentities([]);
+    setTargetReview(null);
+    setThemeFilter(word);
+    setActiveSection('Overview');
+    setSentimentFilter(sentiment);
+    setShowAllReviews(false);
+    setTimeout(() => mainScrollRef.current?.scrollTo({ y: reviewFeedOffset.current, animated: true }), 120);
+  };
+  const handleIssueCategorySelect = (category: SentimentCategory) => {
+    const firstMatchingReview = category.reviews[0] ?? null;
+    setIssueCategoryId(category.id);
+    setIssueCategoryLabel(category.label);
+    setIssueReviewIdentities(category.reviews.map(getReviewIdentity));
+    setTargetReview(firstMatchingReview);
+    setActiveSection('Overview');
+    setSentimentFilter('all');
+    setThemeFilter(null);
+    setShowAllReviews(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const feedbackOffset = reviewFeedOffset.current + feedbackListOffset.current;
+      mainScrollRef.current?.scrollTo({ y: Math.max(0, feedbackOffset - 12), animated: true });
+    }));
+  };
+  const [platformRatings, setPlatformRatings] = useState<Record<'Google Play' | 'Apple App Store', PlatformRating>>({
+    'Google Play': { rating: null, reviewCount: 0, sourceCount: 0 },
+    'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
+  });
+
+  const filteredMarkets = selectedRegion === 'Global' ? selectedMarkets : selectedMarkets.filter((item) => item.region === selectedRegion);
+  const sunburstMarkets = filteredMarkets.length ? filteredMarkets : selectedMarkets;
+
+  useEffect(() => {
+    if (!durationPullVisible) return;
+    const timer = setInterval(() => {
+      setDurationPullProgress((current) => liveLoading
+        ? Math.min(current + (current < 85 ? 7 : 3), 92)
+        : Math.min(current + 16, 100));
+    }, 280);
+    return () => clearInterval(timer);
+  }, [durationPullVisible, liveLoading]);
+
+  useEffect(() => {
+    if (!durationPullVisible || durationPullProgress < 100) return;
+    const timer = setTimeout(() => setDurationPullVisible(false), 450);
+    return () => clearTimeout(timer);
+  }, [durationPullVisible, durationPullProgress]);
+
+  const selectDuration = (month: number) => {
+    setDurationPickerVisible(false);
+    setDurationPullProgress(8);
+    setDurationPullVisible(true);
+    setDurationMonths(month);
+    setDataRefreshNonce((current) => current + 1);
+  };
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLiveLoading(true);
+      setLiveError(false);
+      setLiveCompetitors([]);
+      setCompetitorSharePrices([]);
+      setSharePricesLoading(true);
+      setPlatformRatings({
+        'Google Play': { rating: null, reviewCount: 0, sourceCount: 0 },
+        'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
+      });
+      try {
+        const appleRatingPromise = fetchAppleStoreRating(selectedCountry.code, 'Western Union');
+        const secondaryPromise = Promise.all([
+          fetchAppleCompetitors(selectedCountry.code, selectedCountry.region),
+          fetchRedditMentions('Western Union'),
+          fetchReviewCollector(selectedCountry.code, 'Western Union', durationMonths, dataRefreshNonce),
+          fetchPlaystoreAggregateRating(selectedCountry.code, 'Western Union'),
+        ]);
+
+        const appleStoreRating = await appleRatingPromise;
+        if (!active) return;
+        if (appleStoreRating.rating !== null) {
+          setPlatformRatings((current) => ({
+            ...current,
+            'Apple App Store': {
+              rating: appleStoreRating.rating,
+              reviewCount: appleStoreRating.reviewCount,
+              sourceCount: appleStoreRating.reviewCount,
+            },
+          }));
+        }
+
+        const [ratings, redditMentions, collectorReviews, playstoreRating] = await secondaryPromise;
+        if (!active) return;
+        if (playstoreRating.rating !== null) {
+          setPlatformRatings((current) => ({
+            ...current,
+            'Google Play': {
+              rating: playstoreRating.rating,
+              reviewCount: playstoreRating.reviewCount,
+              sourceCount: playstoreRating.reviewCount,
+            },
+          }));
+        }
+        setLiveCompetitors(ratings);
+        void fetchCompetitorSharePrices(ratings.map((item) => item.name))
+          .then((quotes) => {
+            if (active) setCompetitorSharePrices(quotes);
+          })
+          .catch((error: unknown) => {
+            console.error('Competitor share-price lookup failed:', error instanceof Error ? error.message : 'unknown error');
+            if (active) {
+              setCompetitorSharePrices(ratings.map((item) => ({
+                name: item.name,
+                symbol: null,
+                price: null,
+                currency: null,
+                quoteTime: null,
+                status: 'unavailable',
+              })));
+            }
+          })
+          .finally(() => {
+            if (active) setSharePricesLoading(false);
+          });
+        const combined = [...collectorReviews, ...redditMentions];
+        const uniqueReviews = combined.filter((review, index) =>
+          combined.findIndex((item) => item.source === review.source && item.text === review.text) === index,
+        );
+        uniqueReviews.sort((left, right) => {
+          const leftTime = left.publishedAt ? new Date(left.publishedAt).getTime() : 0;
+          const rightTime = right.publishedAt ? new Date(right.publishedAt).getTime() : 0;
+          return rightTime - leftTime;
+        });
+        setCustomerReviews(uniqueReviews);
+        const calculatedRatings = calculatePlatformRatings(uniqueReviews);
+        setPlatformRatings({
+          'Google Play': playstoreRating.rating !== null
+            ? { rating: playstoreRating.rating, reviewCount: playstoreRating.reviewCount, sourceCount: playstoreRating.reviewCount }
+            : calculatedRatings['Google Play'],
+          'Apple App Store': appleStoreRating.rating !== null
+            ? { rating: appleStoreRating.rating, reviewCount: appleStoreRating.reviewCount, sourceCount: appleStoreRating.reviewCount }
+            : calculatedRatings['Apple App Store'],
+        });
+        setLiveError(ratings.every((item) => item.status === 'unavailable') && collectorReviews.length === 0 && redditMentions.length === 0);
+      } catch {
+        if (active) {
+          setLiveError(true);
+          setSharePricesLoading(false);
+        }
+      } finally {
+        if (active) {
+          setLiveLoading(false);
+          setDurationPullProgress(100);
+        }
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [selectedCountry.code, selectedCountry.region, durationMonths, dataRefreshNonce]);
+
+  const chooseRegion = (region: string) => {
+    setSelectedRegion(region);
+    const next = region === 'Global' ? selectedMarkets : selectedMarkets.filter((item) => item.region === region);
+    if (next.length) setSelectedCountry(next[0]);
+  };
+
+  const liveWestern = liveCompetitors.find((item) => item.name === 'Western Union' && item.status === 'live');
+  const ranked = liveCompetitors.filter((item) => item.status === 'live' && item.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  const westernRank = ranked.findIndex((item) => item.name === 'Western Union') + 1;
+  const gap = liveWestern?.rating != null && ranked.length ? Number((liveWestern.rating - ranked[0].rating!).toFixed(1)) : null;
+  const availablePlatformRatings = [platformRatings['Google Play'], platformRatings['Apple App Store']].filter((item) => item.rating !== null);
+  const brandRating: number | null = availablePlatformRatings.length > 0
+    ? availablePlatformRatings.reduce((total, item) => total + item.rating!, 0) / availablePlatformRatings.length
+    : null;
+  const googlePlayRating = platformRatings['Google Play'].rating;
+  const appleStoreRating = platformRatings['Apple App Store'].rating;
+  const liveSelectedCountry = { ...selectedCountry, score: brandRating ?? 0 };
+
+  const renderOverview = () => {
+    const positiveMentions = customerReviews.length
+      ? Math.round(customerReviews.filter((review) => review.sentiment === 'positive').length / customerReviews.length * 100)
+      : null;
+    return <>
+    <SafeView style={styles.filterBar}><Text style={styles.filterLabel}>Market view</Text><ScrollView horizontal showsHorizontalScrollIndicator={false}><SafeView style={styles.regionRow}>{regions.map((region) => <Pressable key={region} onPress={() => chooseRegion(region)} style={[styles.regionChip, selectedRegion === region && styles.regionChipActive]}><Text style={[styles.regionText, selectedRegion === region && styles.regionTextActive]}>{region}</Text></Pressable>)}</SafeView></ScrollView></SafeView>
+    <SafeView style={styles.kpiGrid}>{[
+      ['Brand strength', brandRating !== null ? `${brandRating.toFixed(1)} / 5` : '— / 5', 'Arithmetic mean of live platform ratings', '#DC0000', 'ribbon-outline'],
+            ['Category position', westernRank ? `#${westernRank}` : '—', gap !== null ? `${gap >= 0 ? '+' : ''}${gap.toFixed(1)} vs leader` : 'No live rank data', '#FFF200', 'podium-outline'],
+      ['Positive mentions', positiveMentions !== null ? `${positiveMentions}%` : '—', `${customerReviews.filter((review) => review.sentiment === 'positive').length} verified positive records`, '#12B76A', 'trending-up-outline'],
+      ['Markets monitored', String(selectedMarkets.length), `${new Set(selectedMarkets.map((market) => market.region)).size} selected regions`, '#F79009', 'globe-outline'],
+    ].map(([label, value, change, tone, icon]) => <SafeView key={String(label)} style={styles.kpi}><SafeView style={[styles.kpiIcon, { backgroundColor: `${tone}14` }]}><Ionicons name={icon as any} size={20} color={tone as string}/></SafeView><SafeView style={styles.kpiCopy}><Text style={styles.kpiLabel}>{label}</Text><Text style={styles.kpiValue}>{value}</Text><Text style={[styles.kpiChange, { color: tone as string }]}>{change}</Text></SafeView></SafeView>)}</SafeView>
+    <SafeView style={[styles.card, styles.fullCard, styles.dashboardCard]}>
+      <SafeView style={styles.cardHeader}>
+        <SafeView style={styles.sectionCluster}><SafeView style={styles.sectionGauge}><SafeView style={styles.sectionGaugeNeedle}/></SafeView><SafeView><Text style={styles.cardTitle}>Market & platform coverage · Rating scorecard</Text>        <Text style={styles.cardSub}>{selectedCountry.name} · synchronized 5-point live platform gauges</Text></SafeView></SafeView>
+        <SafeView style={styles.liveBadge}><SafeView style={styles.liveDot}/><Text style={styles.liveBadgeText}>SCUDERIA LIVE</Text></SafeView>
+      </SafeView>
+      <SunburstChart
+        markets={sunburstMarkets.map((market) => market.code === selectedCountry.code ? liveSelectedCountry : market) as SunburstMarket[]}
+        selected={liveSelectedCountry}
+        onSelect={setSelectedCountry}
+        platformRatings={{ brand: brandRating, ios: appleStoreRating, android: googlePlayRating }}
+        platformReviewCounts={{ ios: platformRatings['Apple App Store'].reviewCount, android: platformRatings['Google Play'].reviewCount }}
+        marketPosition={westernRank || undefined}
+        leaderGap={gap}
+      />
+    </SafeView>
+    {renderReviews()}
+  </>;
+  };
+
+  const renderReviews = () => {
+    const positiveCount = customerReviews.filter((review) => review.sentiment === 'positive').length;
+    const neutralCount = customerReviews.filter((review) => review.sentiment === 'neutral').length;
+    const negativeCount = customerReviews.filter((review) => review.sentiment === 'negative').length;
+    const sentimentWords = getSentimentWords(customerReviews);
+    const issueCategories = categorizeSentimentReviews(customerReviews);
+    const selectedIssueCategory = issueCategories.find((category) => category.id === issueCategoryId) ?? null;
+    const selectedCategoryLabel = issueCategoryLabel ?? selectedIssueCategory?.label ?? 'Selected category';
+    const selectedTargetReview = issueCategoryId
+      ? customerReviews.find((review) => getReviewIdentity(review) === (targetReview ? getReviewIdentity(targetReview) : ''))
+        ?? customerReviews.find((review) => issueReviewIdentities.includes(getReviewIdentity(review)))
+        ?? null
+      : null;
+    const reviewSourceCounts = ['Google Play', 'Apple App Store', 'Reddit'].map((source) => ({
+      source,
+      count: customerReviews.filter((review) => review.source === source).length,
+    }));
+    const datedReviews = customerReviews
+      .map((review) => review.publishedAt ? new Date(review.publishedAt) : null)
+      .filter((date): date is Date => date !== null && !Number.isNaN(date.getTime()));
+    const earliestReviewDate = datedReviews.length
+      ? new Date(Math.min(...datedReviews.map((date) => date.getTime())))
+      : null;
+    const latestReviewDate = datedReviews.length
+      ? new Date(Math.max(...datedReviews.map((date) => date.getTime())))
+      : null;
+    const requestedWindowStart = new Date();
+    requestedWindowStart.setMonth(requestedWindowStart.getMonth() - durationMonths);
+    const reviewDateRange = earliestReviewDate && latestReviewDate
+      ? `${earliestReviewDate.toLocaleDateString()} – ${latestReviewDate.toLocaleDateString()}`
+      : 'dates unavailable';
+    const sentimentFiltered = sentimentFilter === 'all' ? customerReviews : customerReviews.filter((review) => review.sentiment === sentimentFilter);
+    const filteredReviews = issueCategoryId
+      ? customerReviews.filter((review) => issueReviewIdentities.includes(getReviewIdentity(review)))
+      : themeFilter
+        ? sentimentFiltered.filter((review) => review.text.toLowerCase().includes(themeFilter))
+        : sentimentFiltered;
+    const visibleReviews = showAllReviews ? filteredReviews : filteredReviews.slice(0, 4);
+
+    return <SafeView style={[styles.card, styles.fullCard]} onLayout={(event) => { reviewFeedOffset.current = event.nativeEvent.layout.y; }}>
+      <SafeView style={styles.cardHeader}><SafeView style={styles.sectionCluster}><SafeView style={styles.sectionGauge}><SafeView style={styles.sectionGaugeNeedle}/></SafeView><SafeView><Text style={styles.cardTitle}>What customers are saying</Text><Text style={styles.cardSub}>{liveLoading ? 'Connecting to verified review sources' : liveError ? 'Review source status: unavailable' : `${customerReviews.length} live sentiments · Last ${durationMonths} ${durationMonths === 1 ? 'month' : 'months'} · ${selectedCountry.name}`}</Text></SafeView></SafeView><SafeView style={[styles.liveBadge, liveError && styles.warningBadge]}><SafeView style={styles.liveDot}/><Text style={[styles.liveBadgeText, liveError && styles.warningText]}>{liveLoading ? 'LOADING' : liveError ? 'UNAVAILABLE' : 'LIVE SOURCES'}</Text></SafeView></SafeView>
+      {!liveLoading && <Text style={{ marginTop: 2, marginBottom: 10, fontSize: 10, lineHeight: 15, color: '#667085' }}>
+        {`Records by source: ${reviewSourceCounts.map(({ source, count }) => `${source} ${count}`).join(' · ')}. `}
+        {`Available review dates: ${reviewDateRange}. `}
+        {earliestReviewDate && earliestReviewDate > requestedWindowStart
+          ? `History starts after the selected window (${requestedWindowStart.toLocaleDateString()}); this is not a complete archive. `
+          : ''}
+        Other feeds require credentials in Sources.
+      </Text>}
+      {customerReviews.length > 0 && <SentimentMindMap country={selectedCountry.name} total={customerReviews.length} positive={positiveCount} neutral={neutralCount} negative={negativeCount} words={sentimentWords} onThemeSelect={handleThemeSelect} />}
+      {issueCategories.length > 0 && <SentimentIssueFunnel categories={issueCategories} selectedCategory={issueCategoryId} onSelect={handleIssueCategorySelect} />}
+      {liveLoading ? <SafeView style={styles.emptyReviews}><Ionicons name="sync-outline" size={24} color={colors.primary}/><Text style={styles.emptyReviewTitle}>Collecting customer feedback</Text><Text style={styles.emptyReviewText}>Retrieving recent verified reviews for {selectedCountry.name}.</Text></SafeView> : customerReviews.length ? <>
+        <SafeView onLayout={(event) => { feedbackListOffset.current = event.nativeEvent.layout.y; }}>
+          <SafeView style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>{(['all', 'positive', 'neutral', 'negative'] as const).map((filter) => <Pressable key={filter} onPress={() => { setSentimentFilter(filter); setThemeFilter(null); setIssueCategoryId(null); setIssueCategoryLabel(null); setIssueReviewIdentities([]); setTargetReview(null); setShowAllReviews(false); }} style={{ height: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: sentimentFilter === filter && !issueCategoryId ? '#DC0000' : '#D0D5DD', backgroundColor: sentimentFilter === filter && !issueCategoryId ? '#F0EEFF' : '#fff', justifyContent: 'center' }}><Text style={{ fontSize: 10, fontWeight: '800', color: sentimentFilter === filter && !issueCategoryId ? '#DC0000' : '#A0A0A6' }}>{filter === 'all' ? `All · ${customerReviews.length}` : `${filter[0].toUpperCase()}${filter.slice(1)} · ${customerReviews.filter((review) => review.sentiment === filter).length}`}</Text></Pressable>)}</SafeView>
+          {(themeFilter || issueCategoryId) && <Pressable accessibilityRole="button" accessibilityLabel={issueCategoryId ? `Clear ${selectedCategoryLabel} category filter` : 'Clear ' + themeFilter + ' filter'} onPress={() => { setThemeFilter(null); setIssueCategoryId(null); setIssueCategoryLabel(null); setIssueReviewIdentities([]); setTargetReview(null); setSentimentFilter('all'); setShowAllReviews(false); }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 10, marginTop: 4, marginBottom: 6, borderRadius: 15, borderWidth: 1, borderColor: sentimentFilter === 'negative' ? '#F04438' : '#12B76A', backgroundColor: sentimentFilter === 'negative' ? '#FEF3F2' : '#ECFDF3' }}>
+          <Text style={{ fontSize: 10, fontWeight: '800', color: sentimentFilter === 'negative' ? '#B42318' : '#027A48' }}>{issueCategoryId ? `${selectedCategoryLabel} · ${filteredReviews.length} comments` : '"' + themeFilter + '" · ' + filteredReviews.length + (filteredReviews.length === 1 ? ' review' : ' reviews')}</Text>
+          <Ionicons name="close" size={12} color="#A0A0A6" /></Pressable>}
+          {issueCategoryId && <SafeView accessibilityLiveRegion="polite" style={{ marginTop: 6, marginBottom: 4, paddingHorizontal: 12, paddingVertical: 10, borderLeftWidth: 3, borderLeftColor: '#FDB022', borderRadius: 6, backgroundColor: '#FFFAEB' }}>
+            <Text style={{ fontSize: 11, fontWeight: '900', color: '#7A2E0E' }}>Showing feedback for {selectedCategoryLabel}</Text>
+            <Text style={{ marginTop: 3, fontSize: 9, color: '#93370D' }}>{filteredReviews.length} matching {filteredReviews.length === 1 ? 'comment' : 'comments'}</Text>
+          </SafeView>}
+          {filteredReviews.length === 0 && <Text style={styles.emptyReviewText}>{issueCategoryId ? `No current comments match ${selectedCategoryLabel}.` : 'No reviews mention this theme.'}</Text>}
+          <CustomerReviewFeed reviews={visibleReviews} highlightedReview={selectedTargetReview} autoTranslateReview={selectedTargetReview} />
+        </SafeView>
+        {filteredReviews.length > 4 && <Pressable onPress={() => setShowAllReviews((current) => !current)} style={{ alignSelf: 'flex-start', marginTop: 8, height: 34, borderRadius: 8, borderWidth: 1, borderColor: '#DC0000', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 10, fontWeight: '900', color: '#DC0000' }}>{showAllReviews ? 'Show less' : `View all ${filteredReviews.length} sentiments`}</Text></Pressable>}
+      </> : <SafeView style={styles.emptyReviews}><Ionicons name="cloud-offline-outline" size={24} color="#98A2B3"/><Text style={styles.emptyReviewTitle}>No recent reviews returned</Text><Text style={styles.emptyReviewText}>The source did not return usable verified feedback for this market. Start the review collector with “npm run review-server” for Playstore and Apple App Store coverage.</Text></SafeView>}
+    </SafeView>;
+  };
+
+  const renderSentiment = () => <>
+    <SafeView style={[styles.grid, isWide && styles.gridWide]}>
+      <SafeView style={[styles.card, isWide && styles.cardWide]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Verified sentiment distribution</Text><Text style={styles.cardSub}>Counts from currently returned customer records</Text></SafeView></SafeView><SentimentBreakdown reviews={customerReviews}/></SafeView>
+      <SafeView style={[styles.card, isWide && styles.cardNarrow]}><Text style={styles.cardTitle}>Actual sentiment totals</Text><SafeView style={styles.emotionList}>{[
+        ['Positive', customerReviews.filter((review) => review.sentiment === 'positive').length, colors.green],
+        ['Neutral', customerReviews.filter((review) => review.sentiment === 'neutral').length, colors.orange],
+        ['Negative', customerReviews.filter((review) => review.sentiment === 'negative').length, colors.red],
+      ].map(([label, value, tone]) => <SafeView key={String(label)} style={styles.emotionRow}><SafeView style={[styles.emotionDot, { backgroundColor: tone as string }]}/><Text style={styles.emotionLabel}>{label}</Text><Text style={styles.emotionValue}>{value}</Text></SafeView>)}</SafeView></SafeView>
+    </SafeView>
+    {renderReviews()}
+  </>;
+
+  const renderMarkets = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Country performance</Text><Text style={styles.cardSub}>Ratings and regional position · 1–5 scale</Text></SafeView></SafeView>{selectedMarkets.map((country) => <Pressable key={country.code} onPress={() => setSelectedCountry(country)} style={[styles.marketRow, selectedCountry.code === country.code && styles.marketRowActive]}><SafeView style={styles.flag}><Text style={styles.flagText}>{country.code}</Text></SafeView><SafeView style={styles.marketName}><Text style={styles.marketTitle}>{country.name}</Text><Text style={styles.marketRegion}>{country.region}</Text></SafeView><SafeView style={styles.marketTrack}><SafeView style={[styles.marketFill, { width: `${country.code === selectedCountry.code && brandRating !== null ? brandRating * 20 : 0}%` }]}/></SafeView><Text style={styles.marketScore}>{country.code === selectedCountry.code ? (brandRating !== null ? `${brandRating.toFixed(1)} / 5` : '— / 5') : '— / 5'}</Text><Text style={styles.marketRank}>—</Text></Pressable>)}</SafeView>{renderReviews()}</>;
+
+  const renderCompetitors = () => {
+    const selectedBrand = 'Western Union';
+    const rankedCompetitors = liveCompetitors
+      .filter((item) => item.status === 'live' && item.rating !== null)
+      .sort((left, right) => (right.rating ?? 0) - (left.rating ?? 0));
+    const countryRanks = new Map(rankedCompetitors.map((item, index) => [item.name, index + 1]));
+    const sharePriceByName = new Map(competitorSharePrices.map((quote) => [quote.name, quote]));
+    const selectedBrandRank = countryRanks.get(selectedBrand);
+    const topCorridor = getCorridorForCountry(selectedCountry.code);
+    const sortedCompetitors = [...liveCompetitors].sort((left, right) => {
+      const leftRank = countryRanks.get(left.name) ?? Number.POSITIVE_INFINITY;
+      const rightRank = countryRanks.get(right.name) ?? Number.POSITIVE_INFINITY;
+      return leftRank - rightRank || left.name.localeCompare(right.name);
+    });
+
+    return <>
+      <SafeView style={[styles.card, styles.fullCard]}>
+        <SafeView style={styles.cardHeader}>
+          <SafeView style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>Competitive intelligence</Text>
+            <Text style={styles.cardSub}>
+              {liveLoading
+                ? `Refreshing ${selectedCountry.name} competitors`
+                : `${selectedCountry.name} · ${selectedCountry.region} · Country rank is by App Store rating${topCorridor ? ` · Top corridor ${topCorridor.fromCode}→${topCorridor.toCode}` : ''}`}
+            </Text>
+          </SafeView>
+          <SafeView style={[styles.liveBadge, liveError && styles.warningBadge]}>
+            <Text style={[styles.liveBadgeText, liveError && styles.warningText]}>
+              {liveError ? 'SOURCE ISSUE' : 'MARKET DATA'}
+            </Text>
+          </SafeView>
+        </SafeView>
+        <Text style={styles.competitorDataNote}>
+          {`Share quotes use Yahoo Finance and may be delayed. Transfer fees are the average total cost (fee + FX margin) of a ${topCorridor?.benchmarkAmount ?? '$200'} transfer on the market's top corridor${topCorridor ? ` (${topCorridor.fromName} → ${topCorridor.toName})` : ''} — ${CORRIDOR_FEE_SOURCE}, ${CORRIDOR_FEE_PERIOD}. Daily transactions are global company-reported averages; country-level volumes are not publicly disclosed.`}
+        </Text>
+        <SafeView style={styles.selectedBrandSummary}>
+          <SafeView style={styles.selectedBrandSummaryMark}>
+            <Ionicons name="ribbon-outline" size={16} color="#FFF200" />
+          </SafeView>
+          <SafeView style={styles.selectedBrandSummaryCopy}>
+            <Text style={styles.selectedBrandSummaryLabel}>YOUR BRAND · {selectedBrand}</Text>
+            <Text style={styles.selectedBrandSummaryRank}>
+              {selectedBrandRank
+                ? `Ranked #${selectedBrandRank} of ${rankedCompetitors.length} in ${selectedCountry.name} · ${selectedCountry.region}`
+                : `Country rank unavailable for ${selectedCountry.name} · ${selectedCountry.region}`}
+            </Text>
+          </SafeView>
+          <Text style={styles.selectedBrandSummaryValue}>
+            {selectedBrandRank ? `#${selectedBrandRank}` : '—'}
+          </Text>
+        </SafeView>
+        <ScrollView horizontal showsHorizontalScrollIndicator>
+          <SafeView style={styles.competitorTable}>
+            <SafeView style={[styles.competitorTableRow, styles.competitorTableHeader]}>
+              <Text style={[styles.competitorTableHeading, styles.competitorNameColumn]}>Competitor</Text>
+              <Text style={[styles.competitorTableHeading, styles.competitorRatingColumn]}>App rating</Text>
+              <Text style={[styles.competitorTableHeading, styles.competitorReviewsColumn]}>Reviews</Text>
+              <Text style={[styles.competitorTableHeading, styles.competitorShareColumn]}>Share price</Text>
+              <Text style={[styles.competitorTableHeading, styles.competitorFeeColumn]}>Transfer fees</Text>
+              <Text style={[styles.competitorTableHeading, styles.competitorVolumeColumn]}>Avg. transactions/day</Text>
+              <Text style={[styles.competitorTableHeading, styles.competitorRankColumn]}>Country rank</Text>
+              <Text style={[styles.competitorTableHeading, styles.competitorStatusColumn]}>Status</Text>
+            </SafeView>
+            {sortedCompetitors.map((item) => {
+              const quote = sharePriceByName.get(item.name);
+              const rank = countryRanks.get(item.name);
+              const isSelectedBrand = item.name === selectedBrand;
+              const corridorFee = getBrandCorridorFee(selectedCountry.code, item.name);
+              const dailyVolume = getBrandDailyVolume(item.name);
+              return (
+                <SafeView
+                  key={item.name}
+                  style={[
+                    styles.competitorTableRow,
+                    styles.competitorRow,
+                    isSelectedBrand && styles.competitorSelectedStrong,
+                  ]}
+                >
+                  <SafeView style={[styles.competitorNameCell, styles.competitorNameColumn]}>
+                    <SafeView style={[styles.appMark, isSelectedBrand && styles.appMarkPrimary]}>
+                      <Text style={styles.appMarkText}>{item.name[0]}</Text>
+                    </SafeView>
+                    <SafeView style={styles.competitorName}>
+                      <Text numberOfLines={1} style={styles.appName}>{item.name}</Text>
+                      <Text numberOfLines={1} style={styles.sourceMeta}>
+                        {isSelectedBrand ? 'Your selected brand' : item.status === 'live' ? `Apple · ${selectedCountry.code}` : 'No App Store result'}
+                      </Text>
+                    </SafeView>
+                  </SafeView>
+                  <Text style={[styles.competitorMetricValue, styles.competitorRatingColumn]}>
+                    {item.rating !== null ? `${item.rating.toFixed(1)} / 5` : '—'}
+                  </Text>
+                  <Text style={[styles.competitorMetricValue, styles.competitorReviewsColumn]}>
+                    {item.reviewCount !== null ? item.reviewCount.toLocaleString() : '—'}
+                  </Text>
+                  <SafeView style={[styles.competitorMetricCell, styles.competitorShareColumn]}>
+                    <Text style={styles.competitorMetricValue}>
+                      {sharePricesLoading
+                        ? 'Loading…'
+                        : quote?.status === 'not-listed'
+                          ? 'Not listed'
+                          : quote?.status === 'live'
+                            ? formatSharePrice(quote)
+                            : 'Unavailable'}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.competitorMetricNote}>
+                      {quote?.status === 'live'
+                        ? `${quote.symbol} · ${formatQuoteTime(quote.quoteTime)}`
+                        : quote?.status === 'not-listed'
+                          ? 'No separate public listing'
+                          : 'Quote feed unavailable'}
+                    </Text>
+                  </SafeView>
+                  <SafeView style={[styles.competitorMetricCell, styles.competitorFeeColumn]}>
+                    {corridorFee && topCorridor ? (
+                      <>
+                        <Text style={styles.competitorMetricValue}>{formatFeeRange(corridorFee)}</Text>
+                        <Text numberOfLines={1} style={styles.competitorMetricNote}>
+                          {`${topCorridor.fromCode}→${topCorridor.toCode} · ${topCorridor.benchmarkAmount}`}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.competitorMetricMuted}>Not covered</Text>
+                        <Text style={styles.competitorMetricNote}>No corridor fee data</Text>
+                      </>
+                    )}
+                  </SafeView>
+                  <SafeView style={[styles.competitorMetricCell, styles.competitorVolumeColumn]}>
+                    {dailyVolume ? (
+                      <>
+                        <Text style={styles.competitorMetricValue}>{`~${formatDailyVolume(dailyVolume.avgPerDay)}`}</Text>
+                        <Text numberOfLines={1} style={styles.competitorMetricNote}>
+                          {`Global · ${dailyVolume.basis}`}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.competitorMetricMuted}>Not reported</Text>
+                        <Text style={styles.competitorMetricNote}>No public disclosure</Text>
+                      </>
+                    )}
+                  </SafeView>
+                  <SafeView style={[
+                    styles.competitorMetricCell,
+                    styles.competitorRankColumn,
+                    isSelectedBrand && styles.selectedBrandRankCell,
+                  ]}>
+                    <Text style={[
+                      styles.competitorRankValue,
+                      isSelectedBrand && styles.selectedBrandRankValue,
+                    ]}>{rank ? `#${rank}` : '—'}</Text>
+                    <Text style={[
+                      styles.competitorMetricNote,
+                      isSelectedBrand && styles.selectedBrandRankNote,
+                    ]}>{isSelectedBrand ? 'YOUR BRAND' : 'By App Store rating'}</Text>
+                  </SafeView>
+                  <Text style={[
+                    styles.competitorStatus,
+                    styles.competitorStatusColumn,
+                    item.status === 'live' ? styles.verified : styles.unavailable,
+                  ]}>
+                    {item.status === 'live' ? 'Live' : 'Unavailable'}
+                  </Text>
+                </SafeView>
+              );
+            })}
+            {!liveCompetitors.length && (
+              <Text style={styles.competitorEmpty}>
+                {liveLoading ? 'Loading competitor data…' : 'No competitor data is currently available.'}
+              </Text>
+            )}
+          </SafeView>
+        </ScrollView>
+      </SafeView>
+      {renderReviews()}
+    </>;
+  };
+
+  const renderSources = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Sources & integrations</Text><Text style={styles.cardSub}>Review live availability and credential requirements</Text></SafeView><SafeView style={styles.liveBadge}><SafeView style={styles.liveDot}/><Text style={styles.liveBadgeText}>CONFIGURATION</Text></SafeView></SafeView><SafeView style={styles.settingsGrid}>{sourceConfigs.map((source) => { const connected = source.status === 'public' || source.status === 'connected'; return <SafeView key={source.name} style={styles.sourceSetting}><SafeView style={styles.sourceIcon}><Ionicons name={source.credential === 'public' ? 'globe-outline' : 'key-outline'} size={18} color={colors.primary}/></SafeView><SafeView style={styles.sourceSettingCopy}><Text style={styles.sourceSettingTitle}>{source.name}</Text><Text style={styles.sourceSettingDetail}>{source.detail}</Text></SafeView><SafeView style={[styles.connectionStatus, connected && styles.connectionStatusLive]}><Text style={[styles.connectionStatusText, connected && styles.connectionStatusTextLive]}>{source.status === 'connected' ? 'Connected' : source.status === 'public' ? 'Public' : 'Setup required'}</Text></SafeView></SafeView>; })}</SafeView><SafeView style={styles.integrationNotice}><Ionicons name="shield-checkmark-outline" size={20} color={colors.primary}/><SafeView style={styles.integrationNoticeCopy}><Text style={styles.integrationNoticeTitle}>Secure credential setup</Text><Text style={styles.integrationNoticeText}>Google Play and Apple App Store reviews are collected through the backend. Meta, LinkedIn, X, Trustpilot, and Reviews.io credentials must be stored server-side and must never be committed to Expo public environment variables.</Text></SafeView></SafeView><Text style={[styles.settingsLabel, { marginTop: 18 }]}>Credential workspace</Text><Text style={styles.integrationNoticeText}>Production secrets belong in a backend or secret vault. The required server-side variable names and setup template are in `.env.example`.</Text><SafeView style={styles.toggleRow}><SafeView><Text style={styles.settingsLabel}>Automatic refresh</Text><Text style={styles.settingsDetail}>Refresh live public ratings every 6 hours</Text></SafeView><Switch value={autoRefresh} onValueChange={setAutoRefresh} trackColor={{ true: '#DC0000', false: '#D0D5DD'}}/></SafeView><SafeView style={styles.toggleRow}><SafeView><Text style={styles.settingsLabel}>Sentiment alerts</Text><Text style={styles.settingsDetail}>Notify when negative sentiment exceeds a threshold</Text></SafeView><Switch value={alerts} onValueChange={setAlerts} trackColor={{ true: '#DC0000', false: '#D0D5DD'}}/></SafeView></SafeView></>;
+
+  const renderInsights = () => {
+    return (
+      <SafeView style={[styles.card, styles.fullCard]}>
+        <SafeView style={styles.cardHeader}>
+          <SafeView>
+            <Text style={styles.cardTitle}>Live data brief</Text>
+            <Text style={styles.cardSub}>Evidence-led product priorities and competitive data gaps</Text>
+          </SafeView>
+          <SafeView style={styles.liveBadge}>
+            <SafeView style={styles.liveDot} />
+            <Text style={styles.liveBadgeText}>{liveLoading ? 'UPDATING' : 'LIVE REVIEW SIGNALS'}</Text>
+          </SafeView>
+        </SafeView>
+        <AIInsightsBrief
+          reviews={customerReviews}
+          competitors={liveCompetitors}
+          country={selectedCountry.name}
+          months={durationMonths}
+          loading={liveLoading}
+          onSelectCategory={handleIssueCategorySelect}
+          onOpenSources={() => setActiveSection('Sources')}
+        />
+      </SafeView>
+    );
+  };
+
+  const renderReports = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Executive reports</Text><Text style={styles.cardSub}>Board-ready exports and recurring digests</Text></SafeView><Pressable style={styles.primaryButton}><Ionicons name="download-outline" size={15} color="#fff"/><Text style={styles.primaryButtonText}>Generate report</Text></Pressable></SafeView>{[['Global Sentiment Brief','Updated 12 minutes ago','PDF'],['Competitive Market Review','Updated yesterday','PPTX'],['Customer Voice Summary','Updated weekly','XLSX']].map((item,index)=><SafeView key={item[0]} style={styles.reportRow}><SafeView style={styles.reportIcon}><Ionicons name={index===0?'document-text-outline':index===1?'stats-chart-outline':'grid-outline'} size={18} color="#DC0000"/></SafeView><SafeView style={styles.reportCopy}><Text style={styles.reportTitle}>{item[0]}</Text><Text style={styles.reportMeta}>{item[1]}</Text></SafeView><SafeView style={styles.formatBadge}><Text style={styles.formatText}>{item[2]}</Text></SafeView><Pressable style={styles.reportAction}><Ionicons name="ellipsis-horizontal" size={18} color="#A0A0A6"/></Pressable></SafeView>)}</SafeView></>;
+
+  const renderAlerts = () => {
+    const negative = customerReviews.filter((review) => review.sentiment === 'negative').length;
+    const positive = customerReviews.filter((review) => review.sentiment === 'positive').length;
+    const alertsData = negative > 0
+      ? [['Negative feedback', `${negative} verified negative customer records returned`, 'Current collection', 'alert-circle-outline', '#F04438']]
+      : [['Sentiment status', 'No verified negative records returned in this collection', 'Current collection', 'checkmark-circle-outline', '#12B76A']];
+    if (positive > 0) alertsData.push(['Positive feedback', `${positive} verified positive customer records returned`, 'Current collection', 'trending-up-outline', '#12B76A']);
+    return <SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Alert center</Text><Text style={styles.cardSub}>Live sentiment counts; no estimated anomalies</Text></SafeView></SafeView>{alertsData.map((item) => <SafeView key={item[1]} style={styles.alertRow}><SafeView style={[styles.alertIcon,{backgroundColor:`${item[4]}14`}]}><Ionicons name={item[3] as any} size={18} color={item[4]}/></SafeView><SafeView style={styles.alertCopy}><Text style={styles.alertTitle}>{item[1]}</Text><Text style={styles.alertMeta}>{item[0]} · {item[2]}</Text></SafeView></SafeView>)}</SafeView>;
+  };
+
+  const renderTeam = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Partner team</Text><Text style={styles.cardSub}>Workspace roles, access, and collaboration</Text></SafeView><Pressable style={styles.primaryButton}><Ionicons name="person-add-outline" size={15} color="#fff"/><Text style={styles.primaryButtonText}>Invite member</Text></Pressable></SafeView>{[['AV','Alex Morgan','Global Strategy','Owner','A'],['SC','Sarah Chen','Customer Insights','Admin','S'],['JM','James Miller','Regional Operations','Analyst','J']].map((member)=><SafeView key={member[1]} style={styles.memberRow}><SafeView style={[styles.memberAvatar,{backgroundColor:member[4]==='A'?'#DC0000':member[4]==='S'?'#12B76A':'#FFF200'}]}><Text style={styles.memberAvatarText}>{member[0]}</Text></SafeView><SafeView style={styles.memberCopy}><Text style={styles.memberName}>{member[1]}</Text><Text style={styles.memberMeta}>{member[2]}</Text></SafeView><SafeView style={styles.roleBadge}><Text style={styles.roleText}>{member[3]}</Text></SafeView></SafeView>)}</SafeView></>;
+
+  const renderSettings = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Workspace settings</Text><Text style={styles.cardSub}>Brand, monitoring, and reporting configuration</Text></SafeView></SafeView><SafeView style={styles.settingsGrid}><SafeView style={styles.settingsField}><Text style={styles.settingsLabel}>Brand name</Text><TextInput defaultValue="Western Union" style={styles.settingsInput}/></SafeView><SafeView style={styles.settingsField}><Text style={styles.settingsLabel}>Primary website</Text><TextInput defaultValue="https://www.westernunion.com" style={styles.settingsInput}/></SafeView><SafeView style={styles.settingsField}><Text style={styles.settingsLabel}>Business domain</Text><TextInput defaultValue="Money transfer" style={styles.settingsInput}/></SafeView><SafeView style={styles.settingsField}><Text style={styles.settingsLabel}>Reporting cadence</Text><TextInput defaultValue="Daily" style={styles.settingsInput}/></SafeView></SafeView><SafeView style={styles.settingsActions}><Pressable style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Discard</Text></Pressable><Pressable style={styles.primaryButton}><Text style={styles.primaryButtonText}>Save configuration</Text></Pressable></SafeView></SafeView></>;
+
+  const renderContent = () => activeSection === 'Sentiment' ? renderSentiment() : activeSection === 'Markets' ? renderMarkets() : activeSection === 'Competitors' ? renderCompetitors() : activeSection === 'AI Insights' ? renderInsights() : activeSection === 'Reports' ? renderReports() : activeSection === 'Alerts' ? renderAlerts() : activeSection === 'Team' ? renderTeam() : activeSection === 'Sources' ? renderSources() : activeSection === 'Settings' ? renderSettings() : renderOverview();
+
+  return <SafeAreaView style={styles.safe}><Animated.View style={{ flex: 1, opacity: screenEntrance, transform: [{ translateY: screenEntrance.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Modal visible={durationPullVisible} transparent animationType="fade" onRequestClose={() => setDurationPullVisible(false)}><Pressable onPress={() => setDurationPullVisible(false)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(16,24,40,0.38)', padding: 20 }}><Pressable style={{ width: 390, maxWidth: '100%', borderRadius: 16, backgroundColor: '#141417', padding: 22, borderWidth: 1, borderColor: '#2A2A30', shadowColor: '#101828', shadowOpacity: 0.16, shadowRadius: 20, elevation: 12 }}><SafeView style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}><SafeView style={{ width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2A1010', marginRight: 12 }}><Ionicons name="cloud-download-outline" size={22} color="#DC0000" /></SafeView><SafeView style={{ flex: 1 }}><Text style={{ fontSize: 16, fontWeight: '900', color: '#F2F2F2' }}>Pulling review feeds</Text><Text style={{ marginTop: 3, fontSize: 11, color: '#A0A0A6' }}>Last {durationMonths} {durationMonths === 1 ? 'month' : 'months'} for {selectedCountry.name}</Text></SafeView><Text style={{ fontSize: 13, fontWeight: '900', color: '#DC0000' }}>{durationPullProgress}%</Text></SafeView><SafeView style={{ height: 8, borderRadius: 8, backgroundColor: '#EAECF0', overflow: 'hidden' }}><SafeView style={{ height: 8, width: `${durationPullProgress}%`, borderRadius: 8, backgroundColor: '#DC0000' }} /></SafeView><SafeView style={{ marginTop: 16, gap: 10 }}>{[['logo-google', 'Google Play', durationPullProgress < 55], ['logo-apple', 'App Store', durationPullProgress < 82]].map(([icon, source, pending]) => <SafeView key={String(source)} style={{ flexDirection: 'row', alignItems: 'center' }}><Ionicons name={icon as any} size={17} color={pending ? '#98A2B3' : '#12B76A'} /><Text style={{ flex: 1, marginLeft: 9, fontSize: 12, fontWeight: '700', color: '#C4C4C8' }}>{source}</Text><Text style={{ fontSize: 11, fontWeight: '800', color: pending ? '#98A2B3' : '#12B76A' }}>{durationPullProgress >= 100 ? 'Complete' : pending ? 'Pulling…' : 'Verified'}</Text></SafeView>)}</SafeView></Pressable></Pressable></Modal><SafeView style={styles.appShell}><SafeView pointerEvents="none" style={styles.carBody}><SafeView style={styles.carNose}/><SafeView style={styles.carRoof}/><SafeView style={styles.carSpine}/><SafeView style={[styles.carWheel, styles.carWheelFrontLeft]}/><SafeView style={[styles.carWheel, styles.carWheelFrontRight]}/><SafeView style={[styles.carWheel, styles.carWheelRearLeft]}/><SafeView style={[styles.carWheel, styles.carWheelRearRight]}/><SafeView style={styles.carPinstripe}/></SafeView>{isWide && <SafeView style={styles.sidebar}><Pressable onPress={() => router.replace('/')} style={styles.brandRow}><SafeView style={styles.logo}><Ionicons name="pulse" size={19} color="#fff"/></SafeView><SafeView><Text style={styles.brand}>PulseBoard</Text><Text style={styles.brandSubtitle}>Brand intelligence</Text></SafeView></Pressable><SafeView style={styles.workspace}><Text style={styles.workspaceLabel}>WORKSPACE</Text><SafeView style={styles.workspaceRow}><SafeView style={styles.wuMark}><Text style={styles.wuMarkText}>WU</Text></SafeView><SafeView><Text style={styles.workspaceName}>Western Union</Text><Text style={styles.workspaceMeta}>Global intelligence</Text></SafeView></SafeView></SafeView><SafeView style={styles.nav}>{nav.map(([icon,label]) => <Pressable key={label} onPress={() => setActiveSection(label)} style={[styles.navItem, activeSection === label && styles.navActive]}><Ionicons name={icon as any} size={18} color={activeSection === label ? '#DC0000' : '#A0A0A6'}/><Text style={[styles.navText, activeSection === label && styles.navTextActive]}>{label}</Text>{label === 'Sources' && <SafeView style={styles.navCount}><Text style={styles.navCountText}>1</Text></SafeView>}</Pressable>)}</SafeView><SafeView style={styles.engineCard}><SafeView style={styles.engineHeader}><Ionicons name="sparkles" size={16} color="#DC0000"/><Text style={styles.engineTitle}>AI intelligence</Text></SafeView><Text style={styles.engineText}>{liveLoading ? 'Collecting verified sources' : liveError ? 'Public sources need attention' : 'Live collection active'}</Text><SafeView style={styles.engineFooter}><SafeView style={styles.liveDot}/><Text style={styles.engineStatus}>{liveError ? 'Limited coverage' : 'Operational'}</Text></SafeView></SafeView></SafeView>}<ScrollView ref={mainScrollRef} style={styles.main} contentContainerStyle={styles.content}><SafeView style={styles.header}><SafeView style={styles.headerIdentity}><SafeView style={styles.headerBezel}><SafeView style={styles.headerGauge}><Ionicons name="speedometer-outline" size={20} color="#FFF200" /></SafeView></SafeView><SafeView style={styles.headerTitleCopy}><Text style={styles.eyebrow}>WESTERN UNION · GLOBAL BRAND INTELLIGENCE</Text><Text style={styles.title}>{activeSection === 'Sources' ? 'Data sources' : activeSection === 'Settings' ? 'Workspace settings' : activeSection === 'Overview' ? 'Executive overview' : activeSection === 'Competitors' ? 'Competitive analysis' : activeSection === 'Markets' ? 'Global market performance' : activeSection === 'AI Insights' ? 'AI executive brief' : activeSection === 'Reports' ? 'Executive reports' : activeSection === 'Alerts' ? 'Alert center' : activeSection === 'Team' ? 'Partner team' : 'Sentiment intelligence'}</Text></SafeView></SafeView><SafeView style={styles.headerActions}><Pressable onPress={() => setActiveSection('Alerts')} style={styles.iconButton}><Ionicons name="notifications-outline" size={18} color="#C4C4C8"/><SafeView style={styles.notificationDot}/></Pressable><SafeView style={{ position: 'relative' }}><Pressable onPress={() => setDurationPickerVisible(true)} style={styles.period}><Ionicons name="calendar-outline" size={16} color="#C4C4C8"/><Text style={styles.periodText}>Last {durationMonths} {durationMonths === 1 ? 'month' : 'months'}</Text><Ionicons name="chevron-down-outline" size={14} color="#A0A0A6"/></Pressable><Modal visible={durationPickerVisible} transparent animationType="fade" onRequestClose={() => setDurationPickerVisible(false)}><Pressable onPress={() => setDurationPickerVisible(false)} style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 72, paddingRight: 88, backgroundColor: 'rgba(16,24,40,0.08)' }}><SafeView style={{ width: 170, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: '#2A2A30', backgroundColor: '#141417', shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 }}>{[1,2,3,4,5,6].map((month) => <Pressable key={month} onPress={() => selectDuration(month)} style={{ height: 40, paddingHorizontal: 10, borderRadius: 8, justifyContent: 'center', backgroundColor: durationMonths === month ? '#F0EEFF' : '#fff' }}><Text style={{ fontSize: 12, fontWeight: durationMonths === month ? '900' : '700', color: durationMonths === month ? '#DC0000' : '#C4C4C8' }}>Last {month} {month === 1 ? 'month' : 'months'}</Text></Pressable>)}</SafeView></Pressable></Modal></SafeView><Pressable style={styles.avatar}><Text style={styles.avatarText}>WU</Text></Pressable></SafeView></SafeView>{!isWide && <ScrollView horizontal showsHorizontalScrollIndicator={false}><SafeView style={styles.mobileNav}>{nav.map(([icon,label]) => <Pressable key={label} onPress={() => setActiveSection(label)} style={[styles.mobileNavItem, activeSection === label && styles.mobileNavActive]}><Ionicons name={icon as any} size={14} color={activeSection === label ? '#DC0000' : '#A0A0A6'}/><Text style={[styles.mobileNavText, activeSection === label && styles.mobileNavTextActive]}>{label}</Text></Pressable>)}</SafeView></ScrollView>}{renderContent()}</ScrollView></SafeView></Animated.View></SafeAreaView>;
+}
+
+const styles = StyleSheet.create({
+  safe:{flex:1,backgroundColor:'#080B0F'},appShell:{flex:1,flexDirection:'row',overflow:'hidden'},carBody:{position:'absolute',left:'50%',top:-95,width:620,height:980,marginLeft:-310,borderRadius:310,borderWidth:1,borderColor:'rgba(108,170,255,0.12)',backgroundColor:'rgba(18,26,36,0.18)',zIndex:0,transform:[{rotate:'1deg'}]},carNose:{position:'absolute',left:125,right:125,top:20,height:90,borderRadius:46,borderWidth:2,borderColor:'rgba(108,170,255,0.18)',borderBottomColor:'rgba(227,74,74,0.18)'},carRoof:{position:'absolute',left:190,right:190,top:250,bottom:220,borderRadius:110,borderWidth:2,borderColor:'rgba(108,170,255,0.16)',backgroundColor:'rgba(8,13,18,0.42)'},carSpine:{position:'absolute',left:308,width:4,top:110,bottom:100,borderRadius:2,backgroundColor:'rgba(108,170,255,0.09)'},carWheel:{position:'absolute',width:110,height:210,borderRadius:55,borderWidth:8,borderColor:'rgba(108,170,255,0.08)',backgroundColor:'rgba(4,7,10,0.5)'},carWheelFrontLeft:{left:-18,top:250},carWheelFrontRight:{right:-18,top:250},carWheelRearLeft:{left:-18,bottom:250},carWheelRearRight:{right:-18,bottom:250},carPinstripe:{position:'absolute',left:42,right:42,top:180,height:1,backgroundColor:'rgba(227,74,74,0.16)'},sidebar:{zIndex:1,width:236,padding:18,borderRightWidth:1,borderRightColor:'#202832',backgroundColor:'#101012'},brandRow:{height:58,flexDirection:'row',alignItems:'center'},logo:{width:38,height:38,borderRadius:19,backgroundColor:'#DC0000',alignItems:'center',justifyContent:'center',marginRight:10,borderWidth:1,borderColor:'#DC0000'},brand:{fontSize:17,fontWeight:'900',color:'#F7FAFC'},brandSubtitle:{fontSize:10,color:'#7C8795',marginTop:2},workspace:{marginTop:18,padding:12,borderRadius:10,backgroundColor:'#141417',borderWidth:1,borderColor:'#2A2A30'},workspaceLabel:{fontSize:9,fontWeight:'900',letterSpacing:1.4,color:'#A0A0A6',marginBottom:9},workspaceRow:{flexDirection:'row',alignItems:'center'},wuMark:{width:34,height:34,borderRadius:17,backgroundColor:'#FFCC00',alignItems:'center',justifyContent:'center',marginRight:8,borderWidth:2,borderColor:'#FFF5B5'},wuMarkText:{fontSize:10,fontWeight:'900',color:'#0A0D12'},workspaceName:{fontSize:12,fontWeight:'800',color:'#F4F7FA'},workspaceMeta:{fontSize:9,color:'#7C8795',marginTop:2},nav:{marginTop:22,gap:5},navItem:{height:44,borderRadius:8,flexDirection:'row',alignItems:'center',paddingHorizontal:12,gap:10,borderWidth:1,borderColor:'transparent'},navActive:{backgroundColor:'#241010',borderColor:'#DC0000'},navText:{flex:1,fontSize:12,fontWeight:'700',color:'#96A3B2'},navTextActive:{color:'#FFF200'},navCount:{width:20,height:20,borderRadius:10,backgroundColor:'#26262B',alignItems:'center',justifyContent:'center'},navCountText:{fontSize:9,fontWeight:'900',color:'#C7D0DA'},engineCard:{marginTop:'auto',padding:13,borderRadius:10,backgroundColor:'#141417',borderWidth:1,borderColor:'#2A2A30'},engineHeader:{flexDirection:'row',alignItems:'center',gap:7},engineTitle:{fontSize:11,fontWeight:'800',color:'#F7FAFC'},engineText:{fontSize:10,lineHeight:15,color:'#91A0AF',marginTop:9},engineFooter:{flexDirection:'row',alignItems:'center',gap:6,marginTop:9},liveDot:{width:7,height:7,borderRadius:4,backgroundColor:'#29A866'},engineStatus:{fontSize:9,fontWeight:'800',color:'#7ED7A8'},
+  main:{flex:1,backgroundColor:'rgba(8,11,15,0.94)',zIndex:1},content:{padding:14,paddingBottom:50,maxWidth:1320,width:'100%',alignSelf:'center'},header:{minHeight:68,flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:8,paddingHorizontal:12,paddingVertical:7,borderRadius:18,borderWidth:1,borderColor:'#3A1A1A',borderTopWidth:3,borderTopColor:'#DC0000',borderBottomWidth:2,borderBottomColor:'#2A2A30',borderLeftWidth:4,borderLeftColor:'#DC0000',backgroundColor:'#0B0B0D',overflow:'hidden',shadowColor:'#000',shadowOpacity:0.3,shadowRadius:14,shadowOffset:{width:0,height:5},elevation:6},headerIdentity:{flexDirection:'row',alignItems:'center',flex:1},headerBezel:{width:48,height:48,borderRadius:24,marginRight:10,alignItems:'center',justifyContent:'center',borderWidth:4,borderColor:'#2A2A30',backgroundColor:'#141417',shadowColor:'#DC0000',shadowOpacity:0.18,shadowRadius:8,elevation:4},headerGauge:{width:32,height:32,borderRadius:16,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#FFF200',backgroundColor:'#101012'},headerTitleCopy:{flex:1},eyebrow:{fontSize:9,fontWeight:'900',letterSpacing:1.5,color:'#FFF200',marginBottom:3},title:{fontSize:24,fontWeight:'900',color:'#F5F8FB',letterSpacing:-0.4},headerActions:{flexDirection:'row',alignItems:'center',gap:8},period:{height:38,borderRadius:7,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#141417',paddingHorizontal:11,flexDirection:'row',alignItems:'center'},periodText:{fontSize:11,fontWeight:'700',color:'#C7D0DA',marginLeft:6},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#141417',borderWidth:1,borderColor:'#2A3A4A',alignItems:'center',justifyContent:'center'},avatarText:{fontSize:10,fontWeight:'900',color:'#FFCC00'},mobileNav:{flexDirection:'row',gap:6,paddingBottom:10},mobileNavItem:{height:36,paddingHorizontal:10,borderRadius:7,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#141417',flexDirection:'row',alignItems:'center',gap:5},mobileNavActive:{backgroundColor:'#241010',borderColor:'#DC0000'},mobileNavText:{fontSize:10,fontWeight:'800',color:'#96A3B2'},mobileNavTextActive:{color:'#FFF200'},
+  filterBar:{minHeight:48,borderRadius:8,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#141417',paddingHorizontal:12,flexDirection:'row',alignItems:'center',marginBottom:12},filterLabel:{fontSize:10,fontWeight:'900',color:'#AAB5C1',width:78},regionRow:{flexDirection:'row',gap:6},regionChip:{height:32,paddingHorizontal:11,borderRadius:16,borderWidth:1,borderColor:'#2A2A30',alignItems:'center',justifyContent:'center',backgroundColor:'#101012'},regionChipActive:{borderColor:'#DC0000',backgroundColor:'#241010'},regionText:{fontSize:10,fontWeight:'800',color:'#96A3B2'},regionTextActive:{color:'#FFF200'},
+  kpiGrid:{flexDirection:'row',flexWrap:'wrap',gap:12,marginBottom:12},kpi:{minWidth:210,flexGrow:1,flexBasis:210,height:108,borderRadius:10,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#141417',padding:15,flexDirection:'row',alignItems:'center',shadowColor:'#000',shadowOpacity:0.2,shadowRadius:10,elevation:3},kpiIcon:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',marginRight:11,borderWidth:1,borderColor:'#2A2A30'},kpiCopy:{flex:1},kpiLabel:{fontSize:10,fontWeight:'700',color:'#91A0AF',textTransform:'uppercase',letterSpacing:0.5},kpiValue:{fontSize:22,fontWeight:'900',color:'#F5F8FB',marginTop:3},kpiChange:{fontSize:9,fontWeight:'800',marginTop:3},
+  grid:{gap:12},gridWide:{flexDirection:'row'},  card:{borderRadius:10,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#141417',padding:16,minWidth:280,shadowColor:'#000',shadowOpacity:0.16,shadowRadius:12,elevation:4},dashboardCard:{borderColor:'#3A1A1A',borderTopWidth:2,borderTopColor:'#FFF200',backgroundColor:'#101012'},cardWide:{flex:1.35},cardNarrow:{flex:1},fullCard:{marginTop:12,width:'100%'},scorecardGauges:{marginTop:8,alignItems:'center'},sectionCluster:{flexDirection:'row',alignItems:'center',flex:1},sectionGauge:{width:44,height:44,borderRadius:22,marginRight:10,alignItems:'center',justifyContent:'center',borderWidth:3,borderColor:'#2A2A30',borderTopColor:'#FFF200',borderRightColor:'#DC0000',backgroundColor:'#141417'},sectionGaugeNeedle:{width:20,height:3,borderRadius:2,backgroundColor:'#F5F8FB',transform:[{rotate:'-35deg'}]},cardHeader:{minHeight:64,marginHorizontal:-16,marginTop:-16,marginBottom:12,paddingHorizontal:16,paddingVertical:10,borderTopLeftRadius:18,borderTopRightRadius:18,borderTopWidth:1,borderTopColor:'#DC0000',borderBottomWidth:2,borderBottomColor:'#2A2A30',borderLeftWidth:5,borderLeftColor:'#DC0000',flexDirection:'row',justifyContent:'space-between',alignItems:'center',backgroundColor:'#0B0B0D',overflow:'hidden',shadowColor:'#000',shadowOpacity:0.28,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:5},cardTitle:{fontSize:14,fontWeight:'900',color:'#F5F8FB',letterSpacing:0.35,textTransform:'uppercase',paddingLeft:9,borderLeftWidth:3,borderLeftColor:'#FFF200'},cardSub:{fontSize:10,lineHeight:15,color:'#91A0AF',marginTop:4,marginLeft:12,letterSpacing:0.15},liveBadge:{height:26,paddingHorizontal:9,borderRadius:13,backgroundColor:'#10291B',borderWidth:1,borderColor:'#235F3B',flexDirection:'row',alignItems:'center',gap:5},liveBadgeText:{fontSize:8,fontWeight:'900',color:'#6ED69E',letterSpacing:0.5},warningBadge:{backgroundColor:'#33290F',borderColor:'#705C24'},warningText:{color:'#E5C878'},countryPills:{flexDirection:'row',gap:6,paddingTop:8},countryPill:{height:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#101012',justifyContent:'center'},countryPillActive:{backgroundColor:'#241010',borderColor:'#DC0000'},countryPillText:{fontSize:10,fontWeight:'700',color:'#96A3B2'},countryPillTextActive:{color:'#FFF200'},chartWrap:{marginTop:5,backgroundColor:'#101012',borderRadius:8,padding:10,borderWidth:1,borderColor:'#2A2A30'},rankHero:{height:82,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#2A2A30'},rankValue:{fontSize:42,fontWeight:'900',color:'#F5F8FB'},rankCaption:{fontSize:9,color:'#7C8795',marginTop:-4},rankBadge:{height:28,paddingHorizontal:8,borderRadius:14,backgroundColor:'#10291B',borderWidth:1,borderColor:'#235F3B',flexDirection:'row',alignItems:'center',gap:3},rankBadgeNegative:{backgroundColor:'#351718',borderColor:'#704044'},rankBadgeText:{fontSize:9,fontWeight:'800',color:'#6ED69E'},rankBarRow:{marginTop:10},rankBarLabel:{flexDirection:'row',justifyContent:'space-between',marginBottom:5},rankBarName:{fontSize:10,fontWeight:'700',color:'#AAB5C1'},rankBarValue:{fontSize:10,fontWeight:'900',color:'#F5F8FB'},rankTrack:{height:7,borderRadius:4,backgroundColor:'#2A2A30'},rankFill:{height:7,borderRadius:4},
+  emotionList:{marginTop:18,gap:10},emotionRow:{height:32,flexDirection:'row',alignItems:'center'},emotionDot:{width:8,height:8,borderRadius:4,marginRight:7},emotionLabel:{width:82,fontSize:11,color:'#AAB5C1',fontWeight:'700'},emotionTrack:{flex:1,height:7,borderRadius:4,backgroundColor:'#2A2A30',marginRight:8},emotionFill:{height:7,borderRadius:4},emotionValue:{width:34,textAlign:'right',fontSize:10,fontWeight:'900',color:'#F5F8FB'},
+  reviewRow:{flexDirection:'row',gap:10,paddingVertical:12,borderTopWidth:1,borderTopColor:'#2A2A30'},sentimentIcon:{width:34,height:34,borderRadius:17,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#2A2A30'},sentimentPositive:{backgroundColor:'#10291B'},sentimentNegative:{backgroundColor:'#351718'},sentimentNeutral:{backgroundColor:'#33290F'},reviewContent:{flex:1},reviewMeta:{flexDirection:'row',justifyContent:'space-between'},reviewAuthor:{fontSize:11,fontWeight:'900',color:'#F5F8FB'},reviewRating:{fontSize:10,fontWeight:'800',color:'#FFF200'},reviewText:{fontSize:11,lineHeight:17,color:'#AAB5C1',marginTop:4},reviewSource:{fontSize:9,fontWeight:'700',color:'#A0A0A6',marginTop:5},emptyReviews:{minHeight:120,alignItems:'center',justifyContent:'center',padding:20,borderRadius:8,backgroundColor:'#101012',borderWidth:1,borderColor:'#2A2A30'},emptyReviewTitle:{fontSize:12,fontWeight:'900',color:'#C7D0DA',marginTop:8},emptyReviewText:{fontSize:10,lineHeight:16,color:'#A0A0A6',textAlign:'center',maxWidth:440,marginTop:4},
+  marketRow:{minHeight:58,flexDirection:'row',alignItems:'center',borderTopWidth:1,borderTopColor:'#2A2A30',paddingHorizontal:4,borderRadius:6},marketRowActive:{backgroundColor:'#111D2A'},flag:{width:34,height:25,borderRadius:5,backgroundColor:'#2A2A30',alignItems:'center',justifyContent:'center'},flagText:{fontSize:8,fontWeight:'900',color:'#FFF200'},marketName:{width:150,marginLeft:10},marketTitle:{fontSize:11,fontWeight:'800',color:'#F5F8FB'},marketRegion:{fontSize:9,color:'#A0A0A6',marginTop:2},marketTrack:{flex:1,height:7,borderRadius:4,backgroundColor:'#2A2A30',marginHorizontal:12},marketFill:{height:7,borderRadius:4,backgroundColor:'#DC0000'},marketScore:{width:62,fontSize:11,fontWeight:'900',color:'#F5F8FB'},marketRank:{width:40,fontSize:11,fontWeight:'900',color:'#FFF200',textAlign:'right'},
+  competitorDataNote:{fontSize:9,lineHeight:15,color:'#A0A0A6',marginBottom:10},competitorTable:{width:1029},competitorTableRow:{minHeight:58,flexDirection:'row',alignItems:'center'},competitorTableHeader:{minHeight:38,borderBottomWidth:1,borderBottomColor:'#414149',backgroundColor:'#101012'},competitorTableHeading:{paddingHorizontal:7,fontSize:8,fontWeight:'900',letterSpacing:0.35,color:'#AAB5C1',textTransform:'uppercase'},competitorNameColumn:{width:180},competitorRatingColumn:{width:90},competitorReviewsColumn:{width:90},competitorShareColumn:{width:160},competitorFeeColumn:{width:145},competitorVolumeColumn:{width:165},competitorRankColumn:{width:115},competitorStatusColumn:{width:84},competitorRow:{borderTopWidth:1,borderTopColor:'#2A2A30',paddingHorizontal:0,borderRadius:6},competitorSelected:{backgroundColor:'#111D2A'},competitorNameCell:{flexDirection:'row',alignItems:'center',paddingLeft:8,paddingRight:6},appMark:{width:34,height:34,borderRadius:17,backgroundColor:'#2A2A30',alignItems:'center',justifyContent:'center'},appMarkPrimary:{backgroundColor:'#DC0000',borderWidth:1,borderColor:'#DC0000'},appMarkText:{fontSize:11,fontWeight:'900',color:'#F5F8FB'},competitorName:{flex:1,minWidth:0,marginLeft:10},appName:{fontSize:12,fontWeight:'900',color:'#F5F8FB'},sourceMeta:{fontSize:9,color:'#A0A0A6',marginTop:3},competitorRating:{width:86,fontSize:12,fontWeight:'900',color:'#F5F8FB'},competitorReviews:{width:120,fontSize:11,fontWeight:'700',color:'#AAB5C1'},competitorMetricCell:{justifyContent:'center',paddingHorizontal:7},competitorMetricValue:{fontSize:10,fontWeight:'900',color:'#F5F8FB'},competitorMetricMuted:{fontSize:9,fontWeight:'800',color:'#A0A0A6'},competitorMetricNote:{marginTop:3,fontSize:8,color:'#8893A0'},competitorRankValue:{fontSize:12,fontWeight:'900',color:'#FFF200'},competitorStatus:{height:26,borderRadius:13,textAlign:'center',textAlignVertical:'center',fontSize:9,fontWeight:'900',overflow:'hidden'},competitorEmpty:{paddingVertical:20,textAlign:'center',fontSize:11,color:'#A0A0A6'},verified:{backgroundColor:'#10291B',color:'#6ED69E'},unavailable:{backgroundColor:'#2A2A30',color:'#96A3B2'},
+  settingsGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},sourceSetting:{width:310,minHeight:72,flexGrow:1,borderWidth:1,borderColor:'#2A2A30',borderRadius:10,padding:10,flexDirection:'row',alignItems:'center',backgroundColor:'#101012'},sourceIcon:{width:38,height:38,borderRadius:19,backgroundColor:'#241010',borderWidth:1,borderColor:'#2A2A30',alignItems:'center',justifyContent:'center'},sourceSettingCopy:{flex:1,marginHorizontal:10},sourceSettingTitle:{fontSize:11,fontWeight:'900',color:'#F5F8FB'},sourceSettingDetail:{fontSize:9,lineHeight:14,color:'#A0A0A6',marginTop:2},connectionStatus:{height:26,paddingHorizontal:8,borderRadius:13,backgroundColor:'#2A2A30',justifyContent:'center'},connectionStatusLive:{backgroundColor:'#10291B',borderWidth:1,borderColor:'#235F3B'},connectionStatusText:{fontSize:9,fontWeight:'900',color:'#96A3B2'},connectionStatusTextLive:{color:'#6ED69E'},integrationNotice:{marginTop:12,minHeight:76,borderRadius:10,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#101012',padding:12,flexDirection:'row',alignItems:'flex-start',gap:10},integrationNoticeCopy:{flex:1},integrationNoticeTitle:{fontSize:11,fontWeight:'900',color:'#F5F8FB'},integrationNoticeText:{fontSize:10,lineHeight:15,color:'#91A0AF',marginTop:3},iconButton:{width:38,height:38,borderRadius:19,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#141417',alignItems:'center',justifyContent:'center'},notificationDot:{position:'absolute',right:8,top:8,width:6,height:6,borderRadius:3,backgroundColor:'#F04438'},insightGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:4},insightCard:{width:280,minHeight:170,flexGrow:1,borderRadius:10,borderWidth:1,borderColor:'#2A2A30',padding:14,backgroundColor:'#101012'},insightIcon:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',marginBottom:12,borderWidth:1,borderColor:'#2A2A30'},insightTitle:{fontSize:12,fontWeight:'900',color:'#F5F8FB'},insightBody:{fontSize:11,lineHeight:17,color:'#91A0AF',marginTop:7},severityBadge:{alignSelf:'flex-start',height:22,borderRadius:11,borderWidth:1,paddingHorizontal:8,justifyContent:'center',marginTop:10},severityText:{fontSize:9,fontWeight:'900',textTransform:'uppercase'},reportRow:{minHeight:64,borderTopWidth:1,borderTopColor:'#2A2A30',flexDirection:'row',alignItems:'center'},reportIcon:{width:38,height:38,borderRadius:19,backgroundColor:'#241010',borderWidth:1,borderColor:'#2A2A30',alignItems:'center',justifyContent:'center'},reportCopy:{flex:1,marginLeft:10},reportTitle:{fontSize:12,fontWeight:'900',color:'#F5F8FB'},reportMeta:{fontSize:9,color:'#A0A0A6',marginTop:3},formatBadge:{height:24,borderRadius:12,backgroundColor:'#2A2A30',paddingHorizontal:9,justifyContent:'center'},formatText:{fontSize:9,fontWeight:'900',color:'#C7D0DA'},reportAction:{width:34,height:34,alignItems:'center',justifyContent:'center'},alertRow:{minHeight:68,borderTopWidth:1,borderTopColor:'#2A2A30',flexDirection:'row',alignItems:'center'},alertIcon:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#2A2A30'},alertCopy:{flex:1,marginLeft:10},alertTitle:{fontSize:11,fontWeight:'900',color:'#F5F8FB'},alertMeta:{fontSize:9,color:'#A0A0A6',marginTop:4},memberRow:{minHeight:68,borderTopWidth:1,borderTopColor:'#2A2A30',flexDirection:'row',alignItems:'center'},memberAvatar:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#DC0000'},memberAvatarText:{fontSize:11,fontWeight:'900',color:'#fff'},memberCopy:{flex:1,marginLeft:10},memberName:{fontSize:12,fontWeight:'900',color:'#F5F8FB'},memberMeta:{fontSize:9,color:'#A0A0A6',marginTop:3},roleBadge:{height:26,borderRadius:13,paddingHorizontal:9,backgroundColor:'#2A2A30',justifyContent:'center'},roleText:{fontSize:9,fontWeight:'900',color:'#C7D0DA'},settingsLabel:{fontSize:11,fontWeight:'900',color:'#AAB5C1',marginBottom:7},settingsDetail:{fontSize:9,color:'#A0A0A6',marginTop:2},settingsInput:{height:44,borderWidth:1,borderColor:'#2A2A30',borderRadius:8,backgroundColor:'#101012',paddingHorizontal:12,color:'#F5F8FB'},toggleRow:{height:68,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderTopWidth:1,borderTopColor:'#2A2A30'},settingsField:{width:310,flexGrow:1,gap:1},settingsActions:{marginTop:18,flexDirection:'row',justifyContent:'flex-end',gap:8},secondaryButton:{height:40,paddingHorizontal:14,borderRadius:7,borderWidth:1,borderColor:'#2A2A30',backgroundColor:'#141417',justifyContent:'center'},secondaryButtonText:{fontSize:11,fontWeight:'800',color:'#C7D0DA'},primaryButton:{height:40,paddingHorizontal:14,borderRadius:7,backgroundColor:'#DC0000',justifyContent:'center',flexDirection:'row',alignItems:'center',gap:6,borderWidth:1,borderColor:'#DC0000'},primaryButtonText:{fontSize:11,fontWeight:'800',color:'#fff'},
+  selectedBrandSummary:{minHeight:64,marginBottom:12,paddingHorizontal:12,paddingVertical:9,borderRadius:9,borderWidth:1,borderColor:'#705C24',backgroundColor:'#211C10',flexDirection:'row',alignItems:'center'},
+  selectedBrandSummaryMark:{width:34,height:34,borderRadius:17,marginRight:10,alignItems:'center',justifyContent:'center',backgroundColor:'#33290F',borderWidth:1,borderColor:'#705C24'},
+  selectedBrandSummaryCopy:{flex:1},
+  selectedBrandSummaryLabel:{fontSize:9,fontWeight:'900',letterSpacing:0.6,color:'#FFF200'},
+  selectedBrandSummaryRank:{marginTop:4,fontSize:10,fontWeight:'700',color:'#D0C49A'},
+  selectedBrandSummaryValue:{marginLeft:8,fontSize:22,fontWeight:'900',color:'#FFF200'},
+  competitorSelectedStrong:{backgroundColor:'#182334',borderLeftWidth:3,borderLeftColor:'#FFF200'},
+  selectedBrandRankCell:{minHeight:46,marginVertical:6,paddingVertical:5,borderRadius:7,backgroundColor:'#33290F'},
+  selectedBrandRankValue:{color:'#FFF200',fontSize:15},
+  selectedBrandRankNote:{color:'#FFF200',fontWeight:'900'},
+});

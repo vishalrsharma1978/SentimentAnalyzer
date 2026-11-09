@@ -1,0 +1,15 @@
+export const colors = {
+  navy: "#101828",
+  text: "#344054",
+  muted: "#667085",
+  line: "#EAECF0",
+  canvas: "#F7F8FC",
+  card: "#FFFFFF",
+  primary: "#DC0000",
+  primarySoft: "#2A1010",
+  green: "#12B76A",
+  greenSoft: "#ECFDF3",
+  orange: "#F79009",
+  orangeSoft: "#FFFAEB",
+  red: "#F04438",
+};
