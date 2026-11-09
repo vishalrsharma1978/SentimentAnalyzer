@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: evaluatebrand
+    name: evaluatebrand-sentiments
     runtime: node
     plan: free
     buildCommand: npm install && npm run build:web
