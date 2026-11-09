@@ -34,6 +34,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "review-server": "node server/index.js",
+    "build:web": "expo export --platform web",
+    "start:server": "node server/index.js",
     "lint": "expo lint"
   },
   "private": true

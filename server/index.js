@@ -1,6 +1,8 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const { createHash } = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const express = require('express');
 const cors = require('cors');
 const gplayModule = require('google-play-scraper');
@@ -192,15 +194,22 @@ async function collectAppleReviews(brand, country) {
   }
 }
 
-app.get('/', (_request, response) => {
-  response.json({
-    service: 'PulseBoard review collector',
-    status: 'ok',
-    dashboard: process.env.EXPO_PUBLIC_APP_URL || 'http://localhost:8081',
-    health: '/health',
-    reviews: '/api/reviews?brand=Western%20Union&country=US&limit=100',
+const DIST_DIR = path.join(__dirname, '..', 'dist');
+const hasWebBuild = fs.existsSync(path.join(DIST_DIR, 'index.html'));
+
+if (hasWebBuild) {
+  app.use(express.static(DIST_DIR));
+} else {
+  app.get('/', (_request, response) => {
+    response.json({
+      service: 'PulseBoard review collector',
+      status: 'ok',
+      dashboard: process.env.EXPO_PUBLIC_APP_URL || 'http://localhost:8081',
+      health: '/health',
+      reviews: '/api/reviews?brand=Western%20Union&country=US&limit=100',
+    });
   });
-});
+}
 
 app.get('/health', (_request, response) => response.json({ status: 'ok' }));
 
@@ -408,5 +417,12 @@ app.get('/api/reviews', async (request, response) => {
   reviewsCache.set(cacheKey, { collectedAt, cachedAt: Date.now(), reviews });
   response.json({ brand, country, months, collectedAt, count: reviews.length, reviews: reviews.slice(0, limit) });
 });
+
+// SPA fallback: client-side routes (e.g. /dashboard) must serve index.html.
+if (hasWebBuild) {
+  app.get(/^\/(?!api\/|health$).*/, (_request, response) => {
+    response.sendFile(path.join(DIST_DIR, 'index.html'));
+  });
+}
 
 app.listen(PORT, () => console.log(`Review collector listening on http://localhost:${PORT}`));

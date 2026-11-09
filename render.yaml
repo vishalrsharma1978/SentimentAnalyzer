@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: sentiment-analyzer
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build:web
+    startCommand: node server/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LIBRETRANSLATE_URL
+        sync: false

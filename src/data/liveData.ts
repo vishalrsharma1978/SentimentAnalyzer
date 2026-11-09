@@ -30,8 +30,19 @@ export type ReviewTranslation = {
   detectedSourceLanguage: string;
 };
 
+function getApiUrl(): string {
+  const configured = process.env.EXPO_PUBLIC_REVIEW_API_URL;
+  if (configured) return configured;
+  // In production web builds the review collector serves the static app, so
+  // same-origin relative requests work without any configuration.
+  if (typeof window !== 'undefined' && window.location && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
+    return '';
+  }
+  return 'http://localhost:3001';
+}
+
 export async function fetchCompetitorSharePrices(names: string[]): Promise<CompetitorSharePrice[]> {
-  const apiUrl = process.env.EXPO_PUBLIC_REVIEW_API_URL || 'http://localhost:3001';
+  const apiUrl = getApiUrl();
   const response = await fetch(
     `${apiUrl.replace(/\/$/, '')}/api/competitor-share-prices?names=${encodeURIComponent(names.join(','))}`,
     { headers: { Accept: 'application/json' }, cache: 'no-store' },
@@ -65,7 +76,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function translateReviewText(text: string): Promise<ReviewTranslation> {
-  const apiUrl = process.env.EXPO_PUBLIC_REVIEW_API_URL || 'http://localhost:3001';
+  const apiUrl = getApiUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 50000);
 
@@ -187,7 +198,7 @@ export async function fetchRedditMentions(brandName = 'Western Union'): Promise<
 }
 
 export async function fetchPlaystoreAggregateRating(countryCode: string, brandName = 'Western Union'): Promise<{ rating: number | null; reviewCount: number }> {
-  const apiUrl = process.env.EXPO_PUBLIC_REVIEW_API_URL || 'http://localhost:3001';
+  const apiUrl = getApiUrl();
   try {
     const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&_ts=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) return { rating: null, reviewCount: 0 };
@@ -202,7 +213,7 @@ export async function fetchPlaystoreAggregateRating(countryCode: string, brandNa
 }
 
 export async function fetchReviewCollector(countryCode: string, brandName = 'Western Union', months = 1, refreshNonce = 0): Promise<CustomerSentiment[]> {
-  const apiUrl = process.env.EXPO_PUBLIC_REVIEW_API_URL || 'http://localhost:3001';
+  const apiUrl = getApiUrl();
   try {
     const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/reviews?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&limit=3600&months=${months}&refresh=${refreshNonce}_${Date.now()}`, {
       headers: { Accept: 'application/json' },
@@ -271,7 +282,7 @@ export async function fetchAppleStoreRating(countryCode: string, brandName = 'We
   const cached = appleRatingCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-  const apiUrl = process.env.EXPO_PUBLIC_REVIEW_API_URL || 'http://localhost:3001';
+  const apiUrl = getApiUrl();
   try {
     const platformResponse = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}`, { cache: 'no-store' });
     if (platformResponse.ok) {
