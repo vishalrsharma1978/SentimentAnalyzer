@@ -34,7 +34,7 @@ export function SentimentIssueFunnel({
     <SafeView style={styles.card}>
       <SafeView style={styles.header}>
         <SafeView style={styles.iconFrame}>
-          <Ionicons name="filter-outline" size={17} color="#509EE3" />
+          <Ionicons name="filter-outline" size={17} color="#A9CDF0" />
         </SafeView>
         <SafeView style={styles.headerCopy}>
           <Text style={styles.title}>What’s shaping sentiment?</Text>
@@ -188,9 +188,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E3F0FC',
+    backgroundColor: '#12325E',
     borderWidth: 1,
-    borderColor: '#A9CDF0',
+    borderColor: '#1B4F8A',
   },
   headerCopy: { flex: 1 },
   title: { fontSize: 13, fontWeight: '900', color: '#1A2B4A' },
