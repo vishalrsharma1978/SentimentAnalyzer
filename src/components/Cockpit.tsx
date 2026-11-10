@@ -44,25 +44,25 @@ export function Cockpit({
           {/* rim */}
           <Path
             d="M60 160 C60 78 112 34 180 34 C248 34 300 78 300 160 C300 222 270 262 236 270 L124 270 C90 262 60 222 60 160 Z"
-            fill="#22242B"
-            stroke="#3B4154"
+            fill="#0F2B57"
+            stroke="#1E3A8A"
             strokeWidth={34}
             strokeLinejoin="round"
           />
           <Path
             d="M60 160 C60 78 112 34 180 34 C248 34 300 78 300 160 C300 222 270 262 236 270 L124 270 C90 262 60 222 60 160 Z"
             fill="none"
-            stroke="#509EE3"
+            stroke="#38BDF8"
             strokeWidth={4}
             strokeLinejoin="round"
           />
           {/* blue rev strip at 12 o'clock */}
-          <Rect x={150} y={14} width={60} height={12} rx={4} fill="#509EE3" />
-          <Rect x={178} y={14} width={4} height={12} fill="#22242B" />
+          <Rect x={150} y={14} width={60} height={12} rx={4} fill="#38BDF8" />
+          <Rect x={178} y={14} width={4} height={12} fill="#0F2B57" />
           {/* spokes */}
           <Path
             d="M70 170 L140 188 M290 170 L220 188 M180 232 L180 266"
-            stroke="#3B4154"
+            stroke="#1E3A8A"
             strokeWidth={22}
             strokeLinecap="round"
           />
@@ -73,8 +73,8 @@ export function Cockpit({
             width={84}
             height={96}
             rx={14}
-            fill="#509EE3"
-            stroke="#22242B"
+            fill="#2563EB"
+            stroke="#0F2B57"
             strokeWidth={5}
           />
           <SvgText
@@ -87,16 +87,16 @@ export function Cockpit({
           >
             P
           </SvgText>
-          <Rect x={138} y={118} width={84} height={10} fill="#3B7EC2" />
-          <Rect x={138} y={128} width={84} height={5} fill="#B9D6F2" />
-          <Rect x={138} y={133} width={84} height={5} fill="#EAF3FC" />
+          <Rect x={138} y={118} width={84} height={10} fill="#60A5FA" />
+          <Rect x={138} y={128} width={84} height={5} fill="#BFDBFE" />
+          <Rect x={138} y={133} width={84} height={5} fill="#EFF6FF" />
           {/* blue engine-start button */}
           <Circle
             cx={98}
             cy={178}
             r={20}
-            fill="#509EE3"
-            stroke="#22242B"
+            fill="#38BDF8"
+            stroke="#0F2B57"
             strokeWidth={4}
           />
           <SvgText
@@ -117,7 +117,7 @@ export function Cockpit({
         {promises.map((p) => (
           <View key={p.title} style={styles.promise}>
             <View style={styles.promiseIcon}>
-              <Ionicons name={p.icon} size={18} color="#1B4F8A" />
+              <Ionicons name={p.icon} size={18} color="#2563EB" />
             </View>
             <View style={styles.promiseBody}>
               <Text style={styles.promiseHeading}>{p.title}</Text>
@@ -126,7 +126,6 @@ export function Cockpit({
           </View>
         ))}
       </View>
-      <View style={styles.stripe} />
     </View>
   );
 }
@@ -135,18 +134,18 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     minHeight: 540,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#1B4F8A",
+    borderColor: "#E4EAF6",
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
     justifyContent: "flex-start",
     alignItems: "center",
     paddingBottom: 24,
-    shadowColor: "#1B4F8A",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
   messageWrap: {
@@ -160,7 +159,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
   message: {
     marginTop: 6,
@@ -168,7 +167,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "300",
     letterSpacing: 1,
-    color: "#1A2B4A",
+    color: "#0F2B57",
   },
   wheelWrap: { marginTop: 110 },
   promises: {
@@ -177,40 +176,30 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#D9E2F0",
+    borderTopColor: "#EEF3FB",
     gap: 14,
   },
   promisesTitle: {
     fontSize: 10,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
   promise: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   promiseIcon: {
     width: 34,
     height: 34,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    backgroundColor: "#EAF1FE",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#1B4F8A",
   },
   promiseBody: { flex: 1 },
   promiseHeading: {
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.5,
-    color: "#1A2B4A",
+    color: "#0F2B57",
   },
-  promiseText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#5A6B8C" },
-  stripe: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 4,
-    backgroundColor: "#1B4F8A",
-  },
+  promiseText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#64769B" },
 });

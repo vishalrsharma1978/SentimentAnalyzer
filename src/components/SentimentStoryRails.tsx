@@ -137,7 +137,7 @@ export function SentimentStoryRails() {
                   <Ionicons
                     name={step.icon}
                     size={16}
-                    color={index === 3 ? "#1B4F8A" : "#5A6B8C"}
+                    color={index === 3 ? "#2563EB" : "#64769B"}
                   />
                 </Animated.View>
                 <View style={styles.stepCopy}>
@@ -149,7 +149,7 @@ export function SentimentStoryRails() {
           })}
         </View>
         <View style={styles.quote}>
-          <Ionicons name="chatbox-ellipses-outline" size={14} color="#1B4F8A" />
+          <Ionicons name="chatbox-ellipses-outline" size={14} color="#2563EB" />
           <Text style={styles.quoteText}>Every review starts a better journey.</Text>
         </View>
       </View>
@@ -178,7 +178,7 @@ export function SentimentStoryRails() {
                 <Ionicons
                   name={icon as keyof typeof Ionicons.glyphMap}
                   size={index === 1 ? 22 : 18}
-                  color={index === 1 ? "#FFFFFF" : "#1B4F8A"}
+                  color={index === 1 ? "#FFFFFF" : "#2563EB"}
                 />
               </Animated.View>
             ),
@@ -195,15 +195,15 @@ export function SentimentStoryRails() {
             <Path
               d="M8 62 L37 52 L65 55 L94 29 L120 11"
               fill="none"
-              stroke="#1B4F8A"
+              stroke="#2563EB"
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <Circle cx="37" cy="52" r="3" fill="#1B4F8A" />
-            <Circle cx="65" cy="55" r="3" fill="#1B4F8A" />
-            <Circle cx="94" cy="29" r="3" fill="#1B4F8A" />
-            <Circle cx="120" cy="11" r="4" fill="#1B4F8A" />
+            <Circle cx="37" cy="52" r="3" fill="#2563EB" />
+            <Circle cx="65" cy="55" r="3" fill="#2563EB" />
+            <Circle cx="94" cy="29" r="3" fill="#2563EB" />
+            <Circle cx="120" cy="11" r="4" fill="#2563EB" />
           </Svg>
           <Animated.View
             style={[
@@ -244,15 +244,15 @@ const styles = StyleSheet.create({
     width: 154,
     alignSelf: "center",
     borderWidth: 1,
-    borderColor: "#1B4F8A",
-    borderRadius: 16,
+    borderColor: "#E4EAF6",
+    borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.97)",
     padding: 12,
     overflow: "hidden",
-    shadowColor: "#1B4F8A",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 3,
   },
   leftRail: { minHeight: 382 },
@@ -261,14 +261,14 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 1.5,
     fontWeight: "900",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
   railTitle: {
     marginTop: 7,
     fontSize: 14,
     lineHeight: 19,
     fontWeight: "700",
-    color: "#1A2B4A",
+    color: "#0F2B57",
   },
   cycle: { marginTop: 18, gap: 12, position: "relative" },
   cycleSpine: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     top: 12,
     bottom: 12,
     width: 1,
-    backgroundColor: "#D9E2F0",
+    backgroundColor: "#E4EAF6",
   },
   cycleRunner: {
     position: "absolute",
@@ -287,9 +287,9 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 6,
-    backgroundColor: "#1B4F8A",
+    backgroundColor: "#2563EB",
     borderWidth: 2,
-    borderColor: "#A9CDF0",
+    borderColor: "#BFDBFE",
   },
   cycleStep: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 9 },
   cycleIcon: {
@@ -298,28 +298,26 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#1B4F8A",
+    backgroundColor: "#EAF1FE",
   },
   stepCopy: { flex: 1 },
   stepTitle: {
     fontSize: 8,
     letterSpacing: 0.8,
     fontWeight: "900",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
-  stepDetail: { marginTop: 2, fontSize: 8, lineHeight: 11, color: "#8FA3C4" },
+  stepDetail: { marginTop: 2, fontSize: 8, lineHeight: 11, color: "#93A5C8" },
   quote: {
     marginTop: 16,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "#D9E2F0",
+    borderTopColor: "#E4EAF6",
     flexDirection: "row",
     gap: 7,
     alignItems: "flex-start",
   },
-  quoteText: { flex: 1, fontSize: 9, lineHeight: 13, color: "#5A6B8C" },
+  quoteText: { flex: 1, fontSize: 9, lineHeight: 13, color: "#64769B" },
   customerRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -335,18 +333,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#D9E2F0",
+    borderColor: "#E4EAF6",
   },
   customerFeatured: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#1B4F8A",
-    borderColor: "#0E2748",
-    shadowColor: "#1B4F8A",
+    backgroundColor: "#2563EB",
+    borderColor: "#2563EB",
+    shadowColor: "#1D4ED8",
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
   customerCaption: {
@@ -355,7 +353,7 @@ const styles = StyleSheet.create({
     fontSize: 7,
     letterSpacing: 1,
     fontWeight: "900",
-    color: "#8FA3C4",
+    color: "#93A5C8",
   },
   growthChart: {
     height: 100,
@@ -370,15 +368,15 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: "#1B4F8A",
+    backgroundColor: "#2563EB",
     borderWidth: 2,
-    borderColor: "#0E2748",
+    borderColor: "#BFDBFE",
   },
   growthFooter: {
     marginTop: 10,
     paddingTop: 11,
     borderTopWidth: 1,
-    borderTopColor: "#D9E2F0",
+    borderTopColor: "#E4EAF6",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -390,12 +388,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1B4F8A",
+    backgroundColor: "#2563EB",
   },
   growthText: {
     fontSize: 8,
     letterSpacing: 1,
     fontWeight: "900",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
 });

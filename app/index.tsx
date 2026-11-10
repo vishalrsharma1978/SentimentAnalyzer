@@ -18,6 +18,7 @@ import { Cockpit } from "../src/components/Cockpit";
 import { CustomerSentimentBanner } from "../src/components/CustomerSentimentBanner";
 import { GaugeCluster } from "../src/components/GaugeCluster";
 import { PulseDot } from "../src/components/PulseDot";
+import { PulseFlow } from "../src/components/PulseFlow";
 import { SentimentStoryRails } from "../src/components/SentimentStoryRails";
 import { colors, fonts } from "../src/theme";
 
@@ -350,7 +351,7 @@ export default function Onboarding() {
       <View style={styles.frame}>
         <View accessibilityRole="header" style={styles.topHeader}>
           <View style={styles.topHeaderMark}>
-            <Ionicons name="pulse" size={20} color={colors.primary} />
+            <Ionicons name="pulse" size={20} color="#FFFFFF" />
           </View>
           <View style={styles.topHeaderTitleRow}>
             <Text
@@ -359,15 +360,20 @@ export default function Onboarding() {
             >
               Customer Sentiment Analyzer
             </Text>
-            <PulseDot color={colors.primaryBorder} />
+            <PulseFlow color={colors.primary} />
+            <PulseDot color={colors.primary} />
           </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Partner sign in"
             onPress={() => setShowLogin(true)}
-            style={[styles.signInButton, styles.headerSignInButton]}
+            style={({ pressed }) => [
+              styles.signInButton,
+              styles.headerSignInButton,
+              pressed && styles.signInButtonPressed,
+            ]}
           >
-            <Ionicons name="person-circle-outline" size={17} color={colors.primary} />
+            <Ionicons name="person-circle-outline" size={17} color="#FFFFFF" />
             <Text style={styles.signInText}>
               {isWide ? "Partner sign in" : "Sign in"}
             </Text>
@@ -632,7 +638,7 @@ export default function Onboarding() {
                               : "phone-portrait-outline"
                           }
                           size={14}
-                          color={active ? colors.primary : colors.faint}
+                          color={active ? "#FFFFFF" : colors.faint}
                         />
                         <Text
                           style={[
@@ -679,7 +685,7 @@ export default function Onboarding() {
                             active ? "checkmark-circle" : "chatbubble-outline"
                           }
                           size={13}
-                          color={active ? colors.primary : colors.faint}
+                          color={active ? "#FFFFFF" : colors.faint}
                         />
                         <Text
                           style={[
@@ -732,7 +738,7 @@ export default function Onboarding() {
                         <Ionicons
                           name={active ? "checkmark-circle" : "globe-outline"}
                           size={14}
-                          color={active ? colors.primary : colors.faint}
+                          color={active ? "#FFFFFF" : colors.faint}
                         />
                         <Text
                           style={[
@@ -917,34 +923,35 @@ const styles = StyleSheet.create({
   frame: {
     flex: 1,
     backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
   },
   topHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
-    minHeight: 64,
-    paddingHorizontal: 16,
+    minHeight: 68,
+    paddingHorizontal: 20,
     backgroundColor: colors.header,
     borderBottomWidth: 1,
-    borderBottomColor: colors.primaryDeep,
-    shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    borderBottomColor: colors.lineSoft,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   topHeaderMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    backgroundColor: colors.card,
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
   topHeaderTitleRow: {
     flex: 1,
@@ -959,17 +966,23 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.headerText,
     textAlign: "center",
-    flexShrink: 1,
+    flexShrink: 0,
   },
   topHeaderTitleCompact: { fontSize: 13 },
   headerSignInButton: {
-    height: 40,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-    borderColor: colors.primaryBorder,
+    height: 42,
+    paddingHorizontal: 18,
+    borderRadius: 21,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
     gap: 6,
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
+  signInButtonPressed: { opacity: 0.88 },
   heroBanner: {
     width: "100%",
     height: 220,
@@ -988,27 +1001,32 @@ const styles = StyleSheet.create({
   brandIdentity: { flexDirection: "row", alignItems: "center" },
   signInButton: {
     height: 40,
-    borderRadius: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.primaryBorder,
+    borderColor: colors.primary,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    backgroundColor: colors.card,
+    backgroundColor: colors.primary,
   },
   signInText: {
     fontSize: 13,
     fontFamily: fonts.bold,
-    color: colors.primary,
+    color: "#FFFFFF",
   },
   logo: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
   brandName: {
     marginLeft: 10,
@@ -1032,200 +1050,26 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   visualWide: { flex: 1.1, alignSelf: "flex-start" },
-  heroPhoto: {
-    position: "absolute",
-    top: 70,
-    left: 0,
-    right: 0,
-    height: 260,
-  },
-  heroShadeBottom: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "42%",
-    backgroundColor: "rgba(7,9,12,0.5)",
-  },
-  heroShade: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 64,
-    backgroundColor: "rgba(7,9,12,0.9)",
-  },
-  carWrap: {
-    position: "absolute",
-    top: 70,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   cockpitCol: { flex: 0.9, alignSelf: "stretch" },
-  visualAtmosphere: {
-    position: "absolute",
-    width: 460,
-    height: 460,
-    borderRadius: 230,
-    backgroundColor: "rgba(201,162,39,0.07)",
+  form: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(201,162,39,0.14)",
-    transform: [{ scaleX: 1.35 }],
-  },
-  visualSpeedLines: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 150,
-    height: 180,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "rgba(201,162,39,0.18)",
-    transform: [{ rotate: "-8deg" }],
-  },
-  visualCarOutline: {
-    position: "absolute",
-    width: 520,
-    height: 760,
-    borderRadius: 260,
-    borderWidth: 1,
-    borderColor: "rgba(108,170,255,0.12)",
-    backgroundColor: "rgba(15,23,33,0.42)",
-  },
-  visualCarNose: {
-    position: "absolute",
-    left: 72,
-    right: 72,
-    top: 35,
-    height: 118,
-    borderRadius: 58,
-    borderWidth: 2,
-    borderColor: "rgba(232,197,91,0.35)",
-    borderBottomColor: "rgba(200,30,40,0.55)",
-  },
-  visualCarGlass: {
-    position: "absolute",
-    left: 155,
-    right: 155,
-    top: 250,
-    bottom: 230,
-    borderRadius: 95,
-    borderWidth: 2,
-    borderColor: "rgba(232,197,91,0.25)",
-    backgroundColor: "#0B0B0D",
-  },
-  visualCarSpine: {
-    position: "absolute",
-    left: 258,
-    width: 4,
-    top: 120,
-    bottom: 120,
-    borderRadius: 2,
-    backgroundColor: "rgba(232,197,91,0.18)",
-  },
-  visualCarStrip: {
-    position: "absolute",
-    left: 46,
-    right: 46,
-    top: 430,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: "rgba(200,30,40,0.75)",
-  },
-  visualCarWheel: {
-    position: "absolute",
-    width: 92,
-    height: 230,
-    borderRadius: 46,
-    borderWidth: 9,
-    borderColor: "rgba(232,197,91,0.14)",
-    backgroundColor: "#050506",
-  },
-  visualWheelLeft: { left: -10, top: 220 },
-  visualWheelRight: { right: -10, top: 220 },
-  visualTopline: {
-    position: "absolute",
-    top: 20,
-    left: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  visualLiveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#29A866",
-  },
-  visualToplineText: {
-    fontSize: 9,
-    letterSpacing: 2.4,
-    fontWeight: "700",
-    color: "#FFF200",
-  },
-  visualCard: {
-    width: "72%",
-    maxWidth: 380,
-    borderRadius: 6,
+    borderColor: colors.lineSoft,
     padding: 24,
-    backgroundColor: "rgba(12,15,20,0.92)",
-    borderWidth: 1,
-    borderColor: "rgba(201,162,39,0.55)",
-    shadowColor: "#DC0000",
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 12,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
   },
-  visualCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  visualLabel: {
-    fontSize: 9,
-    letterSpacing: 2.5,
-    fontWeight: "700",
-    color: "#DC0000",
-  },
-  visualBrand: {
-    marginTop: 4,
-    fontSize: 14,
-    fontWeight: "300",
-    letterSpacing: 2,
-    color: "#F2F2F2",
-  },
-  visualBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1A0F0F",
-    borderWidth: 1,
-    borderColor: "#DC0000",
-  },
-  visualScore: {
-    fontSize: 64,
-    lineHeight: 72,
-    fontWeight: "200",
-    color: "#F2F2F2",
-  },
-  visualTrend: { color: colors.green, fontWeight: "700" },
-  visualBars: {
-    height: 106,
-    marginTop: 20,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  visualBar: { flex: 1, borderRadius: 6, backgroundColor: "#8178FF" },
-  form: { flex: 1 },
-  formWide: { flex: 1.2, maxWidth: 530 },
+  formWide: { flex: 1.2, maxWidth: 560, padding: 30 },
   kicker: {
     fontSize: 12,
     letterSpacing: 2,
     fontFamily: fonts.bold,
-    color: colors.primaryDark,
+    color: colors.primary,
     marginBottom: 12,
   },
   title: {
@@ -1256,18 +1100,18 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   brandPreset: {
-    height: 42,
-    borderRadius: 21,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.card,
     paddingHorizontal: 8,
-    paddingRight: 11,
+    paddingRight: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
   },
-  brandPresetActive: { borderColor: colors.primary, backgroundColor: colors.card, borderWidth: 2 },
+  brandPresetActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   brandPresetMark: {
     width: 28,
     height: 28,
@@ -1293,11 +1137,11 @@ const styles = StyleSheet.create({
   suggestionCard: {
     marginTop: -6,
     marginBottom: 16,
-    padding: 12,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    backgroundColor: colors.card,
+    borderColor: colors.line,
+    backgroundColor: colors.primaryTint,
   },
   suggestionCopy: { gap: 5 },
   suggestionHeading: {
@@ -1328,10 +1172,8 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     minHeight: 34,
     marginTop: 10,
-    paddingHorizontal: 11,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    paddingHorizontal: 12,
+    borderRadius: 17,
     backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
@@ -1355,12 +1197,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   input: {
-    height: 48,
+    height: 50,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 12,
-    paddingHorizontal: 13,
-    backgroundColor: colors.card,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    backgroundColor: colors.primaryTint,
     color: colors.navy,
     fontFamily: fonts.regular,
   },
@@ -1370,17 +1212,17 @@ const styles = StyleSheet.create({
     minHeight: 38,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 10,
-    paddingHorizontal: 13,
+    borderRadius: 19,
+    paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 6,
     backgroundColor: colors.card,
   },
-  chipActive: { borderColor: colors.primary, backgroundColor: colors.card, borderWidth: 2 },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   chipText: { fontSize: 12, fontFamily: fonts.bold, color: colors.text },
-  chipTextActive: { color: colors.primaryDark },
+  chipTextActive: { color: "#FFFFFF" },
   marketHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1402,8 +1244,8 @@ const styles = StyleSheet.create({
     minHeight: 38,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 10,
-    paddingHorizontal: 13,
+    borderRadius: 19,
+    paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -1412,8 +1254,7 @@ const styles = StyleSheet.create({
   },
   sourceChipActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.card,
-    borderWidth: 2,
+    backgroundColor: colors.primary,
   },
   clearText: {
     fontSize: 11,
@@ -1430,29 +1271,28 @@ const styles = StyleSheet.create({
   },
   bundleChip: {
     height: 38,
-    borderRadius: 10,
+    borderRadius: 19,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.card,
-    paddingHorizontal: 11,
+    paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
   bundleChipActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.card,
-    borderWidth: 2,
+    backgroundColor: colors.primary,
   },
   bundleText: { fontSize: 11, fontFamily: fonts.bold, color: colors.text },
-  bundleTextActive: { color: colors.primaryDark },
+  bundleTextActive: { color: "#FFFFFF" },
   selectionSummary: {
     minHeight: 52,
-    borderRadius: 12,
-    backgroundColor: colors.card,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    padding: 10,
+    borderColor: colors.line,
+    padding: 12,
     marginBottom: 14,
   },
   selectionCount: {
@@ -1522,19 +1362,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
-    backgroundColor: "rgba(16,24,40,0.55)",
+    backgroundColor: "rgba(15,43,87,0.45)",
   },
   loginCard: {
     width: "100%",
     maxWidth: 440,
-    borderRadius: 16,
+    borderRadius: 24,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.line,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
+    borderColor: colors.lineSoft,
+    padding: 28,
+    shadowColor: colors.primaryDeep,
+    shadowOpacity: 0.18,
+    shadowRadius: 32,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 20,
   },
   loginHeader: {
@@ -1544,12 +1385,17 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   loginMark: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
   loginEyebrow: {
     fontSize: 9,
@@ -1572,18 +1418,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   loginButton: {
-    height: 48,
-    borderRadius: 12,
+    height: 50,
+    borderRadius: 14,
     marginTop: 18,
     backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 4,
   },
   loginButtonText: {
@@ -1594,27 +1440,27 @@ const styles = StyleSheet.create({
   demoNote: {
     flexDirection: "row",
     gap: 8,
-    borderRadius: 10,
-    backgroundColor: colors.card,
+    borderRadius: 12,
+    backgroundColor: colors.primaryTint,
     borderWidth: 1,
-    borderColor: colors.primaryBorder,
+    borderColor: colors.line,
     padding: 10,
     marginTop: 12,
   },
   demoNoteText: { flex: 1, fontSize: 9, lineHeight: 14, color: colors.muted },
   button: {
-    height: 52,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
     marginTop: 8,
-    shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 5,
   },
   buttonPressed: { opacity: 0.88 },

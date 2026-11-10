@@ -16,7 +16,7 @@ const categoryColors: Record<SentimentCategoryId, string> = {
   access: '#A78BFA',
   transfers: '#6DAAFF',
   support: '#12B76A',
-  other: '#9499A8',
+  other: '#93A5C8',
 };
 
 export function SentimentIssueFunnel({
@@ -34,7 +34,7 @@ export function SentimentIssueFunnel({
     <SafeView style={styles.card}>
       <SafeView style={styles.header}>
         <SafeView style={styles.iconFrame}>
-          <Ionicons name="filter-outline" size={17} color="#1B4F8A" />
+          <Ionicons name="filter-outline" size={17} color="#2563EB" />
         </SafeView>
         <SafeView style={styles.headerCopy}>
           <Text style={styles.title}>What’s shaping sentiment?</Text>
@@ -170,14 +170,14 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 14,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1B4F8A',
+    borderColor: '#E4EAF6',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#1B4F8A',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#2563EB',
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 2,
   },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
@@ -188,14 +188,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#1B4F8A',
+    backgroundColor: '#EAF1FE',
   },
   headerCopy: { flex: 1 },
-  title: { fontSize: 13, fontWeight: '900', color: '#1A2B4A' },
-  subtitle: { marginTop: 3, fontSize: 10, lineHeight: 15, color: '#5A6B8C' },
-  total: { fontSize: 20, fontWeight: '900', color: '#1A2B4A' },
+  title: { fontSize: 13, fontWeight: '900', color: '#0F2B57' },
+  subtitle: { marginTop: 3, fontSize: 10, lineHeight: 15, color: '#64769B' },
+  total: { fontSize: 20, fontWeight: '900', color: '#0F2B57' },
   funnel: { alignItems: 'center', gap: 7 },
   categoryRow: {
     minHeight: 72,
@@ -203,35 +201,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D9E2F0',
+    borderColor: '#E4EAF6',
     backgroundColor: '#FFFFFF',
   },
-  categorySelected: { borderColor: '#1B4F8A', backgroundColor: '#FFFFFF', borderWidth: 2 },
+  categorySelected: { borderColor: '#2563EB', backgroundColor: '#F5F9FF' },
   categoryPressed: { opacity: 0.78 },
   categoryEdge: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 3 },
   categoryContent: { flex: 1, paddingHorizontal: 12, paddingVertical: 8 },
   categoryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   categoryName: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1 },
-  categoryLabel: { fontSize: 11, fontWeight: '800', color: '#1A2B4A', flexShrink: 1 },
-  categoryCount: { fontSize: 12, fontWeight: '900', color: '#1A2B4A' },
+  categoryLabel: { fontSize: 11, fontWeight: '800', color: '#0F2B57', flexShrink: 1 },
+  categoryCount: { fontSize: 12, fontWeight: '900', color: '#0F2B57' },
   sentimentTrack: {
     height: 5,
     marginTop: 7,
     borderRadius: 3,
     flexDirection: 'row',
     overflow: 'hidden',
-    backgroundColor: '#E4EBF5',
+    backgroundColor: '#E9EEF8',
   },
   sentimentSegment: { height: '100%' },
   positiveSegment: { backgroundColor: '#12B76A' },
   neutralSegment: { backgroundColor: '#F79009' },
   negativeSegment: { backgroundColor: '#F04438' },
   categoryFooter: { marginTop: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sentimentMix: { fontSize: 9, fontWeight: '800', color: '#8FA3C4' },
+  sentimentMix: { fontSize: 9, fontWeight: '800', color: '#93A5C8' },
   positiveText: { color: '#027A48' },
   neutralText: { color: '#B54708' },
   negativeText: { color: '#B42318' },
-  viewComments: { fontSize: 8, fontWeight: '800', color: '#8FA3C4' },
+  viewComments: { fontSize: 8, fontWeight: '800', color: '#93A5C8' },
   flowNotch: {
     position: 'absolute',
     zIndex: -1,
@@ -244,7 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#D9E2F0',
+    borderColor: '#E4EAF6',
   },
   selectionNotice: {
     marginTop: 12,

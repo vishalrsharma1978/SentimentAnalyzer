@@ -397,8 +397,9 @@ app.get('/api/platform-ratings', async (request, response) => {
     return;
   }
   const cacheKey = `${brand}:${country}`;
+  const bypassCache = request.query.refresh !== undefined && request.query.refresh !== '';
   const cached = platformRatingsCache.get(cacheKey);
-  if (cached && Date.now() - cached.cachedAt < PLATFORM_RATINGS_CACHE_TTL_MS) {
+  if (!bypassCache && cached && Date.now() - cached.cachedAt < PLATFORM_RATINGS_CACHE_TTL_MS) {
     response.json({ ...cached.value, collectedAt: cached.collectedAt });
     return;
   }
@@ -451,8 +452,9 @@ app.get('/api/reviews', async (request, response) => {
   const limit = Math.min(Math.max(Number(request.query.limit || 100), 1), 3600);
   const months = Math.min(Math.max(Number(request.query.months || 1), 1), 6);
   const cacheKey = `${brand}:${country}:${months}`;
+  const bypassCache = request.query.refresh !== undefined && request.query.refresh !== '';
   const cached = reviewsCache.get(cacheKey);
-  if (cached && Date.now() - cached.cachedAt < REVIEWS_CACHE_TTL_MS) {
+  if (!bypassCache && cached && Date.now() - cached.cachedAt < REVIEWS_CACHE_TTL_MS) {
     response.json({ brand, country, months, collectedAt: cached.collectedAt, count: cached.reviews.length, reviews: cached.reviews.slice(0, limit) });
     return;
   }

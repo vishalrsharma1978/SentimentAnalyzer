@@ -143,7 +143,7 @@ const corridorDeliveryClaims = [
     note: 'Timing depends on delivery method and how the transfer is paid.',
     source: 'Official US → India delivery guidance',
     url: 'https://www.westernunion.com/us/en/send-money-to-india.html',
-    tone: '#509EE3',
+    tone: '#60A5FA',
   },
   {
     provider: 'Wise',
@@ -248,7 +248,7 @@ export function AIInsightsBrief({
     <SafeView style={styles.container}>
       <SafeView style={styles.intro}>
         <SafeView style={styles.introIcon}>
-          <Ionicons name="sparkles" size={18} color="#509EE3" />
+          <Ionicons name="sparkles" size={18} color="#60A5FA" />
         </SafeView>
         <SafeView style={styles.introCopy}>
           <Text style={styles.eyebrow}>DECISION SUPPORT · {country.toUpperCase()}</Text>
@@ -277,7 +277,7 @@ export function AIInsightsBrief({
           label="Highest-priority signal"
           value={topPriority ? String(topPriority.negative) : '—'}
           note={topPriority ? `${topPriority.label} negative comments` : 'No categorized negative comments'}
-          tone="#509EE3"
+          tone="#60A5FA"
         />
         <Metric
           label="App rating gap"
@@ -290,7 +290,7 @@ export function AIInsightsBrief({
       <SafeView style={styles.panel}>
         <SafeView style={styles.panelHeader}>
           <SafeView style={styles.panelTitleGroup}>
-            <Ionicons name="analytics-outline" size={17} color="#509EE3" />
+            <Ionicons name="analytics-outline" size={17} color="#60A5FA" />
             <Text style={styles.panelTitle}>Executive feedback trend</Text>
           </SafeView>
           <Text style={styles.panelHint}>MONTHLY · DATED COMMENTS ONLY</Text>
@@ -360,7 +360,7 @@ export function AIInsightsBrief({
                     key={`trend-path-${index}`}
                     d={path}
                     fill="none"
-                    stroke="#509EE3"
+                    stroke="#60A5FA"
                     strokeWidth={3}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -376,7 +376,7 @@ export function AIInsightsBrief({
                     <Fragment key={`month-point-${month.label}-${index}`}>
                       {point.y !== null && (
                         <>
-                          <Line x1={point.x} x2={point.x} y1={point.y + 6} y2={barY - 5} stroke="#509EE3" strokeOpacity={0.12} strokeDasharray="2 4" />
+                          <Line x1={point.x} x2={point.x} y1={point.y + 6} y2={barY - 5} stroke="#60A5FA" strokeOpacity={0.12} strokeDasharray="2 4" />
                           <Circle cx={point.x} cy={point.y} r={index === trend.points.length - 1 ? 6 : 4.5} fill={balance >= 0 ? '#12B76A' : '#F04438'} stroke="#FFFFFF" strokeWidth={2} />
                           <SvgText x={point.x} y={point.y - 10} fill="#344054" fontSize="8" fontWeight="800" textAnchor="middle">
                             {`${balance > 0 ? '+' : ''}${Math.round(balance)} pp`}
@@ -385,7 +385,7 @@ export function AIInsightsBrief({
                       )}
                       {month.total > 0 && (
                         <>
-                          <Path d={`M ${barX} 218 L ${barX} ${barY + 4} Q ${barX} ${barY} ${barX + 4} ${barY} L ${barX + 20} ${barY} Q ${barX + 24} ${barY} ${barX + 24} ${barY + 4} L ${barX + 24} 218 Z`} fill="#B9D6F2" />
+                          <Path d={`M ${barX} 218 L ${barX} ${barY + 4} Q ${barX} ${barY} ${barX + 4} ${barY} L ${barX + 20} ${barY} Q ${barX + 24} ${barY} ${barX + 24} ${barY + 4} L ${barX + 24} 218 Z`} fill="#BFDBFE" />
                           <SvgText x={point.x} y={barY - 5} fill="#667085" fontSize="7" fontWeight="700" textAnchor="middle">
                             {month.total}
                           </SvgText>
@@ -411,7 +411,7 @@ export function AIInsightsBrief({
       <SafeView style={styles.panel}>
         <SafeView style={styles.panelHeader}>
           <SafeView style={styles.panelTitleGroup}>
-            <Ionicons name="build-outline" size={17} color="#509EE3" />
+            <Ionicons name="build-outline" size={17} color="#60A5FA" />
             <Text style={styles.panelTitle}>Improvement actions</Text>
           </SafeView>
           <Text style={styles.panelHint}>RANKED BY NEGATIVE MENTIONS</Text>
@@ -450,7 +450,7 @@ export function AIInsightsBrief({
       <SafeView style={styles.panel}>
         <SafeView style={styles.panelHeader}>
           <SafeView style={styles.panelTitleGroup}>
-            <Ionicons name="options-outline" size={17} color="#509EE3" />
+            <Ionicons name="options-outline" size={17} color="#60A5FA" />
             <Text style={styles.panelTitle}>Capability comparison signals</Text>
           </SafeView>
           <Text style={styles.panelHint}>NOT A VERIFIED FEATURE AUDIT</Text>
@@ -483,7 +483,7 @@ export function AIInsightsBrief({
       <SafeView style={styles.panel}>
         <SafeView style={styles.panelHeader}>
           <SafeView style={styles.panelTitleGroup}>
-            <Ionicons name="swap-horizontal-outline" size={17} color="#509EE3" />
+            <Ionicons name="swap-horizontal-outline" size={17} color="#60A5FA" />
             <Text style={styles.panelTitle}>End-to-end corridor time</Text>
           </SafeView>
           <Text style={styles.panelHint}>US → INDIA · PUBLISHED CLAIMS</Text>
@@ -544,7 +544,7 @@ export function AIInsightsBrief({
       <SafeView style={styles.panel}>
         <SafeView style={styles.panelHeader}>
           <SafeView style={styles.panelTitleGroup}>
-            <Ionicons name="megaphone-outline" size={17} color="#509EE3" />
+            <Ionicons name="megaphone-outline" size={17} color="#60A5FA" />
             <Text style={styles.panelTitle}>Competitor offering watch</Text>
           </SafeView>
           <Text style={styles.panelHint}>NO LAUNCH FEED</Text>
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   panelDescription: { marginBottom: 10, fontSize: 10, lineHeight: 16, color: '#667085' },
   chartLegend: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 },
   legendItem: { fontSize: 9, fontWeight: '700', color: '#475467' },
-  positiveLegend: { color: '#509EE3' },
+  positiveLegend: { color: '#60A5FA' },
   neutralLegend: { color: '#D4B900' },
   legendDefinition: { marginLeft: 'auto', fontSize: 8, color: '#98A2B3' },
   trendSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 2 },

@@ -182,7 +182,7 @@ export function SentimentMindMap({
         </SafeView>
         <SafeView style={styles.headerMeta}>
           <SafeView style={styles.marketBadge}>
-            <Ionicons name="location" size={11} color="#A9CDF0" />
+            <Ionicons name="location" size={11} color="#BFDBFE" />
             <Text style={styles.marketBadgeText}>
               {country === 'United States' ? 'US MARKET' : `${country.toUpperCase()} MARKET`}
             </Text>
@@ -220,7 +220,7 @@ export function SentimentMindMap({
             <Defs>
               <LinearGradient id="mindMapFlow" x1="0" y1="0" x2="1" y2="0">
                 <Stop offset="0" stopColor="#12B76A" stopOpacity="0.9" />
-                <Stop offset="0.5" stopColor="#9499A8" stopOpacity="0.45" />
+                <Stop offset="0.5" stopColor="#93A5C8" stopOpacity="0.45" />
                 <Stop offset="1" stopColor="#F04438" stopOpacity="0.9" />
               </LinearGradient>
             </Defs>
@@ -304,7 +304,7 @@ export function SentimentMindMap({
               cy={hubSize / 2}
               r={ringRadius}
               fill="none"
-              stroke="#E2E4E9"
+              stroke="#E4EAF6"
               strokeWidth="5"
             />
             <SentimentArc
@@ -485,14 +485,14 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 14,
     overflow: 'hidden',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1B4F8A',
+    borderColor: '#E4EAF6',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#1B4F8A',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#2563EB',
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 2,
   },
   header: {
@@ -503,14 +503,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#1B4F8A',
-    backgroundColor: '#12325E',
+    borderBottomColor: '#EEF3FB',
+    backgroundColor: '#FFFFFF',
   },
   headerCopy: { flex: 1, paddingRight: 12 },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  kickerMark: { width: 22, height: 2, borderRadius: 1, backgroundColor: '#A9CDF0' },
-  kicker: { fontSize: 9, fontWeight: '900', letterSpacing: 1.7, color: '#A9CDF0' },
-  title: { marginTop: 5, fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  kickerMark: { width: 22, height: 2, borderRadius: 1, backgroundColor: '#2563EB' },
+  kicker: { fontSize: 9, fontWeight: '900', letterSpacing: 1.7, color: '#2563EB' },
+  title: { marginTop: 5, fontSize: 16, fontWeight: '800', color: '#0F2B57' },
   headerMeta: { alignItems: 'flex-end' },
   marketBadge: {
     height: 20,
@@ -519,14 +519,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1B4F8A',
+    backgroundColor: '#EAF1FE',
     borderWidth: 1,
-    borderColor: '#509EE3',
+    borderColor: '#BFDBFE',
   },
-  marketBadgeText: { fontSize: 7, fontWeight: '900', letterSpacing: 0.8, color: '#A9CDF0' },
-  voiceCount: { marginTop: 2, fontSize: 20, fontWeight: '900', color: '#FFFFFF' },
-  voiceLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 1, color: '#A9CDF0' },
-  stage: { position: 'relative', overflow: 'hidden', backgroundColor: '#F0F5FB' },
+  marketBadgeText: { fontSize: 7, fontWeight: '900', letterSpacing: 0.8, color: '#2563EB' },
+  voiceCount: { marginTop: 2, fontSize: 20, fontWeight: '900', color: '#0F2B57' },
+  voiceLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 1, color: '#93A5C8' },
+  stage: { position: 'relative', overflow: 'hidden', backgroundColor: '#F5F9FF' },
   connectionLayer: { ...StyleSheet.absoluteFill },
   hub: {
     position: 'absolute',
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   hubCoreCompact: { width: 94, height: 94, borderRadius: 47 },
-  hubValue: { marginTop: 3, fontSize: 25, fontWeight: '900', color: '#1A2B4A' },
+  hubValue: { marginTop: 3, fontSize: 25, fontWeight: '900', color: '#0F2B57' },
   hubValueCompact: { fontSize: 21 },
   hubLabel: { marginTop: 1, fontSize: 8, fontWeight: '900', letterSpacing: 1.3, color: '#027A48' },
   compactLegend: {
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
   neutralDot: { backgroundColor: '#F79009' },
   negativeDot: { backgroundColor: '#F04438' },
   percentValue: { fontSize: 9, fontWeight: '900' },
-  percentLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 0.4, color: '#9499A8' },
+  percentLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 0.4, color: '#93A5C8' },
   positiveText: { color: '#027A48' },
   neutralText: { color: '#B54708' },
   negativeText: { color: '#B42318' },
@@ -633,8 +633,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     textAlign: 'center',
     textAlignVertical: 'center',
-    backgroundColor: '#E4EBF5',
-    color: '#1A2B4A',
+    backgroundColor: '#E9EEF8',
+    color: '#0F2B57',
     fontSize: 8,
     fontWeight: '900',
     lineHeight: 21,
@@ -646,14 +646,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     borderTopWidth: 1,
-    borderTopColor: '#D9E2F0',
-    backgroundColor: '#F0F5FB',
+    borderTopColor: '#E4EAF6',
+    backgroundColor: '#F5F9FF',
   },
   metric: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   metricIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   positiveMetricIcon: { backgroundColor: '#ECFDF3' },
   neutralMetricIcon: { backgroundColor: '#FFFAEB' },
   negativeMetricIcon: { backgroundColor: '#FEF3F2' },
-  metricValue: { fontSize: 15, fontWeight: '900', color: '#1A2B4A' },
+  metricValue: { fontSize: 15, fontWeight: '900', color: '#0F2B57' },
   metricLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 0.7 },
 });

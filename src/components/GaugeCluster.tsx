@@ -32,7 +32,7 @@ function RevCounter({ value, size }: { value: number; size: number }) {
         cy={c}
         r={96}
         fill="#FFFFFF"
-        stroke="#D9E2F0"
+        stroke="#E4EAF6"
         strokeWidth={8}
       />
       <Circle
@@ -40,12 +40,12 @@ function RevCounter({ value, size }: { value: number; size: number }) {
         cy={c}
         r={96}
         fill="none"
-        stroke="#A9CDF0"
+        stroke="#BFDBFE"
         strokeWidth={2}
       />
       <Path
         d={`M ${redFrom.x} ${redFrom.y} A 84 84 0 0 1 ${redTo.x} ${redTo.y}`}
-        stroke="#1B4F8A"
+        stroke="#2563EB"
         strokeWidth={8}
         fill="none"
       />
@@ -60,7 +60,7 @@ function RevCounter({ value, size }: { value: number; size: number }) {
             y1={o.y}
             x2={n.x}
             y2={n.y}
-            stroke="#5A6072"
+            stroke="#93A5C8"
             strokeWidth={i % 2 === 0 ? 4 : 2}
           />
         );
@@ -74,7 +74,7 @@ function RevCounter({ value, size }: { value: number; size: number }) {
             y={p.y + 5}
             fontSize={15}
             fontWeight="bold"
-            fill="#22242B"
+            fill="#0F2B57"
             textAnchor="middle"
           >
             {i}
@@ -87,12 +87,12 @@ function RevCounter({ value, size }: { value: number; size: number }) {
           y1={c}
           x2={needle.x}
           y2={needle.y}
-          stroke="#1B4F8A"
+          stroke="#2563EB"
           strokeWidth={5}
           strokeLinecap="round"
         />
-        <Circle cx={c} cy={c} r={11} fill="#1A2B4A" />
-        <Circle cx={c} cy={c} r={4} fill="#1B4F8A" />
+        <Circle cx={c} cy={c} r={11} fill="#0F2B57" />
+        <Circle cx={c} cy={c} r={4} fill="#2563EB" />
       </G>
     </Svg>
   );
@@ -142,7 +142,6 @@ export function GaugeCluster({
           <Text style={styles.metaLabel}>PLATFORM</Text>
         </View>
       </View>
-      <View style={styles.stripe} />
     </View>
   );
 }
@@ -150,17 +149,17 @@ export function GaugeCluster({
 const styles = StyleSheet.create({
   wrap: {
     minHeight: 220,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#1B4F8A",
+    borderColor: "#E4EAF6",
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
     padding: 20,
     justifyContent: "center",
-    shadowColor: "#1B4F8A",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
   topline: {
@@ -169,12 +168,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 18,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#1B4F8A" },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#2563EB" },
   toplineText: {
     fontSize: 9,
     letterSpacing: 2.4,
     fontWeight: "800",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
   gauges: {
     flexDirection: "row",
@@ -186,20 +185,20 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 2.2,
     fontWeight: "800",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
   brand: {
     marginTop: 4,
     fontSize: 14,
     fontWeight: "300",
     letterSpacing: 2,
-    color: "#1A2B4A",
+    color: "#0F2B57",
   },
-  score: { fontSize: 56, lineHeight: 62, fontWeight: "200", color: "#1A2B4A" },
+  score: { fontSize: 56, lineHeight: 62, fontWeight: "200", color: "#0F2B57" },
   status: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#5A6B8C",
+    color: "#64769B",
     textAlign: "center",
   },
   statusError: { color: "#F04438" },
@@ -209,28 +208,20 @@ const styles = StyleSheet.create({
     marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "#D9E2F0",
+    borderTopColor: "#EEF3FB",
   },
   metaValue: {
     fontSize: 18,
     fontWeight: "300",
-    color: "#1A2B4A",
+    color: "#0F2B57",
     textAlign: "center",
   },
   metaLabel: {
     fontSize: 8,
     fontWeight: "800",
     letterSpacing: 1.8,
-    color: "#8FA3C4",
+    color: "#93A5C8",
     textAlign: "center",
     marginTop: 2,
-  },
-  stripe: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 4,
-    backgroundColor: "#1B4F8A",
   },
 });

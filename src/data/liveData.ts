@@ -281,10 +281,10 @@ export async function fetchAppleCompetitors(countryCode: string, region = 'Globa
 
 const appleRatingCache = new Map<string, { expiresAt: number; value: { rating: number | null; reviewCount: number } }>();
 
-export async function fetchAppleStoreRating(countryCode: string, brandName = 'Western Union'): Promise<{ rating: number | null; reviewCount: number }> {
+export async function fetchAppleStoreRating(countryCode: string, brandName = 'Western Union', forceRefresh = false): Promise<{ rating: number | null; reviewCount: number }> {
   const cacheKey = `${countryCode.toUpperCase()}:${brandName}`;
   const cached = appleRatingCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.value;
 
   const apiUrl = getApiUrl();
   try {

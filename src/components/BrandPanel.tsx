@@ -49,12 +49,11 @@ export function BrandPanel() {
       <View style={styles.trust}>
         {trust.map((t) => (
           <View key={t.label} style={styles.trustItem}>
-            <Ionicons name={t.icon} size={16} color="#1B4F8A" />
+            <Ionicons name={t.icon} size={16} color="#2563EB" />
             <Text style={styles.trustLabel}>{t.label}</Text>
           </View>
         ))}
       </View>
-      <View style={styles.stripe} />
     </View>
   );
 }
@@ -63,52 +62,50 @@ const styles = StyleSheet.create({
   wrap: {
     marginTop: 16,
     borderWidth: 1,
-    borderColor: "#1B4F8A",
-    borderRadius: 16,
+    borderColor: "#E4EAF6",
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
     padding: 20,
     paddingBottom: 26,
     gap: 14,
-    shadowColor: "#1B4F8A",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
   eyebrow: {
     fontSize: 10,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#1B4F8A",
+    color: "#2563EB",
   },
   title: {
     fontSize: 22,
     fontWeight: "300",
     letterSpacing: 0.5,
-    color: "#1A2B4A",
+    color: "#0F2B57",
   },
   steps: { gap: 14, marginTop: 4 },
   step: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   badge: {
     width: 34,
     height: 34,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    backgroundColor: "#EAF1FE",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#1B4F8A",
   },
-  badgeText: { fontSize: 13, fontWeight: "800", color: "#1B4F8A" },
+  badgeText: { fontSize: 13, fontWeight: "800", color: "#2563EB" },
   stepBody: { flex: 1 },
   stepTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1A2B4A",
+    color: "#0F2B57",
     letterSpacing: 0.5,
   },
-  stepText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#5A6B8C" },
+  stepText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#64769B" },
   trust: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -116,22 +113,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "#D9E2F0",
+    borderTopColor: "#EEF3FB",
   },
   trustItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   trustLabel: {
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.4,
-    color: "#8FA3C4",
+    color: "#93A5C8",
     textTransform: "uppercase",
-  },
-  stripe: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 4,
-    backgroundColor: "#1B4F8A",
   },
 });

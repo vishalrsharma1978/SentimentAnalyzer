@@ -1,20 +1,24 @@
-// Blue design tokens: white canvas, dark-blue buttons/frames, white text.
+// Blue & white design tokens: soft blue canvas, white cards, royal-blue accents.
 export const colors = {
-  navy: "#1A2B4A",
-  text: "#33415C",
-  muted: "#5A6B8C",
-  faint: "#8FA3C4",
-  line: "#D9E2F0",
-  canvas: "#FFFFFF",
+  navy: "#0F2B57",
+  text: "#3C4C6D",
+  muted: "#64769B",
+  faint: "#93A5C8",
+  line: "#E4EAF6",
+  lineSoft: "#EEF3FB",
+  canvas: "#F4F8FF",
   card: "#FFFFFF",
-  primary: "#1B4F8A",
-  primaryDark: "#12325E",
-  primaryDeep: "#0E2748",
-  header: "#12325E",
-  headerText: "#FFFFFF",
-  primarySoft: "#FFFFFF",
-  primaryBorder: "#1B4F8A",
-  badge: "#EEF2F7",
+  primary: "#2563EB",
+  primaryDark: "#1D4ED8",
+  primaryDeep: "#1E3A8A",
+  accent: "#38BDF8",
+  sky: "#60A5FA",
+  header: "#FFFFFF",
+  headerText: "#0F2B57",
+  primarySoft: "#EAF1FE",
+  primaryTint: "#F5F9FF",
+  primaryBorder: "#2563EB",
+  badge: "#EFF4FD",
   green: "#12B76A",
   greenSoft: "#ECFDF3",
   greenText: "#027A48",
@@ -37,16 +41,18 @@ export const fonts = {
 };
 
 export const radii = {
-  sm: 8,
-  md: 12,
-  lg: 16,
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 24,
   pill: 999,
 };
 
+// Soft blue-tinted elevation used on white cards.
 export const cardShadow = {
-  shadowColor: "#1B4F8A",
+  shadowColor: "#2563EB",
   shadowOpacity: 0.08,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 2 },
-  elevation: 2,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 3,
 };
