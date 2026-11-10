@@ -1,17 +1,18 @@
-// Metabase-inspired design tokens: clean light canvas, brand blue, soft borders.
+// Metabase-inspired design tokens: clean light canvas, layered blue shades.
 export const colors = {
-  navy: "#22242B",
-  text: "#3B4154",
-  muted: "#5A6072",
-  faint: "#9499A8",
-  line: "#E2E4E9",
-  canvas: "#F9FAFB",
+  navy: "#1A2B4A",
+  text: "#33415C",
+  muted: "#5A6B8C",
+  faint: "#8FA3C4",
+  line: "#D9E2F0",
+  canvas: "#F0F5FB",
   card: "#FFFFFF",
   primary: "#509EE3",
-  primaryDark: "#3B7EC2",
-  primarySoft: "#EAF3FC",
-  primaryBorder: "#B9D6F2",
-  badge: "#EEF0F3",
+  primaryDark: "#2E6DB4",
+  primaryDeep: "#1B4F8A",
+  primarySoft: "#E3F0FC",
+  primaryBorder: "#A9CDF0",
+  badge: "#E4EBF5",
   green: "#12B76A",
   greenSoft: "#ECFDF3",
   greenText: "#027A48",
@@ -41,9 +42,9 @@ export const radii = {
 };
 
 export const cardShadow = {
-  shadowColor: "#000",
-  shadowOpacity: 0.04,
-  shadowRadius: 3,
-  shadowOffset: { width: 0, height: 1 },
-  elevation: 1,
+  shadowColor: "#1B4F8A",
+  shadowOpacity: 0.08,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 2,
 };
