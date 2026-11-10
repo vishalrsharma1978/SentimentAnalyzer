@@ -163,6 +163,7 @@ const APPLE_COUNTRY: Record<string, string> = {
   AU: 'au', CA: 'ca', BR: 'br', JP: 'jp', SG: 'sg', SE: 'se', NO: 'no', DK: 'dk',
   FI: 'fi', IS: 'is', AR: 'ar', CL: 'cl', CO: 'co', PE: 'pe', IT: 'it', ES: 'es',
   NL: 'nl', ZA: 'za', EG: 'eg', NG: 'ng', SA: 'sa', ID: 'id', MY: 'my', KR: 'kr',
+  PA: 'pa',
 };
 
 export async function fetchRedditMentions(brandName = 'Western Union'): Promise<CustomerSentiment[]> {

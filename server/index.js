@@ -65,6 +65,78 @@ const COMPETITOR_STOCK_SYMBOLS = {
   'Al Ansari Exchange': 'ALANSARI.AE',
 };
 
+// Trustpilot business-unit domains for known brands; custom brands fall back
+// to a slug derived from the brand name.
+const TRUSTPILOT_DOMAINS = {
+  'Western Union': 'westernunion.com',
+  Wise: 'wise.com',
+  Remitly: 'remitly.com',
+  MoneyGram: 'moneygram.com',
+  PayPal: 'paypal.com',
+  Xoom: 'xoom.com',
+  Revolut: 'revolut.com',
+  WorldRemit: 'worldremit.com',
+  Ria: 'riamoneytransfer.com',
+  GCash: 'gcash.com',
+  Skrill: 'skrill.com',
+  Venmo: 'venmo.com',
+  'Cash App': 'cash.app',
+  Monzo: 'monzo.com',
+  Chime: 'chime.com',
+  N26: 'n26.com',
+  Nubank: 'nubank.com.br',
+};
+
+function trustpilotDomain(brand) {
+  if (TRUSTPILOT_DOMAINS[brand]) return TRUSTPILOT_DOMAINS[brand];
+  const slug = brand.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return slug ? `${slug}.com` : null;
+}
+
+// Trustpilot has no free public feed; this uses the Business API and only runs
+// when TRUSTPILOT_API_KEY is configured. Returns [] otherwise.
+async function collectTrustpilotReviews(brand) {
+  const apiKey = process.env.TRUSTPILOT_API_KEY;
+  const domain = trustpilotDomain(brand);
+  if (!apiKey || !domain) return [];
+  try {
+    const url = `https://api.trustpilot.com/v1/business-units/find?name=${encodeURIComponent(domain)}&apikey=${encodeURIComponent(apiKey)}`;
+    const lookup = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (!lookup.ok) {
+      console.error(`Trustpilot business-unit lookup failed for ${domain}: HTTP ${lookup.status}`);
+      return [];
+    }
+    const unit = await lookup.json();
+    const businessUnitId = unit?.id;
+    if (!businessUnitId) return [];
+    const reviewsUrl = `https://api.trustpilot.com/v1/business-units/${businessUnitId}/reviews?apikey=${encodeURIComponent(apiKey)}&perPage=100&orderBy=createdat.desc`;
+    const reviewsResponse = await fetch(reviewsUrl, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (!reviewsResponse.ok) {
+      console.error(`Trustpilot reviews failed for ${domain}: HTTP ${reviewsResponse.status}`);
+      return [];
+    }
+    const data = await reviewsResponse.json();
+    const items = Array.isArray(data?.reviews) ? data.reviews : [];
+    return items.map((item) => {
+      const rating = Number(item?.stars ?? 0);
+      const text = `${String(item?.title ?? '').trim()}${item?.title && item?.text ? ' — ' : ''}${String(item?.text ?? '').trim()}`.replace(/\s+/g, ' ').trim();
+      return {
+        source: 'Trustpilot',
+        author: String(item?.consumer?.displayName ?? 'Verified customer'),
+        rating,
+        text,
+        sentiment: classifySentiment(text, rating),
+        appVersion: null,
+        publishedAt: item?.createdAt ? new Date(item.createdAt).toISOString() : null,
+        sourceId: String(item?.id ?? ''),
+      };
+    }).filter((review) => review.text);
+  } catch (error) {
+    console.error(`Trustpilot collection failed for ${brand}:`, error.message);
+    return [];
+  }
+}
+
 const COMPETITORS_WITHOUT_PUBLIC_LISTING = [
   'MoneyGram',
   'Xoom',
@@ -579,13 +651,14 @@ app.get('/api/reviews', async (request, response) => {
     response.json({ brand, country, months, collectedAt: cached.collectedAt, count: cached.reviews.length, reviews: cached.reviews.slice(0, limit) });
     return;
   }
-  const [googleReviews, appleReviews] = await Promise.all([
+  const [googleReviews, appleReviews, trustpilotReviews] = await Promise.all([
     collectGooglePlayReviews(brand, country, months),
     collectAppleReviews(brand, country),
+    collectTrustpilotReviews(brand),
   ]);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - months);
-  const reviews = [...googleReviews, ...appleReviews].filter((review) => {
+  const reviews = [...googleReviews, ...appleReviews, ...trustpilotReviews].filter((review) => {
     if (!review.publishedAt) return true;
     const publishedAt = new Date(review.publishedAt);
     return Number.isNaN(publishedAt.getTime()) || publishedAt >= cutoff;

@@ -53,7 +53,7 @@ const sentimentSources = [
   "Reviews.io",
   "Other web reviews",
 ];
-const workingSentimentSources = ["App Store", "Google Play", "Reddit"];
+const workingSentimentSources = ["App Store", "Google Play", "Reddit", "Trustpilot"];
 const countryBundles: Record<string, string[]> = {
   Global: [
     "United States",
@@ -85,7 +85,7 @@ const countryBundles: Record<string, string[]> = {
     "Malaysia",
   ],
   Nordics: ["Sweden", "Norway", "Denmark", "Finland", "Iceland"],
-  LACA: ["Mexico", "Brazil", "Argentina", "Chile", "Colombia", "Peru"],
+  LACA: ["Mexico", "Brazil", "Argentina", "Chile", "Colombia", "Peru", "Panama"],
   Europe: [
     "United Kingdom",
     "Germany",
@@ -139,6 +139,18 @@ const brandSetupSuggestions: Record<
       "UAE",
       "Canada",
       "Brazil",
+      // LACA
+      "Argentina",
+      "Chile",
+      "Colombia",
+      "Peru",
+      "Panama",
+      // Nordics
+      "Sweden",
+      "Norway",
+      "Denmark",
+      "Finland",
+      "Iceland",
     ],
     corridors: ["US ↔ India", "US ↔ Mexico", "UK ↔ India", "UAE ↔ Philippines"],
   },

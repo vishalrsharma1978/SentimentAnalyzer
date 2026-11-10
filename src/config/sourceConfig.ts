@@ -12,7 +12,7 @@ export const sourceConfigs: SourceConfig[] = [
   { name: 'Instagram', detail: 'Meta token validation failed: no usable Instagram business account access', status: 'configure', credential: 'server' },
   { name: 'LinkedIn', detail: 'Organization or Partner API credentials', status: 'configure', credential: 'server' },
   { name: 'X / Twitter', detail: 'X API bearer token and approved API access', status: 'configure', credential: 'server' },
-  { name: 'Trustpilot', detail: 'Trustpilot business API key and secret', status: 'configure', credential: 'server' },
+  { name: 'Trustpilot', detail: 'Live via Trustpilot Business API when TRUSTPILOT_API_KEY is configured', status: 'configure', credential: 'server' },
   { name: 'Reviews.io', detail: 'Reviews.io API key and private key', status: 'configure', credential: 'server' },
   { name: 'Reddit', detail: 'Live public brand-search feed with unauthenticated Reddit JSON endpoint', status: 'public', credential: 'public' },
 ];

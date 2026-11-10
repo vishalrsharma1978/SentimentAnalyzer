@@ -48,6 +48,7 @@ const COUNTRY_METADATA: Record<string, { code: string; region: string; score: nu
   Chile: { code: 'CL', region: 'Latin America', score: 3.9, rank: 11 },
   Colombia: { code: 'CO', region: 'Latin America', score: 3.9, rank: 10 },
   Peru: { code: 'PE', region: 'Latin America', score: 3.8, rank: 13 },
+  Panama: { code: 'PA', region: 'Latin America', score: 3.9, rank: 10 },
   Italy: { code: 'IT', region: 'Europe', score: 3.8, rank: 12 },
   Spain: { code: 'ES', region: 'Europe', score: 3.9, rank: 10 },
   Netherlands: { code: 'NL', region: 'Europe', score: 4.0, rank: 7 },
