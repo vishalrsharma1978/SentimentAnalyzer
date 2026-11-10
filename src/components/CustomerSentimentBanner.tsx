@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     paddingHorizontal: 30,
   },
-  copyCompact: { maxWidth: "100%", paddingVertical: 22, paddingHorizontal: 20 },
+  copyCompact: { maxWidth: "100%", width: "100%", paddingVertical: 22, paddingHorizontal: 20 },
   eyebrowRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   liveDot: {
     width: 7,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.2,
   },
-  titleCompact: { maxWidth: 280, fontSize: 21, lineHeight: 27 },
+  titleCompact: { fontSize: 20, lineHeight: 26, letterSpacing: 0.6 },
   subtitle: {
     marginTop: 8,
     color: "#DBEAFE",
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: 0.3,
   },
-  subtitleCompact: { maxWidth: 250, fontSize: 11 },
+  subtitleCompact: { fontSize: 11, lineHeight: 16 },
   visual: {
     position: "absolute",
     top: 0,
@@ -183,5 +183,5 @@ const styles = StyleSheet.create({
     width: "55%",
     opacity: 0.95,
   },
-  visualCompact: { width: "58%", opacity: 0.58 },
+  visualCompact: { width: "100%", opacity: 0.28 },
 });

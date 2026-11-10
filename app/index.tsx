@@ -218,6 +218,7 @@ export default function Onboarding() {
   const [loginPassword, setLoginPassword] = useState("");
 
   const isWide = width >= 900;
+  const isCompact = width < 560;
   const showStoryRails = width >= 1200;
   const toggleSelection = (
     value: string,
@@ -387,7 +388,7 @@ export default function Onboarding() {
               showStoryRails && { maxWidth: Math.min(1180, width - 440) },
             ]}
           >
-            <View style={[styles.heroBanner, !isWide && styles.heroBannerCompact]}>
+            <View style={[styles.heroBanner, !isWide && styles.heroBannerCompact, isCompact && styles.heroBannerMobile]}>
               <CustomerSentimentBanner compact={!isWide} />
             </View>
             <BrandStrip isWide={isWide} />
@@ -414,9 +415,9 @@ export default function Onboarding() {
                 {isWide && <BrandPanel />}
               </View>
 
-              <View style={[styles.form, isWide && styles.formWide]}>
+              <View style={[styles.form, isWide && styles.formWide, isCompact && styles.formMobile]}>
                 <Text style={styles.kicker}>PULSEBOARD · CUSTOMER SENTIMENT ANALYTICS</Text>
-                <Text style={styles.title}>Know what your customers feel</Text>
+                <Text style={[styles.title, isCompact && styles.titleMobile]}>Know what your customers feel</Text>
                 <Text style={styles.subtitle}>
                   Open, verifiable sentiment intelligence for your brand.
                   Build your live sentiment model in seconds.
@@ -537,7 +538,7 @@ export default function Onboarding() {
                   </View>
                 )}
 
-                <View style={styles.fieldRow}>
+                <View style={[styles.fieldRow, isCompact && styles.fieldRowMobile]}>
                   <View style={styles.field}>
                     <Text style={styles.label}>Business name</Text>
                     <TextInput
@@ -989,6 +990,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   heroBannerCompact: { height: 190 },
+  heroBannerMobile: { height: 170 },
   page: { flexGrow: 1, padding: 16 },
   shell: { flex: 1, maxWidth: 1180, width: "100%", alignSelf: "center" },
   shellWide: { paddingTop: 8 },
@@ -1065,6 +1067,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   formWide: { flex: 1.2, maxWidth: 560, padding: 30 },
+  formMobile: { padding: 18, borderRadius: 20 },
   kicker: {
     fontSize: 12,
     letterSpacing: 2,
@@ -1080,6 +1083,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
     maxWidth: 440,
   },
+  titleMobile: { fontSize: 28, lineHeight: 36 },
   subtitle: {
     marginTop: 12,
     marginBottom: 22,
@@ -1187,6 +1191,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   fieldRow: { flexDirection: "row", gap: 12 },
+  fieldRowMobile: { flexDirection: "column", gap: 0 },
   field: { flex: 1, marginBottom: 15 },
   label: {
     fontSize: 11,
