@@ -10,7 +10,7 @@ import { CustomerReviewFeed } from '../src/components/CustomerReviewFeed';
 import { SentimentIssueFunnel } from '../src/components/SentimentIssueFunnel';
 import { AIInsightsBrief } from '../src/components/AIInsightsBrief';
 import { countries } from '../src/data/demoData';
-import { fetchAppleCompetitors, fetchAppleStoreRating, fetchCompetitorSharePrices, fetchPlaystoreAggregateRating, fetchRedditMentions, fetchReviewCollector } from '../src/data/liveData';
+import { fetchAppleCompetitors, fetchAppleStoreRating, fetchCompetitorRatings, fetchCompetitorSharePrices, fetchPlaystoreAggregateRating, fetchRedditMentions, fetchReviewCollector } from '../src/data/liveData';
 import type { CompetitorSharePrice, CustomerSentiment, LiveCompetitor } from '../src/data/liveData';
 import { CORRIDOR_FEE_PERIOD, CORRIDOR_FEE_SOURCE, formatDailyVolume, formatFeeRange, getBenchmarkCostOnAmount, getBrandCorridorFee, getBrandDailyVolume, getCorridorAverageFee, getCorridorForCountry, getFeeDelta } from '../src/data/corridorData';
 import { categorizeSentimentReviews } from '../src/data/sentimentCategories';
@@ -360,8 +360,10 @@ export default function Dashboard() {
       });
       try {
         const appleRatingPromise = fetchAppleStoreRating(selectedCountry.code, brandName, forceFresh);
+        const competitorRatingsPromise = fetchCompetitorRatings(selectedCountry.code, selectedCountry.region)
+          .then((list) => (list.length ? list : fetchAppleCompetitors(selectedCountry.code, selectedCountry.region)));
         const secondaryPromise = Promise.all([
-          fetchAppleCompetitors(selectedCountry.code, selectedCountry.region),
+          competitorRatingsPromise,
           fetchRedditMentions(brandName),
           fetchReviewCollector(selectedCountry.code, brandName, durationMonths, dataRefreshNonce),
           fetchPlaystoreAggregateRating(selectedCountry.code, brandName, forceFresh),
@@ -641,9 +643,21 @@ export default function Dashboard() {
 
   const renderCompetitors = () => {
     const selectedBrand = brandName;
-    const rankedCompetitors = liveCompetitors
+    // Use the selected brand's accurate combined (Google Play + Apple) rating for
+    // its rank, rather than the Apple-only competitor-list lookup, so the table
+    // reflects how the brand is actually performing in the selected country.
+    const competitorsForRanking = liveCompetitors.map((item) =>
+      item.name === selectedBrand && brandRating !== null
+        ? { ...item, rating: brandRating, status: 'live' as const }
+        : item,
+    );
+    const rankedCompetitors = competitorsForRanking
       .filter((item) => item.status === 'live' && item.rating !== null)
-      .sort((left, right) => (right.rating ?? 0) - (left.rating ?? 0));
+      .sort((left, right) =>
+        (right.rating ?? 0) - (left.rating ?? 0) ||
+        (right.reviewCount ?? 0) - (left.reviewCount ?? 0) ||
+        left.name.localeCompare(right.name),
+      );
     const countryRanks = new Map(rankedCompetitors.map((item, index) => [item.name, index + 1]));
     const sharePriceByName = new Map(competitorSharePrices.map((quote) => [quote.name, quote]));
     const selectedBrandRank = countryRanks.get(selectedBrand);
@@ -653,7 +667,7 @@ export default function Dashboard() {
       ? getBenchmarkCostOnAmount(topCorridor.benchmarkAmount, corridorAverage.average)
       : null;
     const volumeDisclosedCount = liveCompetitors.filter((item) => getBrandDailyVolume(item.name)).length;
-    const sortedCompetitors = [...liveCompetitors].sort((left, right) => {
+    const sortedCompetitors = [...competitorsForRanking].sort((left, right) => {
       const leftRank = countryRanks.get(left.name) ?? Number.POSITIVE_INFINITY;
       const rightRank = countryRanks.get(right.name) ?? Number.POSITIVE_INFINITY;
       return leftRank - rightRank || left.name.localeCompare(right.name);
@@ -667,7 +681,7 @@ export default function Dashboard() {
             <Text style={styles.cardSub}>
               {liveLoading
                 ? `Refreshing ${selectedCountry.name} competitors`
-                : `${selectedCountry.name} · ${selectedCountry.region} · Country rank is by App Store rating${topCorridor ? ` · Top corridor ${topCorridor.fromCode}→${topCorridor.toCode}` : ''}`}
+                : `${selectedCountry.name} · ${selectedCountry.region} · Ranked by live store rating${topCorridor ? ` · Top corridor ${topCorridor.fromCode}→${topCorridor.toCode}` : ''}`}
             </Text>
           </SafeView>
           <SafeView style={[styles.liveBadge, liveError && styles.warningBadge]}>
@@ -748,12 +762,12 @@ export default function Dashboard() {
                     <SafeView style={styles.competitorName}>
                       <Text numberOfLines={1} style={styles.appName}>{item.name}</Text>
                       <Text numberOfLines={1} style={styles.sourceMeta}>
-                        {isSelectedBrand ? 'Your selected brand' : item.status === 'live' ? `Apple · ${selectedCountry.code}` : 'No App Store result'}
+                        {isSelectedBrand ? 'Your selected brand' : item.status === 'live' ? `Stores · ${selectedCountry.code}` : 'No store result'}
                       </Text>
                     </SafeView>
                   </SafeView>
                   <Text style={[styles.competitorMetricValue, styles.competitorRatingColumn]}>
-                    {item.rating !== null ? `${item.rating.toFixed(1)} / 5` : '—'}
+                    {isSelectedBrand && brandRating !== null ? `${brandRating.toFixed(1)} / 5` : item.rating !== null ? `${item.rating.toFixed(1)} / 5` : '—'}
                   </Text>
                   <Text style={[styles.competitorMetricValue, styles.competitorReviewsColumn]}>
                     {item.reviewCount !== null ? item.reviewCount.toLocaleString() : '—'}
@@ -830,7 +844,7 @@ export default function Dashboard() {
                     <Text style={[
                       styles.competitorMetricNote,
                       isSelectedBrand && styles.selectedBrandRankNote,
-                    ]}>{isSelectedBrand ? 'YOUR BRAND' : 'By App Store rating'}</Text>
+                    ]}>{isSelectedBrand ? 'YOUR BRAND' : 'By store rating'}</Text>
                   </SafeView>
                   <Text style={[
                     styles.competitorStatus,

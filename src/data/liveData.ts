@@ -254,8 +254,29 @@ async function appleLookup(term: string, countryCode: string): Promise<any[]> {
   }
 }
 
-export async function fetchAppleCompetitors(countryCode: string, region = 'Global'): Promise<LiveCompetitor[]> {
-  const competitorNames = COUNTRY_COMPETITOR_NAMES[countryCode.toUpperCase()] ??
+// Combined Google Play + Apple rating per competitor for a country, resolved
+// server-side (avoids browser CORS and ranks all brands on the same basis).
+export async function fetchCompetitorRatings(countryCode: string, region = 'Global'): Promise<LiveCompetitor[]> {
+  const apiUrl = getApiUrl();
+  try {
+    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/competitor-ratings?country=${encodeURIComponent(countryCode)}&region=${encodeURIComponent(region)}&_ts=${Date.now()}`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const items = Array.isArray(data?.competitors) ? data.competitors : [];
+    return items.map((item: any) => ({
+      name: String(item.name ?? ''),
+      rating: typeof item.rating === 'number' && Number.isFinite(item.rating) ? item.rating : null,
+      reviewCount: typeof item.reviewCount === 'number' ? item.reviewCount : null,
+      source: 'Apple App Store' as const,
+      status: item.status === 'live' ? 'live' as const : 'unavailable' as const,
+      updatedAt: typeof data.collectedAt === 'string' ? data.collectedAt : null,
+    })).filter((item: LiveCompetitor) => item.name.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAppleCompetitors(countryCode: string, region = 'Global'): Promise<LiveCompetitor[]> {  const competitorNames = COUNTRY_COMPETITOR_NAMES[countryCode.toUpperCase()] ??
     REGIONAL_COMPETITOR_NAMES[region] ?? REGIONAL_COMPETITOR_NAMES.Global;
   const competitors = competitorNames.map((name) => [name, COMPETITOR_TERMS[name]] as const);
   return Promise.all(competitors.map(async ([name, term]) => {

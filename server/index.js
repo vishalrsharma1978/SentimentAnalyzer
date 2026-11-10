@@ -12,6 +12,16 @@ const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const app = express();
+
+// Never let a failed upstream fetch (Apple RSS, Google Play, Trustpilot, Yahoo)
+// crash the whole process. Log and keep serving.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason instanceof Error ? reason.message : reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error instanceof Error ? error.message : error);
+});
+
 app.use(cors());
 app.use(express.json());
 app.use((_request, response, next) => {
@@ -55,6 +65,30 @@ const APP_PACKAGES = {
   'Cash App': 'com.squareup.cash',
   Monzo: 'co.uk.getmondo',
   Chime: 'com.chimebank',
+};
+
+const COUNTRY_COMPETITOR_NAMES = {
+  US: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'PayPal'],
+  CA: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom'],
+  MX: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
+  IN: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'BookMyForex', 'Xoom'],
+  PH: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'GCash', 'WorldRemit'],
+  GB: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit'],
+  DE: ['Western Union', 'Wise', 'Remitly', 'Revolut', 'MoneyGram', 'Skrill'],
+  AE: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'WorldRemit'],
+  SA: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'Ria'],
+  AU: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'WorldRemit', 'Xoom'],
+  SG: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit'],
+  BR: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
+};
+
+const REGIONAL_COMPETITOR_NAMES = {
+  'North America': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'PayPal'],
+  Europe: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit', 'Skrill'],
+  'Asia Pacific': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'GCash', 'WorldRemit', 'BookMyForex'],
+  'Latin America': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
+  'Middle East & Africa': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'WorldRemit'],
+  Global: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'WorldRemit'],
 };
 
 const COMPETITOR_STOCK_SYMBOLS = {
@@ -568,6 +602,53 @@ app.get('/api/platform-ratings', async (request, response) => {
   }
 });
 
+// Combined Google Play + Apple rating for every competitor in a country, so the
+// client can rank all brands (including the selected one) on the same basis.
+app.get('/api/competitor-ratings', async (request, response) => {
+  const country = String(request.query.country || 'US').toUpperCase();
+  const region = String(request.query.region || 'Global');
+  const names = COUNTRY_COMPETITOR_NAMES[country] || REGIONAL_COMPETITOR_NAMES[region] || REGIONAL_COMPETITOR_NAMES.Global;
+  const appleCountry = country.toLowerCase();
+  const items = await Promise.all(names.map(async (name) => {
+    let google = null;
+    let apple = null;
+    let reviewCount = 0;
+    try {
+      const appId = await resolvePlayAppId(name, country);
+      if (appId) {
+        const app = await gplay.app({ appId, country: appleCountry, lang: 'en' });
+        if (Number.isFinite(Number(app.score))) {
+          google = Number(app.score);
+          reviewCount = Math.max(Number(app.ratings || 0), Number(app.reviews || 0));
+        }
+      }
+    } catch (error) {
+      console.error(`Competitor Google rating failed for ${name}:`, error.message);
+    }
+    try {
+      const lookup = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(name)}&country=${appleCountry}&entity=software&limit=15&_ts=${Date.now()}`, { cache: 'no-store' });
+      if (lookup.ok) {
+        const data = await lookup.json();
+        const needle = name.toLowerCase();
+        const matches = (data.results || []).filter((item) =>
+          `${item.trackName || ''} ${item.sellerName || item.artistName || ''}`.toLowerCase().includes(needle),
+        );
+        const match = matches.find((item) => String(item.trackName || '').toLowerCase().startsWith(needle)) || matches[0];
+        if (match?.averageUserRating) {
+          apple = Number(Number(match.averageUserRating).toFixed(2));
+          reviewCount = Math.max(reviewCount, Number(match.userRatingCount || 0));
+        }
+      }
+    } catch (error) {
+      console.error(`Competitor Apple rating failed for ${name}:`, error.message);
+    }
+    const available = [google, apple].filter((value) => value !== null);
+    const rating = available.length ? Number((available.reduce((sum, value) => sum + value, 0) / available.length).toFixed(2)) : null;
+    return { name, rating, google, apple, reviewCount, status: rating !== null ? 'live' : 'unavailable' };
+  }));
+  response.json({ country, region, competitors: items, collectedAt: new Date().toISOString() });
+});
+
 // Server-side Reddit proxy: browsers block reddit.com/search.json via CORS,
 // and Reddit 403-blocks unauthenticated datacenter requests, so the client
 // calls this endpoint. With REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET configured
@@ -652,9 +733,9 @@ app.get('/api/reviews', async (request, response) => {
     return;
   }
   const [googleReviews, appleReviews, trustpilotReviews] = await Promise.all([
-    collectGooglePlayReviews(brand, country, months),
-    collectAppleReviews(brand, country),
-    collectTrustpilotReviews(brand),
+    collectGooglePlayReviews(brand, country, months).catch((e) => { console.error(`Google Play collection failed for ${brand}:`, e.message); return []; }),
+    collectAppleReviews(brand, country).catch((e) => { console.error(`Apple collection failed for ${brand}:`, e.message); return []; }),
+    collectTrustpilotReviews(brand).catch((e) => { console.error(`Trustpilot collection failed for ${brand}:`, e.message); return []; }),
   ]);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - months);
@@ -668,9 +749,14 @@ app.get('/api/reviews', async (request, response) => {
     const rightTime = right.publishedAt ? new Date(right.publishedAt).getTime() : 0;
     return rightTime - leftTime;
   });
-  const collectedAt = new Date().toISOString();
-  reviewsCache.set(cacheKey, { collectedAt, cachedAt: Date.now(), reviews });
-  response.json({ brand, country, months, collectedAt, count: reviews.length, reviews: reviews.slice(0, limit) });
+  try {
+    const collectedAt = new Date().toISOString();
+    reviewsCache.set(cacheKey, { collectedAt, cachedAt: Date.now(), reviews });
+    response.json({ brand, country, months, collectedAt, count: reviews.length, reviews: reviews.slice(0, limit) });
+  } catch (error) {
+    console.error('Review collection failed:', error instanceof Error ? error.message : error);
+    response.status(500).json({ brand, country, months, count: 0, reviews: [], error: 'Review collection failed.' });
+  }
 });
 
 // SPA fallback: client-side routes (e.g. /dashboard) must serve index.html.
