@@ -17,6 +17,7 @@ import { BrandFooter, BrandStrip } from "../src/components/BrandStrip";
 import { Cockpit } from "../src/components/Cockpit";
 import { CustomerSentimentBanner } from "../src/components/CustomerSentimentBanner";
 import { GaugeCluster } from "../src/components/GaugeCluster";
+import { PulseDot } from "../src/components/PulseDot";
 import { SentimentStoryRails } from "../src/components/SentimentStoryRails";
 import { colors, fonts } from "../src/theme";
 
@@ -351,12 +352,15 @@ export default function Onboarding() {
           <View style={styles.topHeaderMark}>
             <Ionicons name="pulse" size={20} color="#FFFFFF" />
           </View>
-          <Text
-            style={[styles.topHeaderTitle, !isWide && styles.topHeaderTitleCompact]}
-            numberOfLines={1}
-          >
-            Customer Sentiment Analyzer
-          </Text>
+          <View style={styles.topHeaderTitleRow}>
+            <Text
+              style={[styles.topHeaderTitle, !isWide && styles.topHeaderTitleCompact]}
+              numberOfLines={1}
+            >
+              Customer Sentiment Analyzer
+            </Text>
+            <PulseDot />
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Partner sign in"
@@ -943,8 +947,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  topHeaderTitle: {
+  topHeaderTitleRow: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    flexShrink: 1,
+  },
+  topHeaderTitle: {
     fontSize: 17,
     fontFamily: fonts.bold,
     color: colors.navy,
