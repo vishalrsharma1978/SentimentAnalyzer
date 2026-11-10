@@ -496,6 +496,77 @@ app.get('/api/platform-ratings', async (request, response) => {
   }
 });
 
+// Server-side Reddit proxy: browsers block reddit.com/search.json via CORS,
+// and Reddit 403-blocks unauthenticated datacenter requests, so the client
+// calls this endpoint. With REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET configured
+// it uses OAuth (works from datacenter IPs); otherwise it tries the public
+// JSON endpoint and degrades to an empty list when Reddit blocks it.
+let redditAccessToken = null;
+let redditTokenExpiresAt = 0;
+
+async function getRedditAccessToken() {
+  const clientId = process.env.REDDIT_CLIENT_ID;
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  if (redditAccessToken && Date.now() < redditTokenExpiresAt) return redditAccessToken;
+  const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'sentiment-analyzer/1.0 (brand sentiment dashboard)',
+    },
+    body: 'grant_type=client_credentials',
+  });
+  if (!tokenResponse.ok) throw new Error(`Reddit auth returned ${tokenResponse.status}`);
+  const tokenData = await tokenResponse.json();
+  redditAccessToken = tokenData.access_token;
+  redditTokenExpiresAt = Date.now() + Math.max(Number(tokenData.expires_in || 3600) - 60, 60) * 1000;
+  return redditAccessToken;
+}
+
+app.get('/api/reddit-mentions', async (request, response) => {
+  const brand = String(request.query.brand || '').trim();
+  if (!brand) {
+    response.status(400).json({ error: 'brand is required', mentions: [] });
+    return;
+  }
+  try {
+    const token = await getRedditAccessToken();
+    const url = token
+      ? `https://oauth.reddit.com/search?q=${encodeURIComponent(brand)}&sort=new&limit=25&type=link,comment`
+      : `https://www.reddit.com/search.json?q=${encodeURIComponent(brand)}&sort=new&limit=25&type=link,comment&_ts=${Date.now()}`;
+    const headers = token
+      ? { Authorization: `Bearer ${token}`, 'User-Agent': 'sentiment-analyzer/1.0 (brand sentiment dashboard)' }
+      : { Accept: 'application/json', 'User-Agent': 'sentiment-analyzer/1.0 (brand sentiment dashboard)' };
+    const redditResponse = await fetch(url, { headers, cache: 'no-store' });
+    if (!redditResponse.ok) {
+      console.error(`Reddit mention collection failed for ${brand}: HTTP ${redditResponse.status}`);
+      response.json({ brand, mentions: [] });
+      return;
+    }
+    const data = await redditResponse.json();
+    const posts = Array.isArray(data?.data?.children) ? data.data.children : [];
+    const mentions = posts.slice(0, 12).map((child) => {
+      const post = child?.data ?? {};
+      const title = String(post.title ?? '').replace(/\s+/g, ' ').trim();
+      const body = String(post.selftext ?? '').replace(/\s+/g, ' ').trim();
+      return {
+        title,
+        body,
+        author: String(post.author ? `u/${post.author}` : 'Reddit user'),
+        publishedAt: Number.isFinite(Number(post.created_utc))
+          ? new Date(Number(post.created_utc) * 1000).toISOString()
+          : null,
+      };
+    }).filter((mention) => mention.title || mention.body);
+    response.json({ brand, mentions });
+  } catch (error) {
+    console.error(`Reddit mention collection failed for ${brand}:`, error.message);
+    response.json({ brand, mentions: [] });
+  }
+});
+
 app.get('/api/reviews', async (request, response) => {
   const brand = String(request.query.brand || 'Western Union');
   const country = String(request.query.country || 'US').toUpperCase();

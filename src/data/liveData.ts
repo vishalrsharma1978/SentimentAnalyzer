@@ -167,16 +167,17 @@ const APPLE_COUNTRY: Record<string, string> = {
 
 export async function fetchRedditMentions(brandName = 'Western Union'): Promise<CustomerSentiment[]> {
   try {
-    const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(brandName)}&sort=new&limit=25&type=link,comment`;
-    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    // Routed through the review server because browsers block reddit.com via CORS.
+    const apiUrl = getApiUrl();
+    const url = `${apiUrl.replace(/\/$/, '')}/api/reddit-mentions?brand=${encodeURIComponent(brandName)}&_ts=${Date.now()}`;
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' });
     if (!response.ok) return [];
     const data = await response.json();
-    const posts = data?.data?.children ?? [];
+    const posts = Array.isArray(data?.mentions) ? data.mentions : [];
 
-    return posts.slice(0, 12).map((child: any) => {
-      const post = child.data ?? {};
+    return posts.map((post: any) => {
       const title = String(post.title ?? '').replace(/\s+/g, ' ').trim();
-      const body = String(post.selftext ?? '').replace(/\s+/g, ' ').trim();
+      const body = String(post.body ?? '').replace(/\s+/g, ' ').trim();
       const text = `${title}${title && body ? ' — ' : ''}${body}`.trim();
       const lower = text.toLowerCase();
       const sentiment: CustomerSentiment['sentiment'] = /scam|fraud|delay|slow|fee|failed|problem|bad|hate|terrible/i.test(lower)
@@ -187,13 +188,11 @@ export async function fetchRedditMentions(brandName = 'Western Union'): Promise<
 
       return {
         source: 'Reddit',
-        author: String(post.author ? `u/${post.author}` : 'Reddit user'),
+        author: String(post.author ?? 'Reddit user'),
         rating: 0,
         text: text.length > 180 ? `${text.slice(0, 177)}…` : text,
         sentiment,
-        publishedAt: Number.isFinite(Number(post.created_utc))
-          ? new Date(Number(post.created_utc) * 1000).toISOString()
-          : null,
+        publishedAt: typeof post.publishedAt === 'string' ? post.publishedAt : null,
       };
     }).filter((review: CustomerSentiment) => review.text.length > 0);
   } catch {
