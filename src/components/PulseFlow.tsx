@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
-import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { colors } from "../theme";
 
 // Animated ECG / pulse-flow line. A glowing segment sweeps left-to-right
@@ -26,18 +26,6 @@ function wavePath(): string {
 
 const WAVE = wavePath();
 
-function GradientDefs({ color }: { color: string }) {
-  return (
-    <Defs>
-      <LinearGradient id="pulseFlow" x1="0" y1="0" x2="1" y2="0">
-        <Stop offset="0" stopColor={color} stopOpacity="0.15" />
-        <Stop offset="0.5" stopColor={color} stopOpacity="1" />
-        <Stop offset="1" stopColor={color} stopOpacity="0.15" />
-      </LinearGradient>
-    </Defs>
-  );
-}
-
 function BaseWave({ color }: { color: string }) {
   return (
     <Svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden>
@@ -46,36 +34,49 @@ function BaseWave({ color }: { color: string }) {
   );
 }
 
-function SweepWave() {
+function SweepWave({ color }: { color: string }) {
   return (
     <Svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden>
-      <Path d={WAVE} fill="none" stroke="url(#pulseFlow)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={WAVE} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-// Web: drive the sweep with the Web Animations API so it reliably restarts
-// after client-side navigation remounts (where RN Animated can stall).
-function PulseFlowWeb({ color }: { color: string }) {
-  const sweepRef = useRef<HTMLDivElement>(null);
+// Web: drive the sweep with an injected CSS keyframe animation. CSS animations
+// are composited by the browser and reliably restart after client-side
+// navigation remounts, where RN Animated / WAAPI-on-RNW-views can stall.
+const KEYFRAME_ID = "pulseflow-sweep-keyframes";
 
+function ensureKeyframes() {
+  if (typeof document === "undefined" || document.getElementById(KEYFRAME_ID)) return;
+  const style = document.createElement("style");
+  style.id = KEYFRAME_ID;
+  style.textContent =
+    `@keyframes pulseflow-sweep {` +
+    `0% { transform: translateX(${-WIDTH}px); }` +
+    `100% { transform: translateX(${WIDTH}px); }` +
+    `}`;
+  document.head.appendChild(style);
+}
+
+function PulseFlowWeb({ color }: { color: string }) {
   useEffect(() => {
-    const node = sweepRef.current;
-    if (!node || typeof node.animate !== "function") return;
-    const animation = node.animate(
-      [{ transform: `translateX(${-WIDTH}px)` }, { transform: `translateX(${WIDTH}px)` }],
-      { duration: DURATION, iterations: Infinity, easing: "ease-in-out" },
-    );
-    return () => animation.cancel();
+    ensureKeyframes();
   }, []);
+
+  const sweepStyle: React.CSSProperties = {
+    width: WIDTH,
+    height: HEIGHT,
+    animation: `pulseflow-sweep ${DURATION}ms ease-in-out infinite`,
+    willChange: "transform",
+  };
 
   return (
     <View style={styles.wrap} accessibilityElementsHidden importantForAccessibility="no">
-      <GradientDefs color={color} />
       <BaseWave color={color} />
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <div ref={sweepRef} style={{ width: WIDTH, height: HEIGHT }}>
-          <SweepWave />
+        <div style={sweepStyle}>
+          <SweepWave color={color} />
         </div>
       </View>
     </View>
@@ -103,10 +104,9 @@ function PulseFlowNative({ color }: { color: string }) {
 
   return (
     <View style={styles.wrap} accessibilityElementsHidden importantForAccessibility="no">
-      <GradientDefs color={color} />
       <BaseWave color={color} />
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX }] }]}>
-        <SweepWave />
+        <SweepWave color={color} />
       </Animated.View>
     </View>
   );
