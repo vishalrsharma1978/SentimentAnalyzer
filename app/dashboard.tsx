@@ -161,6 +161,47 @@ function formatQuoteTime(value: string | null) {
     : `As of ${date.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`;
 }
 
+const PLATFORM_CHART_COLORS: Record<string, string> = {
+  'Google Play': '#1D4ED8',
+  'Apple App Store': '#0F2B57',
+  Reddit: '#7F56D9',
+};
+
+function PlatformRatingsChart({ reviews }: { reviews: CustomerSentiment[] }) {
+  const bySource = new Map<string, { rated: number[]; all: number }>();
+  reviews.forEach((review) => {
+    const entry = bySource.get(review.source) ?? { rated: [], all: 0 };
+    entry.all += 1;
+    if (review.rating > 0) entry.rated.push(review.rating);
+    bySource.set(review.source, entry);
+  });
+  const rows = [...bySource.entries()].map(([source, entry]) => ({
+    source,
+    rating: entry.rated.length ? entry.rated.reduce((sum, rating) => sum + rating, 0) / entry.rated.length : null,
+    ratedCount: entry.rated.length,
+    total: entry.all,
+  })).sort((left, right) => (right.rating ?? -1) - (left.rating ?? -1));
+
+  if (!rows.length) {
+    return <Text style={styles.emptyReviewText}>No verified sentiment records returned</Text>;
+  }
+  return <SafeView style={styles.chartWrap}>{rows.map((row) => {
+    const percent = row.rating !== null ? (row.rating / 5) * 100 : 0;
+    const color = PLATFORM_CHART_COLORS[row.source] ?? colors.primary;
+    return (
+      <SafeView key={row.source} style={styles.emotionRow}>
+        <Text style={styles.platformLabel} numberOfLines={1}>{row.source}</Text>
+        <SafeView style={styles.emotionTrack}>
+          <SafeView style={[styles.emotionFill, { width: `${percent}%`, backgroundColor: color }]} />
+        </SafeView>
+        <Text style={styles.platformValue}>
+          {row.rating !== null ? `${row.rating.toFixed(1)} / 5` : `— · ${row.total} mentions`}
+        </Text>
+      </SafeView>
+    );
+  })}</SafeView>;
+}
+
 function SentimentBreakdown({ reviews }: { reviews: CustomerSentiment[] }) {
   const total = reviews.length;
   const groups = [
@@ -546,6 +587,16 @@ export default function Dashboard() {
         ['Negative', customerReviews.filter((review) => review.sentiment === 'negative').length, colors.red],
       ].map(([label, value, tone]) => <SafeView key={String(label)} style={styles.emotionRow}><SafeView style={[styles.emotionDot, { backgroundColor: tone as string }]}/><Text style={styles.emotionLabel}>{label}</Text><Text style={styles.emotionValue}>{value}</Text></SafeView>)}</SafeView></SafeView>
     </SafeView>
+    <SafeView style={[styles.card, styles.fullCard]}>
+      <SafeView style={styles.cardHeader}>
+        <SafeView>
+          <Text style={styles.cardTitle}>Ratings by platform</Text>
+          <Text style={styles.cardSub}>{`Average verified rating per source · 1–5 scale · ${selectedCountry.name}`}</Text>
+        </SafeView>
+        <SafeView style={[styles.liveBadge, liveError && styles.warningBadge]}><SafeView style={styles.liveDot}/><Text style={[styles.liveBadgeText, liveError && styles.warningText]}>{liveLoading ? 'LOADING' : liveError ? 'UNAVAILABLE' : 'LIVE'}</Text></SafeView>
+      </SafeView>
+      <PlatformRatingsChart reviews={customerReviews}/>
+    </SafeView>
     {renderReviews()}
   </>;
 
@@ -823,6 +874,7 @@ const styles = StyleSheet.create({
   kpiGrid:{flexDirection:'row',flexWrap:'wrap',gap:12,marginBottom:12},kpi:{minWidth:210,flexGrow:1,flexBasis:210,height:108,borderRadius:18,borderWidth:1,borderColor:'#E4EAF6',backgroundColor:'#FFFFFF',padding:15,flexDirection:'row',alignItems:'center',shadowColor:'#2563EB',shadowOpacity:0.07,shadowRadius:14,shadowOffset:{width:0,height:5},elevation:2},kpiIcon:{width:42,height:42,borderRadius:14,alignItems:'center',justifyContent:'center',marginRight:11,backgroundColor:'#EAF1FE'},kpiCopy:{flex:1},kpiLabel:{fontSize:10,fontFamily:fonts.bold,color:'#64769B',textTransform:'uppercase',letterSpacing:0.5},kpiValue:{fontSize:22,fontFamily:fonts.black,color:'#0F2B57',marginTop:3},kpiChange:{fontSize:9,fontFamily:fonts.bold,marginTop:3},
   grid:{gap:12},gridWide:{flexDirection:'row'},  card:{borderRadius:18,borderWidth:1,borderColor:'#E4EAF6',backgroundColor:'#FFFFFF',padding:16,minWidth:280,shadowColor:'#2563EB',shadowOpacity:0.07,shadowRadius:14,shadowOffset:{width:0,height:5},elevation:2},dashboardCard:{borderColor:'#E4EAF6',backgroundColor:'#FFFFFF'},cardWide:{flex:1.35},cardNarrow:{flex:1},fullCard:{marginTop:12,width:'100%'},scorecardGauges:{marginTop:8,alignItems:'center'},sectionCluster:{flexDirection:'row',alignItems:'center',flex:1},sectionGauge:{width:44,height:44,borderRadius:14,marginRight:10,alignItems:'center',justifyContent:'center',backgroundColor:'#EAF1FE'},sectionGaugeNeedle:{width:20,height:3,borderRadius:2,backgroundColor:'#2563EB',transform:[{rotate:'-35deg'}]},cardHeader:{minHeight:64,marginHorizontal:-16,marginTop:-16,marginBottom:12,paddingHorizontal:16,paddingVertical:10,borderTopLeftRadius:18,borderTopRightRadius:18,borderBottomWidth:1,borderBottomColor:'#EEF3FB',flexDirection:'row',justifyContent:'space-between',alignItems:'center',backgroundColor:'#FFFFFF',overflow:'hidden'},cardTitle:{fontSize:14,fontFamily:fonts.black,color:'#0F2B57',letterSpacing:0.35,textTransform:'uppercase'},cardSub:{fontSize:10,lineHeight:15,color:'#93A5C8',marginTop:4,letterSpacing:0.15},liveBadge:{height:26,paddingHorizontal:9,borderRadius:13,backgroundColor:'#ECFDF3',borderWidth:1,borderColor:'#A6F4C5',flexDirection:'row',alignItems:'center',gap:5},liveBadgeText:{fontSize:8,fontFamily:fonts.black,color:'#027A48',letterSpacing:0.5},warningBadge:{backgroundColor:'#FFFAEB',borderColor:'#FEDF89'},warningText:{color:'#B54708'},countryPills:{flexDirection:'row',gap:6,paddingTop:8},countryPill:{height:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:'#E4EAF6',backgroundColor:'#FFFFFF',justifyContent:'center'},countryPillActive:{backgroundColor:'#2563EB',borderColor:'#2563EB'},countryPillText:{fontSize:10,fontFamily:fonts.bold,color:'#64769B'},countryPillTextActive:{color:'#FFFFFF'},chartWrap:{marginTop:5,backgroundColor:'#FFFFFF',borderRadius:12,padding:10,borderWidth:1,borderColor:'#E4EAF6'},rankHero:{height:82,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#E4EAF6'},rankValue:{fontSize:42,fontFamily:fonts.black,color:'#0F2B57'},rankCaption:{fontSize:9,color:'#93A5C8',marginTop:-4},rankBadge:{height:28,paddingHorizontal:8,borderRadius:14,backgroundColor:'#ECFDF3',borderWidth:1,borderColor:'#A6F4C5',flexDirection:'row',alignItems:'center',gap:3},rankBadgeNegative:{backgroundColor:'#FEF3F2',borderColor:'#FECDCA'},rankBadgeText:{fontSize:9,fontFamily:fonts.bold,color:'#027A48'},rankBarRow:{marginTop:10},rankBarLabel:{flexDirection:'row',justifyContent:'space-between',marginBottom:5},rankBarName:{fontSize:10,fontFamily:fonts.bold,color:'#64769B'},rankBarValue:{fontSize:10,fontFamily:fonts.black,color:'#0F2B57'},rankTrack:{height:7,borderRadius:4,backgroundColor:'#E9EEF8'},rankFill:{height:7,borderRadius:4},
   emotionList:{marginTop:18,gap:10},emotionRow:{height:32,flexDirection:'row',alignItems:'center'},emotionDot:{width:8,height:8,borderRadius:4,marginRight:7},emotionLabel:{width:82,fontSize:11,color:'#64769B',fontFamily:fonts.bold},emotionTrack:{flex:1,height:7,borderRadius:4,backgroundColor:'#E9EEF8',marginRight:8},emotionFill:{height:7,borderRadius:4},emotionValue:{width:34,textAlign:'right',fontSize:10,fontFamily:fonts.black,color:'#0F2B57'},
+  platformLabel:{width:96,fontSize:11,color:'#64769B',fontFamily:fonts.bold,marginRight:8},platformValue:{width:110,textAlign:'right',fontSize:10,fontFamily:fonts.black,color:'#0F2B57'},
   reviewRow:{flexDirection:'row',gap:10,paddingVertical:12,borderTopWidth:1,borderTopColor:'#E4EAF6'},sentimentIcon:{width:34,height:34,borderRadius:17,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#E4EAF6'},sentimentPositive:{backgroundColor:'#ECFDF3'},sentimentNegative:{backgroundColor:'#FEF3F2'},sentimentNeutral:{backgroundColor:'#FFFAEB'},reviewContent:{flex:1},reviewMeta:{flexDirection:'row',justifyContent:'space-between'},reviewAuthor:{fontSize:11,fontFamily:fonts.black,color:'#0F2B57'},reviewRating:{fontSize:10,fontFamily:fonts.bold,color:'#F79009'},reviewText:{fontSize:11,lineHeight:17,color:'#3C4C6D',marginTop:4},reviewSource:{fontSize:9,fontFamily:fonts.bold,color:'#93A5C8',marginTop:5},emptyReviews:{minHeight:120,alignItems:'center',justifyContent:'center',padding:20,borderRadius:12,backgroundColor:'#F5F9FF',borderWidth:1,borderColor:'#E4EAF6'},emptyReviewTitle:{fontSize:12,fontFamily:fonts.black,color:'#0F2B57',marginTop:8},emptyReviewText:{fontSize:10,lineHeight:16,color:'#64769B',textAlign:'center',maxWidth:440,marginTop:4},
   marketRow:{minHeight:58,flexDirection:'row',alignItems:'center',borderTopWidth:1,borderTopColor:'#E4EAF6',paddingHorizontal:4,borderRadius:6},marketRowActive:{backgroundColor:'#EAF1FE'},flag:{width:34,height:25,borderRadius:5,backgroundColor:'#E9EEF8',alignItems:'center',justifyContent:'center'},flagText:{fontSize:8,fontFamily:fonts.black,color:'#1D4ED8'},marketName:{width:150,marginLeft:10},marketTitle:{fontSize:11,fontFamily:fonts.bold,color:'#0F2B57'},marketRegion:{fontSize:9,color:'#93A5C8',marginTop:2},marketTrack:{flex:1,height:7,borderRadius:4,backgroundColor:'#E9EEF8',marginHorizontal:12},marketFill:{height:7,borderRadius:4,backgroundColor:'#2563EB'},marketScore:{width:62,fontSize:11,fontFamily:fonts.black,color:'#0F2B57'},marketRank:{width:40,fontSize:11,fontFamily:fonts.black,color:'#1D4ED8',textAlign:'right'},
   competitorDataNote:{fontSize:9,lineHeight:15,color:'#64769B',marginBottom:10},corridorBenchmark:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:12,paddingHorizontal:12,paddingVertical:10,borderRadius:12,borderWidth:1,borderColor:'#E4EAF6',backgroundColor:'#F5F9FF'},corridorBenchmarkCell:{flexGrow:1,minWidth:180},corridorBenchmarkLabel:{fontSize:8,fontFamily:fonts.black,letterSpacing:0.35,color:'#93A5C8',textTransform:'uppercase'},corridorBenchmarkValue:{marginTop:3,fontSize:13,fontFamily:fonts.black,color:'#0F2B57'},corridorBenchmarkMeta:{marginTop:3,fontSize:8,lineHeight:12,color:'#93A5C8'},feeDeltaBelow:{color:'#027A48',fontFamily:fonts.bold},feeDeltaAbove:{color:'#F04438',fontFamily:fonts.bold},competitorTable:{width:1029},competitorTableRow:{minHeight:58,flexDirection:'row',alignItems:'center'},competitorTableHeader:{minHeight:38,borderBottomWidth:1,borderBottomColor:'#E4EAF6',backgroundColor:'#F5F9FF'},competitorTableHeading:{paddingHorizontal:7,fontSize:8,fontFamily:fonts.black,letterSpacing:0.35,color:'#64769B',textTransform:'uppercase'},competitorNameColumn:{width:180},competitorRatingColumn:{width:90},competitorReviewsColumn:{width:90},competitorShareColumn:{width:160},competitorFeeColumn:{width:145},competitorVolumeColumn:{width:165},competitorRankColumn:{width:115},competitorStatusColumn:{width:84},competitorRow:{borderTopWidth:1,borderTopColor:'#E4EAF6',paddingHorizontal:0,borderRadius:6},competitorSelected:{backgroundColor:'#F5F9FF'},competitorNameCell:{flexDirection:'row',alignItems:'center',paddingLeft:8,paddingRight:6},appMark:{width:34,height:34,borderRadius:17,backgroundColor:'#EFF4FD',alignItems:'center',justifyContent:'center'},appMarkPrimary:{backgroundColor:'#2563EB',borderWidth:1,borderColor:'#2563EB'},appMarkText:{fontSize:11,fontFamily:fonts.black,color:'#64769B'},appMarkTextPrimary:{color:'#FFFFFF'},competitorName:{flex:1,minWidth:0,marginLeft:10},appName:{fontSize:12,fontFamily:fonts.black,color:'#0F2B57'},sourceMeta:{fontSize:9,color:'#93A5C8',marginTop:3},competitorRating:{width:86,fontSize:12,fontFamily:fonts.black,color:'#0F2B57'},competitorReviews:{width:120,fontSize:11,fontFamily:fonts.bold,color:'#64769B'},competitorMetricCell:{justifyContent:'center',paddingHorizontal:7},competitorMetricValue:{fontSize:10,fontFamily:fonts.black,color:'#0F2B57'},competitorMetricMuted:{fontSize:9,fontFamily:fonts.bold,color:'#93A5C8'},competitorMetricNote:{marginTop:3,fontSize:8,color:'#93A5C8'},competitorRankValue:{fontSize:12,fontFamily:fonts.black,color:'#2563EB'},competitorStatus:{height:26,borderRadius:13,textAlign:'center',textAlignVertical:'center',fontSize:9,fontFamily:fonts.black,overflow:'hidden'},competitorEmpty:{paddingVertical:20,textAlign:'center',fontSize:11,color:'#93A5C8'},verified:{backgroundColor:'#ECFDF3',color:'#027A48'},unavailable:{backgroundColor:'#EFF4FD',color:'#64769B'},
