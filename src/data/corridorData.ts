@@ -34,6 +34,7 @@ const US_MX_FEES: Record<string, CorridorFeeRange> = {
   MoneyGram: { low: 2.5, high: 4.0 },
   Xoom: { low: 3.0, high: 4.0 },
   Ria: { low: 2.5, high: 3.5 },
+  PayPal: { low: 4.0, high: 6.0 },
 };
 
 export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
@@ -55,6 +56,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       Remitly: { low: 2.0, high: 3.0 },
       MoneyGram: { low: 3.0, high: 4.5 },
       Xoom: { low: 3.0, high: 4.5 },
+      PayPal: { low: 4.0, high: 6.0 },
     },
   },
   IN: {
@@ -66,6 +68,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       Remitly: { low: 2.0, high: 4.0 },
       MoneyGram: { low: 3.5, high: 5.5 },
       Xoom: { low: 3.0, high: 5.0 },
+      PayPal: { low: 4.5, high: 7.0 },
     },
   },
   PH: {
@@ -77,6 +80,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       Remitly: { low: 2.0, high: 5.0 },
       MoneyGram: { low: 4.0, high: 6.0 },
       WorldRemit: { low: 3.0, high: 5.0 },
+      PayPal: { low: 4.5, high: 7.0 },
     },
   },
   GB: {
@@ -89,6 +93,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       MoneyGram: { low: 3.0, high: 4.5 },
       Revolut: { low: 1.0, high: 2.5 },
       WorldRemit: { low: 2.5, high: 4.0 },
+      PayPal: { low: 4.0, high: 6.0 },
     },
   },
   DE: {
@@ -101,6 +106,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       Revolut: { low: 2.0, high: 3.5 },
       MoneyGram: { low: 4.5, high: 6.5 },
       Skrill: { low: 3.0, high: 4.5 },
+      PayPal: { low: 4.5, high: 6.5 },
     },
   },
   AE: {
@@ -113,6 +119,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       MoneyGram: { low: 3.0, high: 5.0 },
       'Al Ansari Exchange': { low: 2.0, high: 3.5 },
       WorldRemit: { low: 2.5, high: 4.0 },
+      PayPal: { low: 4.0, high: 6.0 },
     },
   },
   SA: {
@@ -125,6 +132,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       MoneyGram: { low: 3.0, high: 5.0 },
       'Al Ansari Exchange': { low: 2.0, high: 3.5 },
       Ria: { low: 2.5, high: 4.0 },
+      PayPal: { low: 4.0, high: 6.0 },
     },
   },
   AU: {
@@ -137,6 +145,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       MoneyGram: { low: 3.5, high: 5.0 },
       WorldRemit: { low: 2.5, high: 4.0 },
       Xoom: { low: 3.0, high: 4.5 },
+      PayPal: { low: 4.0, high: 6.0 },
     },
   },
   SG: {
@@ -149,6 +158,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       MoneyGram: { low: 3.0, high: 4.5 },
       Revolut: { low: 1.0, high: 2.5 },
       WorldRemit: { low: 2.5, high: 4.0 },
+      PayPal: { low: 4.0, high: 6.0 },
     },
   },
   BR: {
@@ -161,6 +171,7 @@ export const TOP_CORRIDOR_BY_COUNTRY: Record<string, MarketCorridor> = {
       MoneyGram: { low: 3.5, high: 5.5 },
       Xoom: { low: 3.5, high: 5.5 },
       Ria: { low: 3.0, high: 5.0 },
+      PayPal: { low: 4.5, high: 6.5 },
     },
   },
 };
@@ -178,6 +189,10 @@ export const BRAND_DAILY_VOLUMES: Record<string, BrandDailyVolume> = {
   Remitly: { avgPerDay: 154000, basis: '14M+ txn in Q1 2024', period: 'Q1 2024 results' },
   // 2024 State of Remittances report.
   MoneyGram: { avgPerDay: 1000000, basis: '~1M txn/day', period: '2024 company report' },
+  // FY2024: 26.3B total payment transactions (10-K).
+  PayPal: { avgPerDay: 72000000, basis: '26.3B txn/yr', period: '2024 annual report' },
+  // 2023: 400M+ transactions/month; 2024 not officially disclosed.
+  Revolut: { avgPerDay: 13000000, basis: '400M+ txn/mo', period: '2023 company report' },
 };
 
 export function getCorridorForCountry(countryCode: string): MarketCorridor | null {
