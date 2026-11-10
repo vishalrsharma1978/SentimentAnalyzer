@@ -2,6 +2,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
+const https = require('node:https');
 const path = require('node:path');
 const express = require('express');
 const cors = require('cors');
@@ -93,33 +94,77 @@ async function getCompetitorSharePrice(name) {
     return { ...cached.value, name };
   }
 
-  try {
-    const quote = await yahooFinance.quote(symbol);
-    if (typeof quote.regularMarketPrice !== 'number' || !Number.isFinite(quote.regularMarketPrice)) {
-      throw new Error('Quote did not include a valid market price.');
-    }
-
-    const value = {
-      name,
-      symbol,
-      price: quote.regularMarketPrice,
-      currency: quote.currency || null,
-      quoteTime: quote.regularMarketTime ? new Date(quote.regularMarketTime).toISOString() : null,
-      status: 'live',
-    };
+  const quote = await fetchYahooQuote(symbol);
+  if (quote) {
+    const value = { name, symbol, ...quote, status: 'live' };
     stockQuoteCache.set(symbol, { cachedAt: Date.now(), value });
     return value;
+  }
+
+  return {
+    name,
+    symbol,
+    price: null,
+    currency: null,
+    quoteTime: null,
+    status: 'unavailable',
+  };
+}
+
+// yahoo-finance2's quote() hits an endpoint that now requires crumb/cookie auth
+// and is blocked from datacenter IPs. The v8 chart endpoint serves the same
+// market price without auth, so use it as a resilient fallback.
+async function fetchYahooQuote(symbol) {
+  try {
+    const quote = await yahooFinance.quote(symbol);
+    if (typeof quote.regularMarketPrice === 'number' && Number.isFinite(quote.regularMarketPrice)) {
+      return {
+        price: quote.regularMarketPrice,
+        currency: quote.currency || null,
+        quoteTime: quote.regularMarketTime ? new Date(quote.regularMarketTime).toISOString() : null,
+      };
+    }
   } catch (error) {
     console.error(`Yahoo Finance quote failed for ${symbol}:`, error.name || 'unknown error');
-    return {
-      name,
-      symbol,
-      price: null,
-      currency: null,
-      quoteTime: null,
-      status: 'unavailable',
-    };
   }
+  return fetchYahooChartQuote(symbol);
+}
+
+function fetchYahooChartQuote(symbol) {
+  return new Promise((resolve) => {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+    const request = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } }, (response) => {
+      let body = '';
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => {
+        try {
+          if (response.statusCode !== 200) {
+            console.error(`Yahoo chart quote for ${symbol} returned HTTP ${response.statusCode}.`);
+            resolve(null);
+            return;
+          }
+          const meta = JSON.parse(body)?.chart?.result?.[0]?.meta;
+          const price = meta?.regularMarketPrice;
+          if (typeof price !== 'number' || !Number.isFinite(price)) {
+            resolve(null);
+            return;
+          }
+          resolve({
+            price,
+            currency: typeof meta.currency === 'string' ? meta.currency : null,
+            quoteTime: typeof meta.regularMarketTime === 'number' ? new Date(meta.regularMarketTime * 1000).toISOString() : null,
+          });
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    request.on('error', (error) => {
+      console.error(`Yahoo chart quote failed for ${symbol}:`, error.message || 'unknown error');
+      resolve(null);
+    });
+    request.setTimeout(10000, () => request.destroy());
+  });
 }
 
 function decodeTranslationEntities(text) {
