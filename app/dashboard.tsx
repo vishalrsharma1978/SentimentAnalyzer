@@ -167,7 +167,7 @@ const PLATFORM_CHART_COLORS: Record<string, string> = {
   Reddit: '#7F56D9',
 };
 
-function PlatformRatingsChart({ reviews }: { reviews: CustomerSentiment[] }) {
+function PlatformRatingsChart({ reviews, platformRatings }: { reviews: CustomerSentiment[]; platformRatings: Record<'Google Play' | 'Apple App Store', PlatformRating> }) {
   const bySource = new Map<string, { rated: number[]; all: number }>();
   reviews.forEach((review) => {
     const entry = bySource.get(review.source) ?? { rated: [], all: 0 };
@@ -175,12 +175,18 @@ function PlatformRatingsChart({ reviews }: { reviews: CustomerSentiment[] }) {
     if (review.rating > 0) entry.rated.push(review.rating);
     bySource.set(review.source, entry);
   });
-  const rows = [...bySource.entries()].map(([source, entry]) => ({
-    source,
-    rating: entry.rated.length ? entry.rated.reduce((sum, rating) => sum + rating, 0) / entry.rated.length : null,
-    ratedCount: entry.rated.length,
-    total: entry.all,
-  })).sort((left, right) => (right.rating ?? -1) - (left.rating ?? -1));
+  const rows = [...bySource.entries()].map(([source, entry]) => {
+    // Align with the Rating Scorecard: store-aggregate rating when available,
+    // falling back to the per-review star average for that source.
+    const aggregate = source === 'Google Play' || source === 'Apple App Store' ? platformRatings[source].rating : null;
+    const reviewAverage = entry.rated.length ? entry.rated.reduce((sum, rating) => sum + rating, 0) / entry.rated.length : null;
+    return {
+      source,
+      rating: aggregate ?? reviewAverage,
+      ratedCount: entry.rated.length,
+      total: entry.all,
+    };
+  }).sort((left, right) => (right.rating ?? -1) - (left.rating ?? -1));
 
   if (!rows.length) {
     return <Text style={styles.emptyReviewText}>No verified sentiment records returned</Text>;
@@ -595,7 +601,7 @@ export default function Dashboard() {
         </SafeView>
         <SafeView style={[styles.liveBadge, liveError && styles.warningBadge]}><SafeView style={styles.liveDot}/><Text style={[styles.liveBadgeText, liveError && styles.warningText]}>{liveLoading ? 'LOADING' : liveError ? 'UNAVAILABLE' : 'LIVE'}</Text></SafeView>
       </SafeView>
-      <PlatformRatingsChart reviews={customerReviews}/>
+      <PlatformRatingsChart reviews={customerReviews} platformRatings={platformRatings}/>
     </SafeView>
     {renderReviews()}
   </>;
