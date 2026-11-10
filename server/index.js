@@ -20,7 +20,7 @@ app.use((_request, response, next) => {
   next();
 });
 
-const PORT = Number(process.env.REVIEW_COLLECTOR_PORT || 3001);
+const PORT = Number(process.env.REVIEW_COLLECTOR_PORT || process.env.PORT || 3001);
 const reviewsCache = new Map();
 const platformRatingsCache = new Map();
 const translationCache = new Map();
