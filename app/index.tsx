@@ -339,6 +339,7 @@ export default function Onboarding() {
           countries: JSON.stringify(selectedCountries),
           brand: appName.trim(),
           website: normalizedWebsite,
+          refresh: String(Date.now()),
         },
       });
     } catch {

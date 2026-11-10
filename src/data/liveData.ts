@@ -201,10 +201,11 @@ export async function fetchRedditMentions(brandName = 'Western Union'): Promise<
   }
 }
 
-export async function fetchPlaystoreAggregateRating(countryCode: string, brandName = 'Western Union'): Promise<{ rating: number | null; reviewCount: number }> {
+export async function fetchPlaystoreAggregateRating(countryCode: string, brandName = 'Western Union', forceRefresh = false): Promise<{ rating: number | null; reviewCount: number }> {
   const apiUrl = getApiUrl();
   try {
-    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&_ts=${Date.now()}`, { cache: 'no-store' });
+    const refreshParam = forceRefresh ? '&refresh=1' : '';
+    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store' });
     if (!response.ok) return { rating: null, reviewCount: 0 };
     const data = await response.json();
     return {
@@ -288,7 +289,8 @@ export async function fetchAppleStoreRating(countryCode: string, brandName = 'We
 
   const apiUrl = getApiUrl();
   try {
-    const platformResponse = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}`, { cache: 'no-store' });
+    const refreshParam = forceRefresh ? '&refresh=1' : '';
+    const platformResponse = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store' });
     if (platformResponse.ok) {
       const platformData = await platformResponse.json();
       const serverRating = platformData.apple?.rating !== null && platformData.apple?.rating !== undefined
@@ -314,6 +316,7 @@ export async function fetchAppleStoreRating(countryCode: string, brandName = 'We
     );
     const match = matches.find((item) => String(item.trackName ?? '').toLowerCase().startsWith(brandLower))
       ?? matches[0];
+    // Only return a rating when the matched app actually belongs to the selected brand.
     const value = match?.averageUserRating
       ? { rating: Number(Number(match.averageUserRating).toFixed(2)), reviewCount: Number(match.userRatingCount ?? 0) }
       : { rating: null as number | null, reviewCount: 0 };
@@ -328,8 +331,7 @@ export async function fetchAppleReviews(countryCode: string, brandName = 'Wester
   try {
     const results = await appleLookup(COMPETITOR_TERMS[brandName] ?? brandName, countryCode);
     const brandLower = brandName.toLowerCase();
-    const match = results.find((item) => `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes(brandLower))
-      ?? results[0];
+    const match = results.find((item) => `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes(brandLower));
     if (!match?.trackId) return [];
 
     const country = APPLE_COUNTRY[countryCode] ?? 'us';

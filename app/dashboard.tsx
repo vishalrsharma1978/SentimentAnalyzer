@@ -179,11 +179,14 @@ export default function Dashboard() {
   const params = useLocalSearchParams();
   const selectedMarkets = buildSelectedMarkets(params.countries);
   const brandName = buildBrandName(params.brand);
+  const refreshToken = String(Array.isArray(params.refresh) ? params.refresh[0] : params.refresh ?? '');
   const brandWebsite = String(Array.isArray(params.website) ? params.website[0] : params.website ?? '').trim() || 'https://www.westernunion.com';
   const brandInitials = getBrandInitials(brandName);
   const isWide = width >= 900;
   const isNarrow = width < 560;
   const mainScrollRef = useRef<any>(null);
+  const previousBrandRef = useRef(brandName);
+  const consumedRefreshTokenRef = useRef('');
   const reviewFeedOffset = useRef(0);
   const feedbackListOffset = useRef(0);
   const [activeSection, setActiveSection] = useState('Overview');
@@ -279,24 +282,40 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (previousBrandRef.current === brandName) return;
+    previousBrandRef.current = brandName;
+    setCustomerReviews([]);
+    setThemeFilter(null);
+    setIssueCategoryId(null);
+    setIssueCategoryLabel(null);
+    setIssueReviewIdentities([]);
+    setTargetReview(null);
+    setSentimentFilter('all');
+    setShowAllReviews(false);
+  }, [brandName]);
+
+  useEffect(() => {
     let active = true;
     const load = async () => {
+      const forceFresh = dataRefreshNonce > 0 || (refreshToken !== '' && consumedRefreshTokenRef.current !== refreshToken);
+      consumedRefreshTokenRef.current = refreshToken;
       setLiveLoading(true);
       setLiveError(false);
       setLiveCompetitors([]);
       setCompetitorSharePrices([]);
+      setCustomerReviews([]);
       setSharePricesLoading(true);
       setPlatformRatings({
         'Google Play': { rating: null, reviewCount: 0, sourceCount: 0 },
         'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
       });
       try {
-        const appleRatingPromise = fetchAppleStoreRating(selectedCountry.code, brandName, dataRefreshNonce > 0);
+        const appleRatingPromise = fetchAppleStoreRating(selectedCountry.code, brandName, forceFresh);
         const secondaryPromise = Promise.all([
           fetchAppleCompetitors(selectedCountry.code, selectedCountry.region),
           fetchRedditMentions(brandName),
           fetchReviewCollector(selectedCountry.code, brandName, durationMonths, dataRefreshNonce),
-          fetchPlaystoreAggregateRating(selectedCountry.code, brandName),
+          fetchPlaystoreAggregateRating(selectedCountry.code, brandName, forceFresh),
         ]);
 
         const appleStoreRating = await appleRatingPromise;
@@ -379,7 +398,7 @@ export default function Dashboard() {
     };
     load();
     return () => { active = false; };
-  }, [selectedCountry.code, selectedCountry.region, durationMonths, dataRefreshNonce, brandName]);
+  }, [selectedCountry.code, selectedCountry.region, durationMonths, dataRefreshNonce, brandName, refreshToken]);
 
   const handleCountryChange = (country: SunburstMarket) => {
     if (country.code === selectedCountry.code) return;

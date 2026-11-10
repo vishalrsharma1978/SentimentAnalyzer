@@ -225,8 +225,7 @@ async function collectAppleReviews(brand, country) {
       }
     }
     const appNameIncludesBrand = (app) => `${app.trackName || ''} ${app.sellerName || app.artistName || ''}`.toLowerCase().includes(brand === 'Wise' ? 'wise' : brand.toLowerCase());
-    const match = (lookupData.results || []).find(appNameIncludesBrand)
-      || (lookupData.results || []).find((app) => /money|transfer|wallet/i.test(app.trackName || ''));
+    const match = (lookupData.results || []).find(appNameIncludesBrand);
     if (!match?.trackId) return [];
     const response = await fetch(`https://itunes.apple.com/${countryCode}/rss/customerreviews/id=${match.trackId}/sortBy=mostRecent/json?_ts=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) return [];
