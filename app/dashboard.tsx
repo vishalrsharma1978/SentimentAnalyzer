@@ -301,6 +301,7 @@ export default function Dashboard() {
     'Google Play': { rating: null, reviewCount: 0, sourceCount: 0 },
     'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
   });
+  const [marketRatings, setMarketRatings] = useState<Record<string, number | null>>({});
 
   const filteredMarkets = selectedRegion === 'Global' ? selectedMarkets : selectedMarkets.filter((item) => item.region === selectedRegion);
   const sunburstMarkets = filteredMarkets.length ? filteredMarkets : selectedMarkets;
@@ -447,6 +448,35 @@ export default function Dashboard() {
     load();
     return () => { active = false; };
   }, [selectedCountry.code, selectedCountry.region, durationMonths, dataRefreshNonce, brandName, refreshToken]);
+
+  // Fetch the accurate per-country store rating for every selected market so the
+  // Markets tab shows real data for all countries, not just the selected one.
+  const selectedMarketsKey = selectedMarkets.map((market) => market.code).join(',');
+  useEffect(() => {
+    let active = true;
+    const loadMarketRatings = async () => {
+      const entries = await Promise.all(selectedMarkets.map(async (market) => {
+        try {
+          const [apple, google] = await Promise.all([
+            fetchAppleStoreRating(market.code, brandName),
+            fetchPlaystoreAggregateRating(market.code, brandName),
+          ]);
+          const available = [google.rating, apple.rating].filter((rating): rating is number => rating !== null);
+          const rating = available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : null;
+          return [market.code, rating] as const;
+        } catch {
+          return [market.code, null] as const;
+        }
+      }));
+      if (!active) return;
+      const next: Record<string, number | null> = {};
+      entries.forEach(([code, rating]) => { next[code] = rating; });
+      setMarketRatings(next);
+    };
+    loadMarketRatings();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMarketsKey, brandName, dataRefreshNonce]);
 
   const handleCountryChange = (country: SunburstMarket) => {
     if (country.code === selectedCountry.code) return;
@@ -607,7 +637,7 @@ export default function Dashboard() {
     {renderReviews()}
   </>;
 
-  const renderMarkets = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Country performance</Text><Text style={styles.cardSub}>Ratings and regional position · 1–5 scale</Text></SafeView></SafeView>{selectedMarkets.map((country) => <Pressable key={country.code} onPress={() => handleCountryChange(country)} style={[styles.marketRow, selectedCountry.code === country.code && styles.marketRowActive]}><SafeView style={styles.flag}><Text style={styles.flagText}>{country.code}</Text></SafeView><SafeView style={styles.marketName}><Text style={styles.marketTitle}>{country.name}</Text><Text style={styles.marketRegion}>{country.region}</Text></SafeView><SafeView style={styles.marketTrack}><SafeView style={[styles.marketFill, { width: `${country.code === selectedCountry.code && brandRating !== null ? brandRating * 20 : 0}%` }]}/></SafeView><Text style={styles.marketScore}>{country.code === selectedCountry.code ? (brandRating !== null ? `${brandRating.toFixed(1)} / 5` : '— / 5') : '— / 5'}</Text><Text style={styles.marketRank}>—</Text></Pressable>)}</SafeView>{renderReviews()}</>;
+  const renderMarkets = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Country performance</Text><Text style={styles.cardSub}>Live store ratings and regional position · 1–5 scale</Text></SafeView></SafeView>{selectedMarkets.map((country) => { const marketRating = country.code === selectedCountry.code ? brandRating : (marketRatings[country.code] ?? null); return <Pressable key={country.code} onPress={() => handleCountryChange(country)} style={[styles.marketRow, selectedCountry.code === country.code && styles.marketRowActive]}><SafeView style={styles.flag}><Text style={styles.flagText}>{country.code}</Text></SafeView><SafeView style={styles.marketName}><Text style={styles.marketTitle}>{country.name}</Text><Text style={styles.marketRegion}>{country.region}</Text></SafeView><SafeView style={styles.marketTrack}><SafeView style={[styles.marketFill, { width: `${marketRating !== null ? marketRating * 20 : 0}%` }]}/></SafeView><Text style={styles.marketScore}>{marketRating !== null ? `${marketRating.toFixed(1)} / 5` : '— / 5'}</Text><Text style={styles.marketRank}>—</Text></Pressable>; })}</SafeView>{renderReviews()}</>;
 
   const renderCompetitors = () => {
     const selectedBrand = brandName;
