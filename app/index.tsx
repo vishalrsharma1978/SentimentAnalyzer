@@ -18,7 +18,7 @@ import { Cockpit } from "../src/components/Cockpit";
 import { CustomerSentimentBanner } from "../src/components/CustomerSentimentBanner";
 import { GaugeCluster } from "../src/components/GaugeCluster";
 import { SentimentStoryRails } from "../src/components/SentimentStoryRails";
-import { colors } from "../src/theme";
+import { colors, fonts } from "../src/theme";
 
 const businessTypes = [
   "Money transfer",
@@ -349,7 +349,7 @@ export default function Onboarding() {
       <View style={styles.frame}>
         <View accessibilityRole="header" style={styles.topHeader}>
           <View style={styles.topHeaderMark}>
-            <Ionicons name="pulse" size={20} color="#FFF200" />
+            <Ionicons name="pulse" size={20} color="#FFFFFF" />
           </View>
           <Text
             style={[styles.topHeaderTitle, !isWide && styles.topHeaderTitleCompact]}
@@ -363,7 +363,7 @@ export default function Onboarding() {
             onPress={() => setShowLogin(true)}
             style={[styles.signInButton, styles.headerSignInButton]}
           >
-            <Ionicons name="person-circle-outline" size={17} color="#FFF200" />
+            <Ionicons name="person-circle-outline" size={17} color="#FFFFFF" />
             <Text style={styles.signInText}>
               {isWide ? "Partner sign in" : "Sign in"}
             </Text>
@@ -384,7 +384,7 @@ export default function Onboarding() {
             <View style={styles.brandRow}>
               <View style={styles.brandIdentity}>
                 <View style={styles.logo}>
-                  <Ionicons name="pulse" size={22} color="#0B0B0D" />
+                  <Ionicons name="pulse" size={22} color="#FFFFFF" />
                 </View>
                 <Text style={styles.brandName}>PulseBoard</Text>
               </View>
@@ -405,11 +405,11 @@ export default function Onboarding() {
               </View>
 
               <View style={[styles.form, isWide && styles.formWide]}>
-                <Text style={styles.kicker}>PULSEBOARD · SCUDERIA EDITION</Text>
-                <Text style={styles.title}>Engineered for sentiment</Text>
+                <Text style={styles.kicker}>PULSEBOARD · CUSTOMER SENTIMENT ANALYTICS</Text>
+                <Text style={styles.title}>Know what your customers feel</Text>
                 <Text style={styles.subtitle}>
-                  Precision-tuned intelligence for brands that demand
-                  performance. Build your live sentiment model.
+                  Open, verifiable sentiment intelligence for your brand.
+                  Build your live sentiment model in seconds.
                 </Text>
 
                 <View style={styles.brandSelectorHeader}>
@@ -456,7 +456,7 @@ export default function Onboarding() {
                           <Ionicons
                             name="checkmark-circle"
                             size={15}
-                            color="#DC0000"
+                            color={colors.primary}
                           />
                         )}
                       </Pressable>
@@ -477,7 +477,7 @@ export default function Onboarding() {
                       <Ionicons
                         name="add"
                         size={17}
-                        color="#FFF200"
+                        color={colors.primary}
                       />
                     </View>
                     <Text style={styles.brandPresetText}>Your brand</Text>
@@ -490,7 +490,7 @@ export default function Onboarding() {
                         <Ionicons
                           name="sparkles"
                           size={15}
-                          color="#FFF200"
+                          color={colors.primaryDark}
                         />
                         <Text style={styles.suggestionTitle}>
                           Suggested setup for {businessName.trim()}
@@ -520,7 +520,7 @@ export default function Onboarding() {
                       <Ionicons
                         name="checkmark-circle-outline"
                         size={15}
-                        color="#FFF200"
+                        color="#FFFFFF"
                       />
                       <Text style={styles.applySuggestionText}>Use setup</Text>
                     </Pressable>
@@ -532,7 +532,7 @@ export default function Onboarding() {
                     <Text style={styles.label}>Business name</Text>
                     <TextInput
                       placeholder="e.g. Acme Financial"
-                      placeholderTextColor="#98A2B3"
+                      placeholderTextColor={colors.faint}
                       style={[
                         styles.input,
                         touched && !businessName && styles.inputError,
@@ -545,7 +545,7 @@ export default function Onboarding() {
                     <Text style={styles.label}>App or brand name</Text>
                     <TextInput
                       placeholder="e.g. Acme Mobile"
-                      placeholderTextColor="#98A2B3"
+                      placeholderTextColor={colors.faint}
                       style={[
                         styles.input,
                         touched && !appName && styles.inputError,
@@ -560,7 +560,7 @@ export default function Onboarding() {
                   <Text style={styles.label}>Website</Text>
                   <TextInput
                     placeholder="https://example.com"
-                    placeholderTextColor="#98A2B3"
+                    placeholderTextColor={colors.faint}
                     autoCapitalize="none"
                     keyboardType="url"
                     style={[
@@ -628,7 +628,7 @@ export default function Onboarding() {
                               : "phone-portrait-outline"
                           }
                           size={14}
-                          color={active ? colors.primary : "#8A8A90"}
+                          color={active ? colors.primary : colors.faint}
                         />
                         <Text
                           style={[
@@ -675,7 +675,7 @@ export default function Onboarding() {
                             active ? "checkmark-circle" : "chatbubble-outline"
                           }
                           size={13}
-                          color={active ? colors.primary : "#8A8A90"}
+                          color={active ? colors.primary : colors.faint}
                         />
                         <Text
                           style={[
@@ -728,7 +728,7 @@ export default function Onboarding() {
                         <Ionicons
                           name={active ? "checkmark-circle" : "globe-outline"}
                           size={14}
-                          color={active ? colors.primary : "#8A8A90"}
+                          color={active ? colors.primary : colors.faint}
                         />
                         <Text
                           style={[
@@ -808,7 +808,7 @@ export default function Onboarding() {
                         ? "Opening dashboard…"
                         : collectionState === "error"
                           ? "Retry collection"
-                          : "Ignite sentiment model"}
+                          : "Build sentiment model"}
                   </Text>
                   <Ionicons
                     name={
@@ -824,7 +824,7 @@ export default function Onboarding() {
                   <Ionicons
                     name="lock-closed-outline"
                     size={13}
-                    color="#98A2B3"
+                    color={colors.faint}
                   />{" "}
                   Your sources and API keys stay private
                 </Text>
@@ -853,7 +853,7 @@ export default function Onboarding() {
                 <Ionicons name="pulse" size={20} color="#fff" />
               </View>
               <Pressable onPress={() => setShowLogin(false)} hitSlop={12}>
-                <Ionicons name="close" size={22} color="#8A8A90" />
+                <Ionicons name="close" size={22} color={colors.muted} />
               </Pressable>
             </View>
             <Text style={styles.loginEyebrow}>BUSINESS PARTNER PORTAL</Text>
@@ -875,7 +875,7 @@ export default function Onboarding() {
               onChangeText={setLoginPassword}
               secureTextEntry
               placeholder="Enter password"
-              placeholderTextColor="#98A2B3"
+              placeholderTextColor={colors.faint}
               style={styles.input}
             />
             <Pressable
@@ -894,7 +894,7 @@ export default function Onboarding() {
               <Ionicons
                 name="information-circle-outline"
                 size={15}
-                color="#DC0000"
+                color={colors.primary}
               />
               <Text style={styles.demoNoteText}>
                 Demo access requires an email and 4-character password.
@@ -909,58 +909,46 @@ export default function Onboarding() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0B0B0D", padding: 10 },
+  safe: { flex: 1, backgroundColor: colors.canvas },
   frame: {
     flex: 1,
-    borderWidth: 16,
-    borderColor: "#26262B",
-    borderRadius: 28,
-    backgroundColor: "#0B0B0D",
-    overflow: "hidden",
-    shadowColor: "#DC0000",
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 10,
-    outlineWidth: 2,
-    outlineColor: "#DC0000",
-  } as any,
+    backgroundColor: colors.canvas,
+  },
   topHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
     minHeight: 64,
-    paddingHorizontal: 12,
-    backgroundColor: "#FFF200",
-    borderBottomWidth: 5,
-    borderBottomColor: "#DC0000",
+    paddingHorizontal: 16,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
   },
   topHeaderMark: {
     width: 34,
     height: 34,
-    borderRadius: 4,
-    backgroundColor: "#0B0B0D",
+    borderRadius: 8,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   topHeaderTitle: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 2,
-    color: "#0B0B0D",
-    textTransform: "uppercase",
+    fontSize: 17,
+    fontFamily: fonts.bold,
+    color: colors.navy,
     textAlign: "center",
     flexShrink: 1,
   },
-  topHeaderTitleCompact: { fontSize: 11, letterSpacing: 0.4 },
+  topHeaderTitleCompact: { fontSize: 13 },
   headerSignInButton: {
-    height: 36,
-    paddingHorizontal: 9,
-    borderRadius: 18,
-    backgroundColor: "#0B0B0D",
-    borderColor: "#0B0B0D",
-    gap: 5,
+    height: 40,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    gap: 6,
   },
   heroBanner: {
     width: "100%",
@@ -979,38 +967,34 @@ const styles = StyleSheet.create({
   },
   brandIdentity: { flexDirection: "row", alignItems: "center" },
   signInButton: {
-    height: 38,
-    borderRadius: 19,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#DC0000",
-    paddingHorizontal: 14,
+    borderColor: colors.primary,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    backgroundColor: "transparent",
+    backgroundColor: colors.primary,
   },
   signInText: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    color: "#FFF200",
-    textTransform: "uppercase",
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: "#FFFFFF",
   },
   logo: {
     width: 36,
     height: 36,
-    borderRadius: 4,
-    backgroundColor: "#FFF200",
+    borderRadius: 8,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   brandName: {
     marginLeft: 10,
     fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 2,
-    color: "#F2F2F2",
-    textTransform: "uppercase",
+    fontFamily: fonts.bold,
+    color: colors.navy,
   },
   content: {
     flexDirection: "column-reverse",
@@ -1218,26 +1202,27 @@ const styles = StyleSheet.create({
   form: { flex: 1 },
   formWide: { flex: 1.2, maxWidth: 530 },
   kicker: {
-    fontSize: 11,
-    letterSpacing: 4,
-    fontWeight: "700",
-    color: "#DC0000",
+    fontSize: 12,
+    letterSpacing: 2,
+    fontFamily: fonts.bold,
+    color: colors.primary,
     marginBottom: 12,
   },
   title: {
-    fontSize: 38,
-    lineHeight: 46,
-    fontWeight: "800",
-    letterSpacing: 0.2,
-    color: "#F2F2F2",
+    fontSize: 36,
+    lineHeight: 44,
+    fontFamily: fonts.black,
+    letterSpacing: -0.5,
+    color: colors.navy,
     maxWidth: 440,
   },
   subtitle: {
     marginTop: 12,
     marginBottom: 22,
-    fontSize: 15,
-    lineHeight: 24,
-    color: "#A0A0A6",
+    fontSize: 16,
+    lineHeight: 26,
+    fontFamily: fonts.regular,
+    color: colors.muted,
   },
   brandSelectorHeader: {
     flexDirection: "row",
@@ -1254,28 +1239,28 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#2A2A30",
-    backgroundColor: "#141417",
+    borderColor: colors.line,
+    backgroundColor: colors.card,
     paddingHorizontal: 8,
     paddingRight: 11,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
   },
-  brandPresetActive: { borderColor: "#DC0000", backgroundColor: "#2A1010" },
+  brandPresetActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   brandPresetMark: {
     width: 28,
     height: 28,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1E1E22",
+    backgroundColor: colors.badge,
   },
-  brandPresetMarkActive: { backgroundColor: "#DC0000" },
-  brandPresetInitial: { fontSize: 11, fontWeight: "900", color: "#667085" },
+  brandPresetMarkActive: { backgroundColor: colors.primary },
+  brandPresetInitial: { fontSize: 11, fontFamily: fonts.black, color: colors.muted },
   brandPresetInitialActive: { color: "#FFFFFF" },
-  brandPresetText: { fontSize: 11, fontWeight: "800", color: "#C4C4C8" },
-  brandPresetTextActive: { color: "#FFF200" },
+  brandPresetText: { fontSize: 11, fontFamily: fonts.bold, color: colors.text },
+  brandPresetTextActive: { color: colors.primaryDark },
   customBrandPreset: { borderStyle: "dashed" },
   customBrandMark: {
     width: 28,
@@ -1283,16 +1268,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2A1010",
+    backgroundColor: colors.primarySoft,
   },
   suggestionCard: {
     marginTop: -6,
     marginBottom: 16,
     padding: 12,
-    borderRadius: 6,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#4A2920",
-    backgroundColor: "#141214",
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySoft,
   },
   suggestionCopy: { gap: 5 },
   suggestionHeading: {
@@ -1304,29 +1289,30 @@ const styles = StyleSheet.create({
   suggestionTitle: {
     flex: 1,
     fontSize: 12,
-    fontWeight: "800",
-    color: "#F2F2F2",
+    fontFamily: fonts.bold,
+    color: colors.navy,
   },
   suggestionDetail: {
     fontSize: 10,
     lineHeight: 15,
-    color: "#C4C4C8",
+    fontFamily: fonts.regular,
+    color: colors.muted,
   },
   suggestionFootnote: {
     marginTop: 2,
     fontSize: 9,
     lineHeight: 13,
-    color: "#A0A0A6",
+    color: colors.faint,
   },
   applySuggestionButton: {
     alignSelf: "flex-start",
     minHeight: 34,
     marginTop: 10,
     paddingHorizontal: 11,
-    borderRadius: 4,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#DC0000",
-    backgroundColor: "#2A1010",
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1335,45 +1321,46 @@ const styles = StyleSheet.create({
   applySuggestionButtonPressed: { opacity: 0.75 },
   applySuggestionText: {
     fontSize: 10,
-    fontWeight: "800",
-    color: "#FFF200",
+    fontFamily: fonts.bold,
+    color: "#FFFFFF",
   },
   fieldRow: { flexDirection: "row", gap: 12 },
   field: { flex: 1, marginBottom: 15 },
   label: {
     fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.4,
-    color: "#C4C4C8",
+    fontFamily: fonts.bold,
+    letterSpacing: 0.8,
+    color: colors.muted,
     marginBottom: 8,
     textTransform: "uppercase",
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: "#2A2A30",
-    borderRadius: 4,
+    borderColor: colors.line,
+    borderRadius: 12,
     paddingHorizontal: 13,
-    backgroundColor: "#141417",
-    color: "#F2F2F2",
+    backgroundColor: colors.card,
+    color: colors.navy,
+    fontFamily: fonts.regular,
   },
   inputError: { borderColor: colors.red },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   chip: {
     minHeight: 38,
     borderWidth: 1,
-    borderColor: "#2A2A30",
-    borderRadius: 4,
+    borderColor: colors.line,
+    borderRadius: 10,
     paddingHorizontal: 13,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 6,
-    backgroundColor: "#141417",
+    backgroundColor: colors.card,
   },
-  chipActive: { borderColor: "#DC0000", backgroundColor: colors.primarySoft },
-  chipText: { fontSize: 12, fontWeight: "600", color: "#C4C4C8" },
-  chipTextActive: { color: "#FFF200" },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  chipText: { fontSize: 12, fontFamily: fonts.bold, color: colors.text },
+  chipTextActive: { color: colors.primaryDark },
   marketHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1386,34 +1373,34 @@ const styles = StyleSheet.create({
   },
   multiHint: {
     fontSize: 10,
-    fontWeight: "700",
+    fontFamily: fonts.bold,
     letterSpacing: 1,
-    color: "#DC0000",
+    color: colors.primary,
     marginBottom: 8,
   },
   sourceChip: {
     minHeight: 38,
     borderWidth: 1,
-    borderColor: "#2A2A30",
-    borderRadius: 4,
+    borderColor: colors.line,
+    borderRadius: 10,
     paddingHorizontal: 13,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 6,
-    backgroundColor: "#141417",
+    backgroundColor: colors.card,
   },
   sourceChipActive: {
-    borderColor: "#DC0000",
+    borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
   clearText: {
     fontSize: 11,
-    fontWeight: "700",
-    color: "#DC0000",
+    fontFamily: fonts.bold,
+    color: colors.primary,
     marginBottom: 8,
   },
-  marketHint: { fontSize: 11, color: "#8A8A90", marginBottom: 9 },
+  marketHint: { fontSize: 11, color: colors.faint, marginBottom: 9 },
   bundleChips: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1422,40 +1409,40 @@ const styles = StyleSheet.create({
   },
   bundleChip: {
     height: 38,
-    borderRadius: 4,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#2A2A30",
-    backgroundColor: "#141417",
+    borderColor: colors.line,
+    backgroundColor: colors.card,
     paddingHorizontal: 11,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
   bundleChipActive: {
-    borderColor: "#DC0000",
+    borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
-  bundleText: { fontSize: 11, fontWeight: "700", color: "#C4C4C8" },
-  bundleTextActive: { color: "#FFF200" },
+  bundleText: { fontSize: 11, fontFamily: fonts.bold, color: colors.text },
+  bundleTextActive: { color: colors.primaryDark },
   selectionSummary: {
     minHeight: 52,
-    borderRadius: 4,
-    backgroundColor: "#1A0F0F",
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: "#3A1A1A",
+    borderColor: colors.primaryBorder,
     padding: 10,
     marginBottom: 14,
   },
   selectionCount: {
     fontSize: 11,
-    fontWeight: "800",
+    fontFamily: fonts.black,
     letterSpacing: 1,
-    color: "#FFF200",
+    color: colors.primaryDark,
   },
   selectionNames: {
     fontSize: 10,
     lineHeight: 14,
-    color: "#8A8A90",
+    color: colors.muted,
     marginTop: 4,
   },
   aLaCarteLabel: { marginTop: 2 },
@@ -1471,19 +1458,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(201,162,39,0.3)",
+    borderTopColor: colors.line,
   },
   collectionMetaValue: {
     fontSize: 16,
-    fontWeight: "300",
-    color: "#FFF200",
+    fontFamily: fonts.light,
+    color: colors.navy,
     textAlign: "center",
   },
   collectionMetaLabel: {
     fontSize: 8,
-    fontWeight: "700",
+    fontFamily: fonts.bold,
     letterSpacing: 1.6,
-    color: "#8A8A90",
+    color: colors.faint,
     marginTop: 2,
     textAlign: "center",
   },
@@ -1498,7 +1485,7 @@ const styles = StyleSheet.create({
     height: 4,
     marginTop: 14,
     borderRadius: 2,
-    backgroundColor: "#2A1A1A",
+    backgroundColor: colors.badge,
     overflow: "hidden",
   },
   progressFill: {
@@ -1518,13 +1505,13 @@ const styles = StyleSheet.create({
   loginCard: {
     width: "100%",
     maxWidth: 440,
-    borderRadius: 6,
-    backgroundColor: "#101012",
+    borderRadius: 16,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#3A1A1A",
+    borderColor: colors.line,
     padding: 24,
     shadowColor: "#000",
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.12,
     shadowRadius: 30,
     elevation: 20,
   },
@@ -1537,82 +1524,79 @@ const styles = StyleSheet.create({
   loginMark: {
     width: 38,
     height: 38,
-    borderRadius: 4,
-    backgroundColor: "#DC0000",
+    borderRadius: 10,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   loginEyebrow: {
     fontSize: 9,
-    letterSpacing: 3,
-    fontWeight: "700",
-    color: "#DC0000",
+    letterSpacing: 2,
+    fontFamily: fonts.bold,
+    color: colors.primary,
   },
   loginTitle: {
     fontSize: 28,
-    fontWeight: "200",
-    color: "#F2F2F2",
+    fontFamily: fonts.light,
+    color: colors.navy,
     marginTop: 5,
   },
   loginSubtitle: {
     fontSize: 12,
     lineHeight: 18,
-    color: "#8A8A90",
+    fontFamily: fonts.regular,
+    color: colors.muted,
     marginTop: 6,
     marginBottom: 20,
   },
   loginButton: {
     height: 48,
-    borderRadius: 4,
+    borderRadius: 12,
     marginTop: 18,
-    backgroundColor: "#DC0000",
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
   loginButtonText: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 1.5,
+    fontSize: 13,
+    fontFamily: fonts.bold,
     color: "#FFFFFF",
-    textTransform: "uppercase",
   },
   demoNote: {
     flexDirection: "row",
     gap: 8,
-    borderRadius: 4,
-    backgroundColor: "#1A0F0F",
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
     padding: 10,
     marginTop: 12,
   },
-  demoNoteText: { flex: 1, fontSize: 9, lineHeight: 14, color: "#8A8A90" },
+  demoNoteText: { flex: 1, fontSize: 9, lineHeight: 14, color: colors.muted },
   button: {
-    height: 56,
-    borderRadius: 4,
-    backgroundColor: "#DC0000",
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
     marginTop: 8,
-    shadowColor: "#DC0000",
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
   },
   buttonPressed: { opacity: 0.88 },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 2,
-    textTransform: "uppercase",
+    fontSize: 14,
+    fontFamily: fonts.bold,
   },
   privacy: {
     textAlign: "center",
     fontSize: 11,
-    color: "#98A2B3",
+    color: colors.faint,
     marginTop: 12,
   },
 });

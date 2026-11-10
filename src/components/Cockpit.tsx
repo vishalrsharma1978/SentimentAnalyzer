@@ -15,7 +15,7 @@ const promises: {
   },
   {
     icon: "flag-outline",
-    title: "Beat the field",
+    title: "Stay ahead",
     text: "Benchmark your brand against competitors in every market.",
   },
   {
@@ -25,7 +25,7 @@ const promises: {
   },
 ];
 
-// Ferrari-style steering wheel (flat bottom, yellow rev strip, red ignition button) over carbon,
+// Clean light steering-wheel motif over a subtle dot grid,
 // with brand promises filling the space beneath it.
 export function Cockpit({
   message = "Let’s start brand review",
@@ -36,7 +36,7 @@ export function Cockpit({
     <View style={styles.wrap}>
       <Carbon />
       <View pointerEvents="none" style={styles.messageWrap}>
-        <Text style={styles.eyebrow}>IGNITION READY</Text>
+        <Text style={styles.eyebrow}>READY WHEN YOU ARE</Text>
         <Text style={styles.message}>{message}</Text>
       </View>
       <View pointerEvents="none" style={styles.wheelWrap}>
@@ -44,37 +44,37 @@ export function Cockpit({
           {/* rim */}
           <Path
             d="M60 160 C60 78 112 34 180 34 C248 34 300 78 300 160 C300 222 270 262 236 270 L124 270 C90 262 60 222 60 160 Z"
-            fill="#0B0B0D"
-            stroke="#3A3A42"
+            fill="#22242B"
+            stroke="#3B4154"
             strokeWidth={34}
             strokeLinejoin="round"
           />
           <Path
             d="M60 160 C60 78 112 34 180 34 C248 34 300 78 300 160 C300 222 270 262 236 270 L124 270 C90 262 60 222 60 160 Z"
             fill="none"
-            stroke="#DC0000"
+            stroke="#509EE3"
             strokeWidth={4}
             strokeLinejoin="round"
           />
-          {/* yellow rev strip at 12 o'clock */}
-          <Rect x={150} y={14} width={60} height={12} rx={4} fill="#FFF200" />
-          <Rect x={178} y={14} width={4} height={12} fill="#DC0000" />
+          {/* blue rev strip at 12 o'clock */}
+          <Rect x={150} y={14} width={60} height={12} rx={4} fill="#509EE3" />
+          <Rect x={178} y={14} width={4} height={12} fill="#22242B" />
           {/* spokes */}
           <Path
             d="M70 170 L140 188 M290 170 L220 188 M180 232 L180 266"
-            stroke="#1E1E22"
+            stroke="#3B4154"
             strokeWidth={22}
             strokeLinecap="round"
           />
-          {/* hub with prancing-horse yellow shield */}
+          {/* hub with brand-blue shield */}
           <Rect
             x={138}
             y={118}
             width={84}
             height={96}
             rx={14}
-            fill="#FFF200"
-            stroke="#0B0B0D"
+            fill="#509EE3"
+            stroke="#22242B"
             strokeWidth={5}
           />
           <SvgText
@@ -82,21 +82,21 @@ export function Cockpit({
             y={178}
             fontSize={46}
             fontWeight="bold"
-            fill="#0B0B0D"
+            fill="#FFFFFF"
             textAnchor="middle"
           >
-            F
+            P
           </SvgText>
-          <Rect x={138} y={118} width={84} height={10} fill="#00843D" />
-          <Rect x={138} y={128} width={84} height={5} fill="#F2F2F2" />
-          <Rect x={138} y={133} width={84} height={5} fill="#DC0000" />
-          {/* red engine-start button */}
+          <Rect x={138} y={118} width={84} height={10} fill="#3B7EC2" />
+          <Rect x={138} y={128} width={84} height={5} fill="#B9D6F2" />
+          <Rect x={138} y={133} width={84} height={5} fill="#EAF3FC" />
+          {/* blue engine-start button */}
           <Circle
             cx={98}
             cy={178}
             r={20}
-            fill="#DC0000"
-            stroke="#0B0B0D"
+            fill="#509EE3"
+            stroke="#22242B"
             strokeWidth={4}
           />
           <SvgText
@@ -104,7 +104,7 @@ export function Cockpit({
             y={183}
             fontSize={11}
             fontWeight="bold"
-            fill="#F2F2F2"
+            fill="#FFFFFF"
             textAnchor="middle"
           >
             START
@@ -117,7 +117,7 @@ export function Cockpit({
         {promises.map((p) => (
           <View key={p.title} style={styles.promise}>
             <View style={styles.promiseIcon}>
-              <Ionicons name={p.icon} size={18} color="#0B0B0D" />
+              <Ionicons name={p.icon} size={18} color="#3B7EC2" />
             </View>
             <View style={styles.promiseBody}>
               <Text style={styles.promiseHeading}>{p.title}</Text>
@@ -135,14 +135,19 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     minHeight: 540,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "#DC0000",
-    backgroundColor: "#0B0B0D",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E4E9",
+    backgroundColor: "#FFFFFF",
     overflow: "hidden",
     justifyContent: "flex-start",
     alignItems: "center",
     paddingBottom: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   messageWrap: {
     position: "absolute",
@@ -155,7 +160,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#DC0000",
+    color: "#509EE3",
   },
   message: {
     marginTop: 6,
@@ -163,7 +168,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "300",
     letterSpacing: 1,
-    color: "#FFF200",
+    color: "#22242B",
   },
   wheelWrap: { marginTop: 110 },
   promises: {
@@ -172,21 +177,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,242,0,0.3)",
+    borderTopColor: "#E2E4E9",
     gap: 14,
   },
   promisesTitle: {
     fontSize: 10,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#DC0000",
+    color: "#509EE3",
   },
   promise: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   promiseIcon: {
     width: 34,
     height: 34,
-    borderRadius: 4,
-    backgroundColor: "#FFF200",
+    borderRadius: 8,
+    backgroundColor: "#EAF3FC",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -195,15 +200,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.5,
-    color: "#FFF200",
+    color: "#22242B",
   },
-  promiseText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#C4C4C8" },
+  promiseText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#5A6072" },
   stripe: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: 5,
-    backgroundColor: "#DC0000",
+    height: 4,
+    backgroundColor: "#509EE3",
   },
 });

@@ -80,11 +80,11 @@ export function RatingGauge({ label, value, color, icon, compact = false, detail
         <Ionicons name={icon} size={compact ? 14 : 16} color={color} />
       </GaugeIcon>
       <Svg width={size} height={compact ? 112 : 132} viewBox="0 0 180 145">
-        <Circle cx="90" cy="116" r="79" fill="#090D12" stroke="#33404D" strokeWidth="1.5" />
-        <Circle cx="90" cy="116" r="73" fill="none" stroke="#151D25" strokeWidth="9" />
-        <Path d="M 23 116 A 67 67 0 0 1 157 116" fill="none" stroke="#202A34" strokeWidth="15" strokeLinecap="round" />
+        <Circle cx="90" cy="116" r="79" fill="#FFFFFF" stroke="#E2E4E9" strokeWidth="1.5" />
+        <Circle cx="90" cy="116" r="73" fill="none" stroke="#EEF0F3" strokeWidth="9" />
+        <Path d="M 23 116 A 67 67 0 0 1 157 116" fill="none" stroke="#EEF0F3" strokeWidth="15" strokeLinecap="round" />
         <Path d="M 23 116 A 67 67 0 0 1 157 116" fill="none" stroke={color} strokeWidth="15" strokeLinecap="round" strokeDasharray={`${arcLength * fraction} ${arcLength}`} />
-        <Path d="M 144 52 A 67 67 0 0 1 157 116" fill="none" stroke="#DC0000" strokeWidth="15" strokeLinecap="round" opacity="0.85" />
+        <Path d="M 144 52 A 67 67 0 0 1 157 116" fill="none" stroke="#509EE3" strokeWidth="15" strokeLinecap="round" opacity="0.85" />
         {[0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1].map((tick, index) => {
           const tickAngle = Math.PI + Math.PI * tick;
           const major = index % 5 === 0;
@@ -92,23 +92,23 @@ export function RatingGauge({ label, value, color, icon, compact = false, detail
           const outerY = 116 + 67 * Math.sin(tickAngle);
           const innerX = 90 + (major ? 54 : 58) * Math.cos(tickAngle);
           const innerY = 116 + (major ? 54 : 58) * Math.sin(tickAngle);
-          return <Line key={tick} x1={innerX} y1={innerY} x2={outerX} y2={outerY} stroke={major ? '#CFD6DC' : '#73808B'} strokeWidth={major ? 2.2 : 1.1} />;
+          return <Line key={tick} x1={innerX} y1={innerY} x2={outerX} y2={outerY} stroke={major ? '#9499A8' : '#C9CED6'} strokeWidth={major ? 2.2 : 1.1} />;
         })}
         {[0, 1, 2, 3, 4, 5].map((tick) => {
           const tickAngle = Math.PI + Math.PI * (tick / 5);
           const textX = 90 + 74 * Math.cos(tickAngle);
           const textY = 119 + 74 * Math.sin(tickAngle);
-          return <SvgText key={`label-${tick}`} x={textX} y={textY} fill="#AAB5C1" fontSize="8" fontWeight="900" textAnchor="middle">{tick}</SvgText>;
+          return <SvgText key={`label-${tick}`} x={textX} y={textY} fill="#9499A8" fontSize="8" fontWeight="900" textAnchor="middle">{tick}</SvgText>;
         })}
         {value !== null && <>
-          <GaugeLine x1={90} y1={116} x2={Platform.OS === 'web' ? finalX + 2 : animatedShadowX} y2={Platform.OS === 'web' ? finalY + 2 : animatedShadowY} stroke="#000" strokeWidth="4" strokeLinecap="round" opacity="0.55" />
-          <GaugeLine x1={90} y1={116} x2={Platform.OS === 'web' ? finalX : animatedX} y2={Platform.OS === 'web' ? finalY : animatedY} stroke="#F7FAFC" strokeWidth="3" strokeLinecap="round" />
+          <GaugeLine x1={90} y1={116} x2={Platform.OS === 'web' ? finalX + 2 : animatedShadowX} y2={Platform.OS === 'web' ? finalY + 2 : animatedShadowY} stroke="#000" strokeWidth="4" strokeLinecap="round" opacity="0.12" />
+          <GaugeLine x1={90} y1={116} x2={Platform.OS === 'web' ? finalX : animatedX} y2={Platform.OS === 'web' ? finalY : animatedY} stroke="#22242B" strokeWidth="3" strokeLinecap="round" />
         </>}
-        <Circle cx="90" cy="116" r="11" fill="#101720" stroke="#CFD6DC" strokeWidth="2" />
-        <Circle cx="90" cy="116" r="5" fill={color} stroke="#090D12" strokeWidth="1.5" />
-        <SvgText x="90" y="72" fill="#7F8B97" fontSize="7" fontWeight="900" textAnchor="middle">LIVE SCORE</SvgText>
-        <SvgText x="90" y="99" fill="#F5F8FB" fontSize="28" fontWeight="900" textAnchor="middle">{value !== null ? value.toFixed(1) : '—'}</SvgText>
-        <SvgText x="90" y="137" fill="#697686" fontSize="7" fontWeight="900" textAnchor="middle">SCALE / 5</SvgText>
+        <Circle cx="90" cy="116" r="11" fill="#FFFFFF" stroke="#9499A8" strokeWidth="2" />
+        <Circle cx="90" cy="116" r="5" fill={color} stroke="#FFFFFF" strokeWidth="1.5" />
+        <SvgText x="90" y="72" fill="#9499A8" fontSize="7" fontWeight="900" textAnchor="middle">LIVE SCORE</SvgText>
+        <SvgText x="90" y="99" fill="#22242B" fontSize="28" fontWeight="900" textAnchor="middle">{value !== null ? value.toFixed(1) : '—'}</SvgText>
+        <SvgText x="90" y="137" fill="#9499A8" fontSize="7" fontWeight="900" textAnchor="middle">SCALE / 5</SvgText>
       </Svg>
       <Text style={[styles.gaugeLabel, compact && styles.gaugeLabelCompact]}>{label}</Text>
       {detail ? <Text style={styles.gaugeDetail}>{detail}</Text> : null}
@@ -126,9 +126,9 @@ export function RatingSpeedometers({ brand, ios, android, compact = false, brand
   androidDetail?: string;
 }) {
   return <SafeView style={[styles.speedometerRow, compact && styles.speedometerRowCompact]}>
-    <RatingGauge label="Combined rating" value={brand} color="#DC0000" icon="ribbon-outline" compact={compact} detail={brandDetail} />
-    <RatingGauge label="App Store" value={ios} color="#F5F8FB" icon="logo-apple" compact={compact} detail={iosDetail} />
-    <RatingGauge label="Playstore" value={android} color="#FFF200" icon="logo-google-playstore" compact={compact} detail={androidDetail} />
+    <RatingGauge label="Combined rating" value={brand} color="#509EE3" icon="ribbon-outline" compact={compact} detail={brandDetail} />
+    <RatingGauge label="App Store" value={ios} color="#22242B" icon="logo-apple" compact={compact} detail={iosDetail} />
+    <RatingGauge label="Playstore" value={android} color="#3B7EC2" icon="logo-google-playstore" compact={compact} detail={androidDetail} />
   </SafeView>;
 }
 
@@ -146,7 +146,7 @@ export function SunburstChart({ markets, selected, onSelect, platformRatings, pl
       <SafeView style={styles.dashboardHeader}>
         <SafeView style={styles.bmwStrip}><SafeView style={styles.bmwBlue}/><SafeView style={styles.bmwLight}/><SafeView style={styles.bmwRed}/></SafeView>
         <SafeView>
-          <Text style={styles.dashboardLabel}>POWERTRAIN · RATING DASHBOARD</Text>
+          <Text style={styles.dashboardLabel}>RATING SCORECARD</Text>
           <Text style={styles.dashboardMarket}>{selected.name} · {selected.code}</Text>
         </SafeView>
         <SafeView style={styles.positionPanel}>
@@ -178,14 +178,14 @@ export function SunburstChart({ markets, selected, onSelect, platformRatings, pl
 
 const styles = StyleSheet.create({
   wrap: { minHeight: 290, width: '100%', alignItems: 'stretch', paddingVertical: 10 },
-  dashboardHeader: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderTopWidth: 1, borderColor: '#2A2A30', paddingVertical: 7, paddingHorizontal: 10, backgroundColor: '#0B0B0D', borderRadius: 8 },
-  bmwStrip: { width: 7, height: 38, marginRight: 8, borderRadius: 4, overflow: 'hidden' }, bmwBlue: { flex: 1, backgroundColor: '#DC0000' }, bmwLight: { flex: 1, backgroundColor: '#F5F8FB' }, bmwRed: { flex: 1, backgroundColor: '#FFF200' },
-  dashboardLabel: { fontSize: 8, fontWeight: '900', color: '#697686', letterSpacing: 1.2 }, dashboardMarket: { fontSize: 12, fontWeight: '900', color: '#F5F8FB', marginTop: 3 },
-  positionPanel: { alignItems: 'center', marginLeft: 'auto', marginRight: 12 }, positionValue: { fontSize: 22, lineHeight: 24, fontWeight: '900', color: '#F5F8FB' }, positionLabel: { fontSize: 7, fontWeight: '900', color: '#697686', letterSpacing: 0.6 },
-  dashboardStatus: { height: 24, paddingHorizontal: 9, borderRadius: 12, borderWidth: 1, borderColor: '#235F3B', backgroundColor: '#10291B', flexDirection: 'row', alignItems: 'center', gap: 5 }, dashboardStatusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#29A866' }, dashboardStatusText: { fontSize: 8, fontWeight: '900', color: '#6ED69E', letterSpacing: 0.6 },
-  speedometerRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', alignItems: 'center', gap: 10, marginTop: 12, paddingHorizontal: 6, paddingVertical: 9, borderRadius: 14, borderWidth: 1, borderColor: '#2A2A30', backgroundColor: '#101012' }, speedometerRowCompact: { marginTop: 10 },
-  gaugeCard: { width: 206, height: 205, alignItems: 'center', borderRadius: 103, borderWidth: 2, borderColor: '#3A4652', backgroundColor: '#141417', paddingTop: 9, shadowColor: '#000', shadowOpacity: 0.7, shadowRadius: 14, elevation: 10 }, gaugeCardCompact: { width: 176, height: 188, borderRadius: 88 },
-  gaugeIcon: { position: 'absolute', top: 12, width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center', zIndex: 5 }, gaugeLabel: { fontSize: 9, fontWeight: '900', color: '#D5DEE6', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: -20 }, gaugeLabelCompact: { fontSize: 8 }, gaugeDetail: { minHeight: 18, marginTop: 3, fontSize: 8, fontWeight: '800', color: '#7F8B97', textAlign: 'center' },
-  panelTitleMarket: { fontSize: 9, fontWeight: '900', color: '#697686', marginTop: 9, marginBottom: 6, letterSpacing: 1 }, marketList: { gap: 6 },
-  marketChip: { width: 74, height: 54, borderRadius: 10, borderWidth: 1, borderColor: '#2A2A30', alignItems: 'center', justifyContent: 'center', backgroundColor: '#101012', paddingHorizontal: 4 }, marketChipActive: { borderColor: '#DC0000', backgroundColor: '#241010' }, marketCode: { fontSize: 11, fontWeight: '900', color: '#AAB5C1' }, marketCodeActive: { color: '#FFF200' }, marketName: { fontSize: 8, color: '#697686', marginTop: 2, width: 64, textAlign: 'center' },
+  dashboardHeader: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderTopWidth: 1, borderColor: '#E2E4E9', paddingVertical: 7, paddingHorizontal: 10, backgroundColor: '#FFFFFF', borderRadius: 12 },
+  bmwStrip: { width: 7, height: 38, marginRight: 8, borderRadius: 4, overflow: 'hidden' }, bmwBlue: { flex: 1, backgroundColor: '#509EE3' }, bmwLight: { flex: 1, backgroundColor: '#B9D6F2' }, bmwRed: { flex: 1, backgroundColor: '#3B7EC2' },
+  dashboardLabel: { fontSize: 8, fontWeight: '900', color: '#9499A8', letterSpacing: 1.2 }, dashboardMarket: { fontSize: 12, fontWeight: '900', color: '#22242B', marginTop: 3 },
+  positionPanel: { alignItems: 'center', marginLeft: 'auto', marginRight: 12 }, positionValue: { fontSize: 22, lineHeight: 24, fontWeight: '900', color: '#22242B' }, positionLabel: { fontSize: 7, fontWeight: '900', color: '#9499A8', letterSpacing: 0.6 },
+  dashboardStatus: { height: 24, paddingHorizontal: 9, borderRadius: 12, borderWidth: 1, borderColor: '#A6F4C5', backgroundColor: '#ECFDF3', flexDirection: 'row', alignItems: 'center', gap: 5 }, dashboardStatusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#12B76A' }, dashboardStatusText: { fontSize: 8, fontWeight: '900', color: '#027A48', letterSpacing: 0.6 },
+  speedometerRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', alignItems: 'center', gap: 10, marginTop: 12, paddingHorizontal: 6, paddingVertical: 9, borderRadius: 14, borderWidth: 1, borderColor: '#E2E4E9', backgroundColor: '#F9FAFB' }, speedometerRowCompact: { marginTop: 10 },
+  gaugeCard: { width: 206, height: 205, alignItems: 'center', borderRadius: 103, borderWidth: 1, borderColor: '#E2E4E9', backgroundColor: '#FFFFFF', paddingTop: 9, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 }, gaugeCardCompact: { width: 176, height: 188, borderRadius: 88 },
+  gaugeIcon: { position: 'absolute', top: 12, width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center', zIndex: 5 }, gaugeLabel: { fontSize: 9, fontWeight: '900', color: '#22242B', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: -20 }, gaugeLabelCompact: { fontSize: 8 }, gaugeDetail: { minHeight: 18, marginTop: 3, fontSize: 8, fontWeight: '800', color: '#9499A8', textAlign: 'center' },
+  panelTitleMarket: { fontSize: 9, fontWeight: '900', color: '#9499A8', marginTop: 9, marginBottom: 6, letterSpacing: 1 }, marketList: { gap: 6 },
+  marketChip: { width: 74, height: 54, borderRadius: 10, borderWidth: 1, borderColor: '#E2E4E9', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 4 }, marketChipActive: { borderColor: '#509EE3', backgroundColor: '#EAF3FC' }, marketCode: { fontSize: 11, fontWeight: '900', color: '#5A6072' }, marketCodeActive: { color: '#3B7EC2' }, marketName: { fontSize: 8, color: '#9499A8', marginTop: 2, width: 64, textAlign: 'center' },
 });

@@ -17,7 +17,7 @@ const polar = (cx: number, cy: number, r: number, deg: number) => {
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
 };
 
-// Ferrari-style rev counter: yellow face, red redline arc, tick marks and a needle.
+// Clean light gauge: white face, blue accent arc, tick marks and a needle.
 function RevCounter({ value, size }: { value: number; size: number }) {
   const c = 100;
   const start = -135;
@@ -31,8 +31,8 @@ function RevCounter({ value, size }: { value: number; size: number }) {
         cx={c}
         cy={c}
         r={96}
-        fill="#FFF200"
-        stroke="#0B0B0D"
+        fill="#FFFFFF"
+        stroke="#E2E4E9"
         strokeWidth={8}
       />
       <Circle
@@ -40,12 +40,12 @@ function RevCounter({ value, size }: { value: number; size: number }) {
         cy={c}
         r={96}
         fill="none"
-        stroke="#DC0000"
+        stroke="#B9D6F2"
         strokeWidth={2}
       />
       <Path
         d={`M ${redFrom.x} ${redFrom.y} A 84 84 0 0 1 ${redTo.x} ${redTo.y}`}
-        stroke="#DC0000"
+        stroke="#509EE3"
         strokeWidth={8}
         fill="none"
       />
@@ -60,7 +60,7 @@ function RevCounter({ value, size }: { value: number; size: number }) {
             y1={o.y}
             x2={n.x}
             y2={n.y}
-            stroke="#0B0B0D"
+            stroke="#5A6072"
             strokeWidth={i % 2 === 0 ? 4 : 2}
           />
         );
@@ -74,7 +74,7 @@ function RevCounter({ value, size }: { value: number; size: number }) {
             y={p.y + 5}
             fontSize={15}
             fontWeight="bold"
-            fill="#0B0B0D"
+            fill="#22242B"
             textAnchor="middle"
           >
             {i}
@@ -87,12 +87,12 @@ function RevCounter({ value, size }: { value: number; size: number }) {
           y1={c}
           x2={needle.x}
           y2={needle.y}
-          stroke="#DC0000"
+          stroke="#509EE3"
           strokeWidth={5}
           strokeLinecap="round"
         />
-        <Circle cx={c} cy={c} r={11} fill="#0B0B0D" />
-        <Circle cx={c} cy={c} r={4} fill="#DC0000" />
+        <Circle cx={c} cy={c} r={11} fill="#22242B" />
+        <Circle cx={c} cy={c} r={4} fill="#509EE3" />
       </G>
     </Svg>
   );
@@ -112,7 +112,7 @@ export function GaugeCluster({
       <Carbon />
       <View style={styles.topline}>
         <View style={styles.dot} />
-        <Text style={styles.toplineText}>LIVE BRAND TELEMETRY</Text>
+        <Text style={styles.toplineText}>LIVE BRAND METRICS</Text>
       </View>
       <View style={styles.gauges}>
         <RevCounter value={Math.min(1, Math.max(0, markets / 17))} size={140} />
@@ -150,13 +150,18 @@ export function GaugeCluster({
 const styles = StyleSheet.create({
   wrap: {
     minHeight: 220,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "#DC0000",
-    backgroundColor: "#0B0B0D",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E4E9",
+    backgroundColor: "#FFFFFF",
     overflow: "hidden",
     padding: 20,
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   topline: {
     flexDirection: "row",
@@ -164,12 +169,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 18,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#DC0000" },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#509EE3" },
   toplineText: {
     fontSize: 9,
     letterSpacing: 2.4,
     fontWeight: "800",
-    color: "#FFF200",
+    color: "#509EE3",
   },
   gauges: {
     flexDirection: "row",
@@ -181,42 +186,42 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 2.2,
     fontWeight: "800",
-    color: "#DC0000",
+    color: "#509EE3",
   },
   brand: {
     marginTop: 4,
     fontSize: 14,
     fontWeight: "300",
     letterSpacing: 2,
-    color: "#F2F2F2",
+    color: "#22242B",
   },
-  score: { fontSize: 56, lineHeight: 62, fontWeight: "200", color: "#FFF200" },
+  score: { fontSize: 56, lineHeight: 62, fontWeight: "200", color: "#22242B" },
   status: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#F2F2F2",
+    color: "#5A6072",
     textAlign: "center",
   },
-  statusError: { color: "#FF5A4D" },
+  statusError: { color: "#F04438" },
   meta: {
     flexDirection: "row",
     justifyContent: "space-around",
     marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,242,0,0.35)",
+    borderTopColor: "#E2E4E9",
   },
   metaValue: {
     fontSize: 18,
     fontWeight: "300",
-    color: "#FFF200",
+    color: "#22242B",
     textAlign: "center",
   },
   metaLabel: {
     fontSize: 8,
     fontWeight: "800",
     letterSpacing: 1.8,
-    color: "#9A9A9F",
+    color: "#9499A8",
     textAlign: "center",
     marginTop: 2,
   },
@@ -225,7 +230,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 5,
-    backgroundColor: "#DC0000",
+    height: 4,
+    backgroundColor: "#509EE3",
   },
 });

@@ -10,13 +10,13 @@ type SentimentIssueFunnelProps = {
 };
 
 const categoryColors: Record<SentimentCategoryId, string> = {
-  stability: '#F97066',
+  stability: '#F04438',
   performance: '#FDB022',
   fees: '#F79009',
   access: '#A78BFA',
   transfers: '#6DAAFF',
-  support: '#6ED69E',
-  other: '#98A2B3',
+  support: '#12B76A',
+  other: '#9499A8',
 };
 
 export function SentimentIssueFunnel({
@@ -34,7 +34,7 @@ export function SentimentIssueFunnel({
     <SafeView style={styles.card}>
       <SafeView style={styles.header}>
         <SafeView style={styles.iconFrame}>
-          <Ionicons name="filter-outline" size={17} color="#FDB022" />
+          <Ionicons name="filter-outline" size={17} color="#509EE3" />
         </SafeView>
         <SafeView style={styles.headerCopy}>
           <Text style={styles.title}>What’s shaping sentiment?</Text>
@@ -134,7 +134,7 @@ export function SentimentIssueFunnel({
 
       {selectedCategoryInfo && (
         <SafeView accessibilityLiveRegion="polite" style={styles.selectionNotice}>
-          <Ionicons name="checkmark-circle" size={15} color="#6ED69E" />
+          <Ionicons name="checkmark-circle" size={15} color="#12B76A" />
           <Text style={styles.selectionText}>
             {selectedCategoryInfo.label}: {selectedCategoryInfo.reviews.length} matching comments below
           </Text>
@@ -170,10 +170,10 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 14,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2A333D',
-    backgroundColor: '#101012',
+    borderColor: '#E2E4E9',
+    backgroundColor: '#FFFFFF',
   },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   iconFrame: {
@@ -183,50 +183,50 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#211B11',
+    backgroundColor: '#EAF3FC',
     borderWidth: 1,
-    borderColor: '#4C3820',
+    borderColor: '#B9D6F2',
   },
   headerCopy: { flex: 1 },
-  title: { fontSize: 13, fontWeight: '900', color: '#F5F8FB' },
-  subtitle: { marginTop: 3, fontSize: 10, lineHeight: 15, color: '#98A2B3' },
-  total: { fontSize: 20, fontWeight: '900', color: '#FDB022' },
+  title: { fontSize: 13, fontWeight: '900', color: '#22242B' },
+  subtitle: { marginTop: 3, fontSize: 10, lineHeight: 15, color: '#5A6072' },
+  total: { fontSize: 20, fontWeight: '900', color: '#22242B' },
   funnel: { alignItems: 'center', gap: 7 },
   categoryRow: {
     minHeight: 72,
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 9,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2A333D',
-    backgroundColor: '#0B1016',
+    borderColor: '#E2E4E9',
+    backgroundColor: '#FFFFFF',
   },
-  categorySelected: { borderColor: '#FDB022', backgroundColor: '#171713' },
+  categorySelected: { borderColor: '#509EE3', backgroundColor: '#EAF3FC' },
   categoryPressed: { opacity: 0.78 },
   categoryEdge: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 3 },
   categoryContent: { flex: 1, paddingHorizontal: 12, paddingVertical: 8 },
   categoryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   categoryName: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1 },
-  categoryLabel: { fontSize: 11, fontWeight: '800', color: '#E4E7EC', flexShrink: 1 },
-  categoryCount: { fontSize: 12, fontWeight: '900', color: '#F5F8FB' },
+  categoryLabel: { fontSize: 11, fontWeight: '800', color: '#22242B', flexShrink: 1 },
+  categoryCount: { fontSize: 12, fontWeight: '900', color: '#22242B' },
   sentimentTrack: {
     height: 5,
     marginTop: 7,
     borderRadius: 3,
     flexDirection: 'row',
     overflow: 'hidden',
-    backgroundColor: '#26313E',
+    backgroundColor: '#EEF0F3',
   },
   sentimentSegment: { height: '100%' },
   positiveSegment: { backgroundColor: '#12B76A' },
   neutralSegment: { backgroundColor: '#F79009' },
   negativeSegment: { backgroundColor: '#F04438' },
   categoryFooter: { marginTop: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sentimentMix: { fontSize: 9, fontWeight: '800', color: '#98A2B3' },
-  positiveText: { color: '#6ED69E' },
-  neutralText: { color: '#FDB022' },
-  negativeText: { color: '#F97066' },
-  viewComments: { fontSize: 8, fontWeight: '800', color: '#98A2B3' },
+  sentimentMix: { fontSize: 9, fontWeight: '800', color: '#9499A8' },
+  positiveText: { color: '#027A48' },
+  neutralText: { color: '#B54708' },
+  negativeText: { color: '#B42318' },
+  viewComments: { fontSize: 8, fontWeight: '800', color: '#9499A8' },
   flowNotch: {
     position: 'absolute',
     zIndex: -1,
@@ -236,10 +236,10 @@ const styles = StyleSheet.create({
     height: 14,
     marginLeft: -7,
     transform: [{ rotate: '45deg' }],
-    backgroundColor: '#0B1016',
+    backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#2A333D',
+    borderColor: '#E2E4E9',
   },
   selectionNotice: {
     marginTop: 12,
@@ -247,13 +247,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#29483A',
-    backgroundColor: '#101D18',
+    borderColor: '#A6F4C5',
+    backgroundColor: '#ECFDF3',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
   },
-  selectionText: { flex: 1, fontSize: 10, fontWeight: '800', color: '#A6F4C5' },
+  selectionText: { flex: 1, fontSize: 10, fontWeight: '800', color: '#027A48' },
   legend: { marginTop: 12, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },

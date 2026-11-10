@@ -32,7 +32,7 @@ export function BrandPanel() {
     <View style={styles.wrap}>
       <Carbon />
       <Text style={styles.eyebrow}>HOW IT WORKS</Text>
-      <Text style={styles.title}>From first lap to podium</Text>
+      <Text style={styles.title}>From setup to insight</Text>
       <View style={styles.steps}>
         {steps.map((s) => (
           <View key={s.n} style={styles.step}>
@@ -49,7 +49,7 @@ export function BrandPanel() {
       <View style={styles.trust}>
         {trust.map((t) => (
           <View key={t.label} style={styles.trustItem}>
-            <Ionicons name={t.icon} size={16} color="#FFF200" />
+            <Ionicons name={t.icon} size={16} color="#509EE3" />
             <Text style={styles.trustLabel}>{t.label}</Text>
           </View>
         ))}
@@ -62,46 +62,51 @@ export function BrandPanel() {
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 16,
-    borderWidth: 2,
-    borderColor: "#DC0000",
-    borderRadius: 6,
-    backgroundColor: "#0B0B0D",
+    borderWidth: 1,
+    borderColor: "#E2E4E9",
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
     overflow: "hidden",
     padding: 20,
     paddingBottom: 26,
     gap: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   eyebrow: {
     fontSize: 10,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#DC0000",
+    color: "#509EE3",
   },
   title: {
     fontSize: 22,
     fontWeight: "300",
     letterSpacing: 0.5,
-    color: "#FFF200",
+    color: "#22242B",
   },
   steps: { gap: 14, marginTop: 4 },
   step: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   badge: {
     width: 34,
     height: 34,
-    borderRadius: 4,
-    backgroundColor: "#FFF200",
+    borderRadius: 8,
+    backgroundColor: "#EAF3FC",
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeText: { fontSize: 13, fontWeight: "800", color: "#0B0B0D" },
+  badgeText: { fontSize: 13, fontWeight: "800", color: "#3B7EC2" },
   stepBody: { flex: 1 },
   stepTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#F2F2F2",
+    color: "#22242B",
     letterSpacing: 0.5,
   },
-  stepText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#C4C4C8" },
+  stepText: { marginTop: 2, fontSize: 12, lineHeight: 17, color: "#5A6072" },
   trust: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -109,14 +114,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,242,0,0.3)",
+    borderTopColor: "#E2E4E9",
   },
   trustItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   trustLabel: {
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.4,
-    color: "#A0A0A6",
+    color: "#9499A8",
     textTransform: "uppercase",
   },
   stripe: {
@@ -124,7 +129,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 5,
-    backgroundColor: "#DC0000",
+    height: 4,
+    backgroundColor: "#509EE3",
   },
 });

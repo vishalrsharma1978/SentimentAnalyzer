@@ -137,7 +137,7 @@ export function SentimentStoryRails() {
                   <Ionicons
                     name={step.icon}
                     size={16}
-                    color={index === 3 ? "#FFF200" : "#F2F2F2"}
+                    color={index === 3 ? "#3B7EC2" : "#5A6072"}
                   />
                 </Animated.View>
                 <View style={styles.stepCopy}>
@@ -149,7 +149,7 @@ export function SentimentStoryRails() {
           })}
         </View>
         <View style={styles.quote}>
-          <Ionicons name="chatbox-ellipses-outline" size={14} color="#FFF200" />
+          <Ionicons name="chatbox-ellipses-outline" size={14} color="#509EE3" />
           <Text style={styles.quoteText}>Every review starts a better journey.</Text>
         </View>
       </View>
@@ -178,7 +178,7 @@ export function SentimentStoryRails() {
                 <Ionicons
                   name={icon as keyof typeof Ionicons.glyphMap}
                   size={index === 1 ? 22 : 18}
-                  color={index === 1 ? "#0B0B0D" : "#FFF200"}
+                  color={index === 1 ? "#FFFFFF" : "#509EE3"}
                 />
               </Animated.View>
             ),
@@ -189,21 +189,21 @@ export function SentimentStoryRails() {
           <Svg width="100%" height="100%" viewBox="0 0 128 78">
             <Path
               d="M5 70 L123 70 M5 48 L123 48 M5 26 L123 26"
-              stroke="rgba(255,242,0,0.12)"
+              stroke="rgba(80,158,227,0.15)"
               strokeWidth="1"
             />
             <Path
               d="M8 62 L37 52 L65 55 L94 29 L120 11"
               fill="none"
-              stroke="#DC0000"
+              stroke="#509EE3"
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <Circle cx="37" cy="52" r="3" fill="#FFF200" />
-            <Circle cx="65" cy="55" r="3" fill="#FFF200" />
-            <Circle cx="94" cy="29" r="3" fill="#FFF200" />
-            <Circle cx="120" cy="11" r="4" fill="#FFF200" />
+            <Circle cx="37" cy="52" r="3" fill="#3B7EC2" />
+            <Circle cx="65" cy="55" r="3" fill="#3B7EC2" />
+            <Circle cx="94" cy="29" r="3" fill="#3B7EC2" />
+            <Circle cx="120" cy="11" r="4" fill="#3B7EC2" />
           </Svg>
           <Animated.View
             style={[
@@ -219,7 +219,7 @@ export function SentimentStoryRails() {
         </View>
         <View style={styles.growthFooter}>
           <View style={styles.growthIcon}>
-            <Ionicons name="trending-up-outline" size={15} color="#0B0B0D" />
+            <Ionicons name="trending-up-outline" size={15} color="#FFFFFF" />
           </View>
           <Text style={styles.growthText}>LOYALTY IN MOTION</Text>
         </View>
@@ -244,11 +244,16 @@ const styles = StyleSheet.create({
     width: 154,
     alignSelf: "center",
     borderWidth: 1,
-    borderColor: "rgba(220,0,0,0.55)",
-    borderRadius: 6,
-    backgroundColor: "rgba(11,11,13,0.94)",
+    borderColor: "#E2E4E9",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.96)",
     padding: 12,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   leftRail: { minHeight: 382 },
   rightRail: { minHeight: 354 },
@@ -256,14 +261,14 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 1.5,
     fontWeight: "900",
-    color: "#DC0000",
+    color: "#509EE3",
   },
   railTitle: {
     marginTop: 7,
     fontSize: 14,
     lineHeight: 19,
     fontWeight: "700",
-    color: "#F2F2F2",
+    color: "#22242B",
   },
   cycle: { marginTop: 18, gap: 12, position: "relative" },
   cycleSpine: {
@@ -272,7 +277,7 @@ const styles = StyleSheet.create({
     top: 12,
     bottom: 12,
     width: 1,
-    backgroundColor: "rgba(255,242,0,0.28)",
+    backgroundColor: "#E2E4E9",
   },
   cycleRunner: {
     position: "absolute",
@@ -282,9 +287,9 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 6,
-    backgroundColor: "#DC0000",
+    backgroundColor: "#509EE3",
     borderWidth: 2,
-    borderColor: "#FFF200",
+    borderColor: "#B9D6F2",
   },
   cycleStep: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 9 },
   cycleIcon: {
@@ -293,28 +298,28 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1C1710",
+    backgroundColor: "#EAF3FC",
     borderWidth: 1,
-    borderColor: "rgba(255,242,0,0.4)",
+    borderColor: "#B9D6F2",
   },
   stepCopy: { flex: 1 },
   stepTitle: {
     fontSize: 8,
     letterSpacing: 0.8,
     fontWeight: "900",
-    color: "#FFF200",
+    color: "#3B7EC2",
   },
-  stepDetail: { marginTop: 2, fontSize: 8, lineHeight: 11, color: "#A0A0A6" },
+  stepDetail: { marginTop: 2, fontSize: 8, lineHeight: 11, color: "#9499A8" },
   quote: {
     marginTop: 16,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,242,0,0.2)",
+    borderTopColor: "#E2E4E9",
     flexDirection: "row",
     gap: 7,
     alignItems: "flex-start",
   },
-  quoteText: { flex: 1, fontSize: 9, lineHeight: 13, color: "#C4C4C8" },
+  quoteText: { flex: 1, fontSize: 9, lineHeight: 13, color: "#5A6072" },
   customerRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -328,16 +333,16 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#19191D",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "rgba(255,242,0,0.35)",
+    borderColor: "#E2E4E9",
   },
   customerFeatured: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#FFF200",
-    borderColor: "#DC0000",
+    backgroundColor: "#509EE3",
+    borderColor: "#3B7EC2",
   },
   customerCaption: {
     marginTop: 10,
@@ -345,7 +350,7 @@ const styles = StyleSheet.create({
     fontSize: 7,
     letterSpacing: 1,
     fontWeight: "900",
-    color: "#A0A0A6",
+    color: "#9499A8",
   },
   growthChart: {
     height: 100,
@@ -360,15 +365,15 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: "#FFF200",
+    backgroundColor: "#509EE3",
     borderWidth: 2,
-    borderColor: "#DC0000",
+    borderColor: "#3B7EC2",
   },
   growthFooter: {
     marginTop: 10,
     paddingTop: 11,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,242,0,0.2)",
+    borderTopColor: "#E2E4E9",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -377,15 +382,15 @@ const styles = StyleSheet.create({
   growthIcon: {
     width: 24,
     height: 24,
-    borderRadius: 4,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFF200",
+    backgroundColor: "#509EE3",
   },
   growthText: {
     fontSize: 8,
     letterSpacing: 1,
     fontWeight: "900",
-    color: "#FFF200",
+    color: "#3B7EC2",
   },
 });

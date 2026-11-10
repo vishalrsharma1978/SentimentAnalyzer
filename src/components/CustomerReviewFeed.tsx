@@ -95,7 +95,7 @@ function ReviewCard({
         </SafeView>
         {!isLast && <SafeView style={styles.timelineLine} />}
       </SafeView>
-      <SafeView style={[styles.cardBody, { borderColor: highlighted ? '#DC0000' : theme.border }, highlighted && styles.highlightedCard]}>
+      <SafeView style={[styles.cardBody, { borderColor: highlighted ? '#509EE3' : theme.border }, highlighted && styles.highlightedCard]}>
         <SafeView style={styles.cardTop}>
           <SafeView style={styles.authorBlock}>
             <SafeView style={[styles.avatar, { backgroundColor: theme.soft }]}>

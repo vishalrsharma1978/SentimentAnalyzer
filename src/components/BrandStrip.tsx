@@ -28,7 +28,7 @@ export function BrandStrip({ isWide }: { isWide: boolean }) {
         {stats.map((s) => (
           <View key={s.label} style={[styles.stat, !isWide && styles.statHalf]}>
             <View style={styles.statIcon}>
-              <Ionicons name={s.icon} size={18} color="#0B0B0D" />
+              <Ionicons name={s.icon} size={18} color="#3B7EC2" />
             </View>
             <View>
               <Text style={styles.statValue}>{s.value}</Text>
@@ -48,12 +48,12 @@ export function BrandFooter() {
       <View style={styles.footerRow}>
         <View style={styles.footerBrand}>
           <View style={styles.footerMark}>
-            <Ionicons name="pulse" size={16} color="#0B0B0D" />
+            <Ionicons name="pulse" size={16} color="#FFFFFF" />
           </View>
           <Text style={styles.footerName}>PULSEBOARD</Text>
         </View>
         <Text style={styles.footerText}>
-          Customer Sentiment Analyzer · Scuderia Edition
+          Customer Sentiment Analyzer
         </Text>
         <View style={styles.footerBadges}>
           {["App Store", "Google Play", "Trustpilot", "Reddit", "X"].map(
@@ -76,20 +76,25 @@ export function BrandFooter() {
 const styles = StyleSheet.create({
   wrap: {
     borderWidth: 1,
-    borderColor: "#3A1A1A",
-    borderRadius: 6,
-    backgroundColor: "#101012",
+    borderColor: "#E2E4E9",
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
     paddingVertical: 18,
     paddingHorizontal: 20,
     marginBottom: 18,
     gap: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   taglineBlock: { alignItems: "center" },
   eyebrow: {
     fontSize: 10,
     letterSpacing: 3.5,
     fontWeight: "800",
-    color: "#DC0000",
+    color: "#509EE3",
     textAlign: "center",
   },
   tagline: {
@@ -97,7 +102,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "300",
     letterSpacing: 0.5,
-    color: "#F2F2F2",
+    color: "#22242B",
     textAlign: "center",
   },
   taglineSmall: { fontSize: 18 },
@@ -106,7 +111,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,242,0,0.3)",
+    borderTopColor: "#E2E4E9",
     paddingTop: 16,
   },
   statsWrap: { flexWrap: "wrap" },
@@ -115,21 +120,21 @@ const styles = StyleSheet.create({
   statIcon: {
     width: 36,
     height: 36,
-    borderRadius: 4,
-    backgroundColor: "#FFF200",
+    borderRadius: 8,
+    backgroundColor: "#EAF3FC",
     alignItems: "center",
     justifyContent: "center",
   },
-  statValue: { fontSize: 20, fontWeight: "300", color: "#FFF200" },
+  statValue: { fontSize: 20, fontWeight: "300", color: "#22242B" },
   statLabel: {
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 1.6,
-    color: "#A0A0A6",
+    color: "#9499A8",
     textTransform: "uppercase",
   },
   footer: { marginTop: 28, paddingBottom: 6 },
-  footerStripe: { height: 5, backgroundColor: "#DC0000", marginBottom: 14 },
+  footerStripe: { height: 4, backgroundColor: "#509EE3", marginBottom: 14 },
   footerRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -141,8 +146,8 @@ const styles = StyleSheet.create({
   footerMark: {
     width: 28,
     height: 28,
-    borderRadius: 4,
-    backgroundColor: "#FFF200",
+    borderRadius: 8,
+    backgroundColor: "#509EE3",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -150,23 +155,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "300",
     letterSpacing: 5,
-    color: "#F2F2F2",
+    color: "#22242B",
   },
   footerText: {
     fontSize: 11,
     letterSpacing: 1.4,
-    color: "#A0A0A6",
+    color: "#9499A8",
     textTransform: "uppercase",
   },
   footerBadges: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   badge: {
     borderWidth: 1,
-    borderColor: "#2A2A30",
-    borderRadius: 4,
+    borderColor: "#E2E4E9",
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: "#141417",
+    backgroundColor: "#FFFFFF",
   },
-  badgeText: { fontSize: 10, fontWeight: "700", color: "#C4C4C8" },
-  copy: { marginTop: 12, fontSize: 10, color: "#6F6F76", textAlign: "center" },
+  badgeText: { fontSize: 10, fontWeight: "700", color: "#5A6072" },
+  copy: { marginTop: 12, fontSize: 10, color: "#9499A8", textAlign: "center" },
 });

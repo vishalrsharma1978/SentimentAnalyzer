@@ -182,7 +182,7 @@ export function SentimentMindMap({
         </SafeView>
         <SafeView style={styles.headerMeta}>
           <SafeView style={styles.marketBadge}>
-            <Ionicons name="location" size={11} color="#FDB022" />
+            <Ionicons name="location" size={11} color="#3B7EC2" />
             <Text style={styles.marketBadgeText}>
               {country === 'United States' ? 'US MARKET' : `${country.toUpperCase()} MARKET`}
             </Text>
@@ -219,9 +219,9 @@ export function SentimentMindMap({
           >
             <Defs>
               <LinearGradient id="mindMapFlow" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#6ED69E" stopOpacity="0.9" />
-                <Stop offset="0.5" stopColor="#96A3B2" stopOpacity="0.45" />
-                <Stop offset="1" stopColor="#F97066" stopOpacity="0.9" />
+                <Stop offset="0" stopColor="#12B76A" stopOpacity="0.9" />
+                <Stop offset="0.5" stopColor="#9499A8" stopOpacity="0.45" />
+                <Stop offset="1" stopColor="#F04438" stopOpacity="0.9" />
               </LinearGradient>
             </Defs>
             {positiveWords.map((item, index) => {
@@ -233,7 +233,7 @@ export function SentimentMindMap({
                     ? `M ${centerX - 40} ${centerY + 52} C ${centerX - 76} ${centerY + 84}, ${leftNodeX + 40} ${y}, ${leftNodeX} ${y}`
                     : `M ${centerX - 78} ${centerY} C ${centerX - 130} ${centerY}, ${leftNodeX + 44} ${y}, ${leftNodeX} ${y}`}
                   fill="none"
-                  stroke="#6ED69E"
+                  stroke="#12B76A"
                   strokeWidth="1.25"
                   strokeDasharray="4 7"
                 />
@@ -248,7 +248,7 @@ export function SentimentMindMap({
                     ? `M ${centerX + 40} ${centerY + 52} C ${centerX + 76} ${centerY + 84}, ${rightNodeX - 40} ${y}, ${rightNodeX} ${y}`
                     : `M ${centerX + 78} ${centerY} C ${centerX + 130} ${centerY}, ${rightNodeX - 44} ${y}, ${rightNodeX} ${y}`}
                   fill="none"
-                  stroke="#F97066"
+                  stroke="#F04438"
                   strokeWidth="1.25"
                   strokeDasharray="4 7"
                 />
@@ -259,13 +259,13 @@ export function SentimentMindMap({
                 <Path
                   d={`M ${centerX} ${centerY + 58} C ${centerX - 26} ${centerY + 82}, ${centerX - 28} ${centerY + 96}, ${centerX - 42} ${centerY + 112}`}
                   fill="none"
-                  stroke="#6ED69E"
+                  stroke="#12B76A"
                   strokeWidth="2"
                 />
                 <Path
                   d={`M ${centerX} ${centerY + 58} C ${centerX + 26} ${centerY + 82}, ${centerX + 28} ${centerY + 96}, ${centerX + 42} ${centerY + 112}`}
                   fill="none"
-                  stroke="#F97066"
+                  stroke="#F04438"
                   strokeWidth="2"
                 />
               </>
@@ -304,7 +304,7 @@ export function SentimentMindMap({
               cy={hubSize / 2}
               r={ringRadius}
               fill="none"
-              stroke="#26313E"
+              stroke="#E2E4E9"
               strokeWidth="5"
             />
             <SentimentArc
@@ -313,7 +313,7 @@ export function SentimentMindMap({
               circumference={ringCircumference}
               length={positiveArc}
               offset={0}
-              color="#6ED69E"
+              color="#12B76A"
             />
             <SentimentArc
               center={hubSize / 2}
@@ -321,7 +321,7 @@ export function SentimentMindMap({
               circumference={ringCircumference}
               length={neutralArc}
               offset={positiveArc}
-              color="#FDB022"
+              color="#F79009"
             />
             <SentimentArc
               center={hubSize / 2}
@@ -329,12 +329,12 @@ export function SentimentMindMap({
               circumference={ringCircumference}
               length={negativeArc}
               offset={positiveArc + neutralArc}
-              color="#F97066"
+              color="#F04438"
             />
           </Svg>
           <View style={[styles.hubHalo, compact && styles.hubHaloCompact]}>
             <View style={[styles.hubCore, compact && styles.hubCoreCompact]}>
-              <Ionicons name="bulb" size={compact ? 17 : 20} color="#FDB022" />
+              <Ionicons name="bulb" size={compact ? 17 : 20} color="#F79009" />
               <Text style={[styles.hubValue, compact && styles.hubValueCompact]}>
                 {positivePercent}%
               </Text>
@@ -470,7 +470,7 @@ function SentimentMetric({
         <Ionicons
           name={icon}
           size={16}
-          color={tone === 'positive' ? '#6ED69E' : tone === 'neutral' ? '#FDB022' : '#F97066'}
+          color={tone === 'positive' ? '#12B76A' : tone === 'neutral' ? '#F79009' : '#F04438'}
         />
       </View>
       <View>
@@ -485,10 +485,10 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 14,
     overflow: 'hidden',
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2A333D',
-    backgroundColor: '#0B1016',
+    borderColor: '#E2E4E9',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     minHeight: 78,
@@ -498,14 +498,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#26313E',
-    backgroundColor: '#080D12',
+    borderBottomColor: '#E2E4E9',
+    backgroundColor: '#FFFFFF',
   },
   headerCopy: { flex: 1, paddingRight: 12 },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  kickerMark: { width: 22, height: 2, borderRadius: 1, backgroundColor: '#DC0000' },
-  kicker: { fontSize: 9, fontWeight: '900', letterSpacing: 1.7, color: '#FDB022' },
-  title: { marginTop: 5, fontSize: 16, fontWeight: '800', color: '#F5F8FB' },
+  kickerMark: { width: 22, height: 2, borderRadius: 1, backgroundColor: '#509EE3' },
+  kicker: { fontSize: 9, fontWeight: '900', letterSpacing: 1.7, color: '#509EE3' },
+  title: { marginTop: 5, fontSize: 16, fontWeight: '800', color: '#22242B' },
   headerMeta: { alignItems: 'flex-end' },
   marketBadge: {
     height: 20,
@@ -514,14 +514,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#211B11',
+    backgroundColor: '#EAF3FC',
     borderWidth: 1,
-    borderColor: '#4C3820',
+    borderColor: '#B9D6F2',
   },
-  marketBadgeText: { fontSize: 7, fontWeight: '900', letterSpacing: 0.8, color: '#FDB022' },
-  voiceCount: { marginTop: 2, fontSize: 20, fontWeight: '900', color: '#F5F8FB' },
-  voiceLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 1, color: '#91A0AF' },
-  stage: { position: 'relative', overflow: 'hidden', backgroundColor: '#0E141B' },
+  marketBadgeText: { fontSize: 7, fontWeight: '900', letterSpacing: 0.8, color: '#3B7EC2' },
+  voiceCount: { marginTop: 2, fontSize: 20, fontWeight: '900', color: '#22242B' },
+  voiceLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 1, color: '#9499A8' },
+  stage: { position: 'relative', overflow: 'hidden', backgroundColor: '#F9FAFB' },
   connectionLayer: { ...StyleSheet.absoluteFill },
   hub: {
     position: 'absolute',
@@ -537,8 +537,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#34433D',
-    backgroundColor: '#101B19',
+    borderColor: '#A6F4C5',
+    backgroundColor: '#ECFDF3',
   },
   hubHaloCompact: { width: 112, height: 112, borderRadius: 56 },
   hubCore: {
@@ -548,17 +548,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#355746',
-    backgroundColor: '#17261F',
+    borderColor: '#A6F4C5',
+    backgroundColor: '#FFFFFF',
     shadowColor: '#12B76A',
     shadowOpacity: 0.18,
     shadowRadius: 16,
     elevation: 5,
   },
   hubCoreCompact: { width: 94, height: 94, borderRadius: 47 },
-  hubValue: { marginTop: 3, fontSize: 25, fontWeight: '900', color: '#FFFFFF' },
+  hubValue: { marginTop: 3, fontSize: 25, fontWeight: '900', color: '#22242B' },
   hubValueCompact: { fontSize: 21 },
-  hubLabel: { marginTop: 1, fontSize: 8, fontWeight: '900', letterSpacing: 1.3, color: '#B9E8CE' },
+  hubLabel: { marginTop: 1, fontSize: 8, fontWeight: '900', letterSpacing: 1.3, color: '#027A48' },
   compactLegend: {
     position: 'absolute',
     zIndex: 3,
@@ -576,20 +576,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    backgroundColor: '#111820',
+    backgroundColor: '#FFFFFF',
   },
-  positivePercentPill: { borderColor: '#235F3B' },
-  neutralPercentPill: { borderColor: '#624819' },
-  negativePercentPill: { borderColor: '#704044' },
+  positivePercentPill: { borderColor: '#A6F4C5' },
+  neutralPercentPill: { borderColor: '#FEDF89' },
+  negativePercentPill: { borderColor: '#FECDCA' },
   percentDot: { width: 5, height: 5, borderRadius: 3 },
-  positiveDot: { backgroundColor: '#6ED69E' },
-  neutralDot: { backgroundColor: '#FDB022' },
-  negativeDot: { backgroundColor: '#F97066' },
+  positiveDot: { backgroundColor: '#12B76A' },
+  neutralDot: { backgroundColor: '#F79009' },
+  negativeDot: { backgroundColor: '#F04438' },
   percentValue: { fontSize: 9, fontWeight: '900' },
-  percentLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 0.4, color: '#91A0AF' },
-  positiveText: { color: '#6ED69E' },
-  neutralText: { color: '#FDB022' },
-  negativeText: { color: '#F97066' },
+  percentLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 0.4, color: '#9499A8' },
+  positiveText: { color: '#027A48' },
+  neutralText: { color: '#B54708' },
+  negativeText: { color: '#B42318' },
   desktopStat: { position: 'absolute', zIndex: 3, left: '50%', marginLeft: -48 },
   neutralStat: {},
   negativeStat: {},
@@ -610,13 +610,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'visible',
   },
-  positiveCloud: { backgroundColor: '#10251B', borderColor: '#235F3B' },
-  negativeCloud: { backgroundColor: '#2B1719', borderColor: '#704044' },
+  positiveCloud: { backgroundColor: '#ECFDF3', borderColor: '#A6F4C5' },
+  negativeCloud: { backgroundColor: '#FEF3F2', borderColor: '#FECDCA' },
   cloudSatellite: { position: 'absolute', zIndex: -1, width: 16, height: 16, borderRadius: 8 },
   satelliteTop: { top: -4, left: 18 },
   satelliteBottom: { bottom: -3, right: 22 },
-  positiveSatellite: { backgroundColor: '#173323' },
-  negativeSatellite: { backgroundColor: '#3A2022' },
+  positiveSatellite: { backgroundColor: '#A6F4C5' },
+  negativeSatellite: { backgroundColor: '#FECDCA' },
   topicDot: { width: 6, height: 6, marginRight: 6, borderRadius: 3 },
   topicWord: { flex: 1, fontSize: 10, fontWeight: '800', textTransform: 'capitalize' },
   topicCount: {
@@ -628,8 +628,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     textAlign: 'center',
     textAlignVertical: 'center',
-    backgroundColor: '#26313E',
-    color: '#F5F8FB',
+    backgroundColor: '#EEF0F3',
+    color: '#22242B',
     fontSize: 8,
     fontWeight: '900',
     lineHeight: 21,
@@ -641,14 +641,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     borderTopWidth: 1,
-    borderTopColor: '#26313E',
-    backgroundColor: '#080D12',
+    borderTopColor: '#E2E4E9',
+    backgroundColor: '#F9FAFB',
   },
   metric: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   metricIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  positiveMetricIcon: { backgroundColor: '#10291B' },
-  neutralMetricIcon: { backgroundColor: '#33290F' },
-  negativeMetricIcon: { backgroundColor: '#351718' },
-  metricValue: { fontSize: 15, fontWeight: '900', color: '#F5F8FB' },
+  positiveMetricIcon: { backgroundColor: '#ECFDF3' },
+  neutralMetricIcon: { backgroundColor: '#FFFAEB' },
+  negativeMetricIcon: { backgroundColor: '#FEF3F2' },
+  metricValue: { fontSize: 15, fontWeight: '900', color: '#22242B' },
   metricLabel: { fontSize: 7, fontWeight: '900', letterSpacing: 0.7 },
 });
