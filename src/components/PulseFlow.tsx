@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { colors } from "../theme";
@@ -8,6 +8,7 @@ import { colors } from "../theme";
 const WIDTH = 120;
 const HEIGHT = 28;
 const MID = HEIGHT / 2;
+const DURATION = 2200;
 
 // Build the full path by repeating one heartbeat cycle (P wave, QRS spike, T wave).
 function wavePath(): string {
@@ -23,55 +24,96 @@ function wavePath(): string {
   return segments.join(" ");
 }
 
-const DRIVER = Platform.OS !== "web";
+const WAVE = wavePath();
 
-export function PulseFlow({ color = colors.primary }: { color?: string }) {
+function GradientDefs({ color }: { color: string }) {
+  return (
+    <Defs>
+      <LinearGradient id="pulseFlow" x1="0" y1="0" x2="1" y2="0">
+        <Stop offset="0" stopColor={color} stopOpacity="0.15" />
+        <Stop offset="0.5" stopColor={color} stopOpacity="1" />
+        <Stop offset="1" stopColor={color} stopOpacity="0.15" />
+      </LinearGradient>
+    </Defs>
+  );
+}
+
+function BaseWave({ color }: { color: string }) {
+  return (
+    <Svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden>
+      <Path d={WAVE} fill="none" stroke={color} strokeWidth="1.5" opacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SweepWave() {
+  return (
+    <Svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden>
+      <Path d={WAVE} fill="none" stroke="url(#pulseFlow)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// Web: drive the sweep with the Web Animations API so it reliably restarts
+// after client-side navigation remounts (where RN Animated can stall).
+function PulseFlowWeb({ color }: { color: string }) {
+  const sweepRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const node = sweepRef.current;
+    if (!node || typeof node.animate !== "function") return;
+    const animation = node.animate(
+      [{ transform: `translateX(${-WIDTH}px)` }, { transform: `translateX(${WIDTH}px)` }],
+      { duration: DURATION, iterations: Infinity, easing: "ease-in-out" },
+    );
+    return () => animation.cancel();
+  }, []);
+
+  return (
+    <View style={styles.wrap} accessibilityElementsHidden importantForAccessibility="no">
+      <GradientDefs color={color} />
+      <BaseWave color={color} />
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <div ref={sweepRef} style={{ width: WIDTH, height: HEIGHT }}>
+          <SweepWave />
+        </div>
+      </View>
+    </View>
+  );
+}
+
+// Native: use RN Animated loop.
+function PulseFlowNative({ color }: { color: string }) {
   const [sweep] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.timing(sweep, {
         toValue: 1,
-        duration: 2200,
+        duration: DURATION,
         easing: Easing.inOut(Easing.ease),
-        useNativeDriver: DRIVER,
+        useNativeDriver: true,
       }),
     );
     loop.start();
     return () => loop.stop();
   }, [sweep]);
 
-  const translateX = sweep.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-WIDTH, WIDTH],
-  });
+  const translateX = sweep.interpolate({ inputRange: [0, 1], outputRange: [-WIDTH, WIDTH] });
 
   return (
     <View style={styles.wrap} accessibilityElementsHidden importantForAccessibility="no">
-      <Svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden>
-        <Defs>
-          <LinearGradient id="pulseFlow" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor={color} stopOpacity="0.15" />
-            <Stop offset="0.5" stopColor={color} stopOpacity="1" />
-            <Stop offset="1" stopColor={color} stopOpacity="0.15" />
-          </LinearGradient>
-        </Defs>
-        {/* faint baseline wave */}
-        <Path d={wavePath()} fill="none" stroke={color} strokeWidth="1.5" opacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-      {/* sweeping bright segment */}
-      <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          { transform: [{ translateX }] },
-        ]}
-      >
-        <Svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden>
-          <Path d={wavePath()} fill="none" stroke="url(#pulseFlow)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
+      <GradientDefs color={color} />
+      <BaseWave color={color} />
+      <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX }] }]}>
+        <SweepWave />
       </Animated.View>
     </View>
   );
+}
+
+export function PulseFlow({ color = colors.primary }: { color?: string }) {
+  return Platform.OS === "web" ? <PulseFlowWeb color={color} /> : <PulseFlowNative color={color} />;
 }
 
 const styles = StyleSheet.create({
