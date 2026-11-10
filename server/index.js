@@ -190,8 +190,56 @@ function classifySentiment(text, rating) {
   return 'neutral';
 }
 
+const resolvedAppIds = new Map();
+
+function normalizeBrandText(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+// Brands without a hardcoded package are resolved live via Google Play search
+// so any newly selected brand still gets its own reviews.
+async function resolvePlayAppId(brand, country = 'US') {
+  if (APP_PACKAGES[brand]) return APP_PACKAGES[brand];
+  const cacheKey = brand.toLowerCase();
+  if (resolvedAppIds.has(cacheKey)) return resolvedAppIds.get(cacheKey);
+  let appId = null;
+  try {
+    const results = await gplay.search({ term: brand, num: 5, country: country.toLowerCase(), lang: 'en' });
+    const needle = normalizeBrandText(brand);
+    const matches = (results || []).filter((app) => {
+      const developer = typeof app.developer === 'string' ? app.developer : '';
+      return needle && normalizeBrandText(`${app.title || ''} ${developer} ${app.summary || ''}`).includes(needle);
+    });
+    const best = matches.find((app) => normalizeBrandText(app.title).startsWith(needle)) || matches[0];
+    if (best?.appId) {
+      appId = best.appId;
+    } else if (results?.[0]?.appId) {
+      // The top hit can be a renamed app (e.g. Nubank lists as "Nu"); only
+      // attribute it when the developer's website/email references the brand.
+      appId = await verifyPlayAppBelongsToBrand(results[0].appId, brand, country);
+    }
+  } catch (error) {
+    console.error(`Google Play search failed for ${brand}:`, error.message);
+  }
+  resolvedAppIds.set(cacheKey, appId);
+  return appId;
+}
+
+async function verifyPlayAppBelongsToBrand(appId, brand, country) {
+  try {
+    const detail = await gplay.app({ appId, country: country.toLowerCase(), lang: 'en' });
+    const slug = normalizeBrandText(brand).replace(/\s+/g, '');
+    if (!slug) return null;
+    const signals = [detail.developerWebsite, detail.developerEmail, detail.developer]
+      .map((value) => String(value || '').toLowerCase());
+    return signals.some((value) => value.includes(slug)) ? appId : null;
+  } catch {
+    return null;
+  }
+}
+
 async function collectGooglePlayReviews(brand, country, months = 1) {
-  const appId = APP_PACKAGES[brand];
+  const appId = await resolvePlayAppId(brand, country);
   if (!appId) return [];
   try {
     const result = await gplay.reviews({ appId, country: country.toLowerCase(), sort: gplay.sort.NEWEST, num: Math.min(500 * months, 3000) });
@@ -214,18 +262,17 @@ async function collectGooglePlayReviews(brand, country, months = 1) {
 async function collectAppleReviews(brand, country) {
   const countryCode = country.toLowerCase();
   try {
-    let lookupData = { results: [] };
-    for (const term of [brand === 'Western Union' ? 'Western Union Send Money' : `${brand} Send Money`, brand]) {
+    const brandLower = brand.toLowerCase();
+    const candidates = [];
+    for (const term of [...new Set([brand, `${brand} Send Money`])]) {
       const lookup = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=${countryCode}&entity=software&limit=15&_ts=${Date.now()}`, { cache: 'no-store' });
       if (!lookup.ok) continue;
       const candidate = await lookup.json();
-      if ((candidate.results || []).length) {
-        lookupData = candidate;
-        break;
-      }
+      candidates.push(...(candidate.results || []));
     }
-    const appNameIncludesBrand = (app) => `${app.trackName || ''} ${app.sellerName || app.artistName || ''}`.toLowerCase().includes(brand === 'Wise' ? 'wise' : brand.toLowerCase());
-    const match = (lookupData.results || []).find(appNameIncludesBrand);
+    const appNameIncludesBrand = (app) => `${app.trackName || ''} ${app.sellerName || app.artistName || ''}`.toLowerCase().includes(brandLower);
+    const matches = candidates.filter(appNameIncludesBrand);
+    const match = matches.find((app) => String(app.trackName || '').toLowerCase().startsWith(brandLower)) || matches[0];
     if (!match?.trackId) return [];
     const response = await fetch(`https://itunes.apple.com/${countryCode}/rss/customerreviews/id=${match.trackId}/sortBy=mostRecent/json?_ts=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) return [];
@@ -390,11 +437,6 @@ app.post('/api/translate', async (request, response) => {
 app.get('/api/platform-ratings', async (request, response) => {
   const brand = String(request.query.brand || 'Western Union');
   const country = String(request.query.country || 'US').toUpperCase();
-  const appId = APP_PACKAGES[brand];
-  if (!appId) {
-    response.json({ google: { rating: null, reviewCount: 0 }, apple: { rating: null, reviewCount: 0 }, country, brand });
-    return;
-  }
   const cacheKey = `${brand}:${country}`;
   const bypassCache = request.query.refresh !== undefined && request.query.refresh !== '';
   const cached = platformRatingsCache.get(cacheKey);
@@ -403,7 +445,19 @@ app.get('/api/platform-ratings', async (request, response) => {
     return;
   }
   try {
-    const app = await gplay.app({ appId, country: country.toLowerCase() });
+    const appId = await resolvePlayAppId(brand, country);
+    let google = { rating: null, reviewCount: 0 };
+    if (appId) {
+      try {
+        const app = await gplay.app({ appId, country: country.toLowerCase() });
+        google = {
+          rating: Number.isFinite(Number(app.score)) ? Number(app.score) : null,
+          reviewCount: Math.max(Number(app.ratings || 0), Number(app.reviews || 0)),
+        };
+      } catch (googleError) {
+        console.error(`Google Play aggregate lookup failed for ${brand} (${country}):`, googleError.message);
+      }
+    }
     let appleRating = null;
     let appleReviewCount = 0;
     try {
@@ -426,10 +480,7 @@ app.get('/api/platform-ratings', async (request, response) => {
       console.error(`Apple App Store aggregate lookup failed for ${country}:`, appleError.message);
     }
     const value = {
-      google: {
-        rating: Number.isFinite(Number(app.score)) ? Number(app.score) : null,
-        reviewCount: Math.max(Number(app.ratings || 0), Number(app.reviews || 0)),
-      },
+      google,
       apple: {
         rating: appleRating,
         reviewCount: appleReviewCount,
@@ -441,7 +492,7 @@ app.get('/api/platform-ratings', async (request, response) => {
     platformRatingsCache.set(cacheKey, { cachedAt: Date.now(), collectedAt, value });
     response.json({ ...value, collectedAt });
   } catch (error) {
-    response.json({ google: { rating: null, reviewCount: 0 }, country, brand, error: error.message });
+    response.json({ google: { rating: null, reviewCount: 0 }, apple: { rating: null, reviewCount: 0 }, country, brand, error: error.message });
   }
 });
 
