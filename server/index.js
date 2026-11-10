@@ -41,6 +41,19 @@ const APP_PACKAGES = {
   Wise: 'com.transferwise.android',
   Remitly: 'com.remitly.androidapp',
   MoneyGram: 'com.gpshopper.moneygram',
+  PayPal: 'com.paypal.android.p2pmobile',
+  Xoom: 'com.xoom.android.app',
+  Revolut: 'com.revolut.revolut',
+  WorldRemit: 'com.worldremit.android',
+  Ria: 'com.riamoneytransfer.android',
+  GCash: 'com.globe.gcash.android',
+  BookMyForex: 'com.bookmyforex.android',
+  Skrill: 'com.paysafe.skrill',
+  'Al Ansari Exchange': 'ae.alansari.mobile',
+  Venmo: 'com.venmo',
+  'Cash App': 'com.squareup.cash',
+  Monzo: 'co.uk.getmondo',
+  Chime: 'com.chimebank',
 };
 
 const COMPETITOR_STOCK_SYMBOLS = {
@@ -350,14 +363,15 @@ app.get('/api/platform-ratings', async (request, response) => {
     let appleReviewCount = 0;
     try {
       const appleCountry = country.toLowerCase();
-      const lookup = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent('Western Union Send Money')}&country=${appleCountry}&entity=software&limit=15&_ts=${Date.now()}`, { cache: 'no-store' });
+      const brandLower = brand.toLowerCase();
+      const lookup = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(brand)}&country=${appleCountry}&entity=software&limit=15&_ts=${Date.now()}`, { cache: 'no-store' });
       if (lookup.ok) {
         const appleData = await lookup.json();
         const matches = (appleData.results || []).filter((item) =>
-          `${item.trackName || ''} ${item.sellerName || item.artistName || ''}`.toLowerCase().includes('western union'),
+          `${item.trackName || ''} ${item.sellerName || item.artistName || ''}`.toLowerCase().includes(brandLower),
         );
-        const match = matches.find((item) => String(item.trackName || '').toLowerCase().startsWith('western union'))
-          || matches.find((item) => String(item.trackName || '').toLowerCase().includes('western union'));
+        const match = matches.find((item) => String(item.trackName || '').toLowerCase().startsWith(brandLower))
+          || matches[0];
         if (match?.averageUserRating) {
           appleRating = Number(Number(match.averageUserRating).toFixed(2));
           appleReviewCount = Number(match.userRatingCount || 0);

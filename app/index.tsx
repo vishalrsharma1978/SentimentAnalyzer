@@ -332,7 +332,11 @@ export default function Onboarding() {
       await new Promise((resolve) => setTimeout(resolve, 450));
       router.push({
         pathname: "/dashboard",
-        params: { countries: JSON.stringify(selectedCountries) },
+        params: {
+          countries: JSON.stringify(selectedCountries),
+          brand: appName.trim(),
+          website: normalizedWebsite,
+        },
       });
     } catch {
       setCollectionState("error");

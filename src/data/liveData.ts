@@ -128,6 +128,10 @@ const COMPETITOR_TERMS: Record<string, string> = {
   'BookMyForex': 'BookMyForex Money Transfer',
   'Al Ansari Exchange': 'Al Ansari Exchange Money Transfer',
   'Skrill': 'Skrill Money Transfer',
+  Venmo: 'Venmo',
+  'Cash App': 'Cash App',
+  Monzo: 'Monzo Bank',
+  Chime: 'Chime Mobile Banking',
 };
 
 const COUNTRY_COMPETITOR_NAMES: Record<string, string[]> = {
@@ -304,11 +308,12 @@ export async function fetchAppleStoreRating(countryCode: string, brandName = 'We
       results = await appleLookup(term, countryCode);
       if (results.length) break;
     }
+    const brandLower = brandName.toLowerCase();
     const matches = results.filter((item) =>
-      `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes('western union'),
+      `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes(brandLower),
     );
-    const match = matches.find((item) => String(item.trackName ?? '').toLowerCase().startsWith('western union'))
-      ?? matches.find((item) => String(item.trackName ?? '').toLowerCase().includes('western union'));
+    const match = matches.find((item) => String(item.trackName ?? '').toLowerCase().startsWith(brandLower))
+      ?? matches[0];
     const value = match?.averageUserRating
       ? { rating: Number(Number(match.averageUserRating).toFixed(2)), reviewCount: Number(match.userRatingCount ?? 0) }
       : { rating: null as number | null, reviewCount: 0 };
@@ -322,7 +327,8 @@ export async function fetchAppleStoreRating(countryCode: string, brandName = 'We
 export async function fetchAppleReviews(countryCode: string, brandName = 'Western Union', months = 1, refreshNonce = 0): Promise<CustomerSentiment[]> {
   try {
     const results = await appleLookup(COMPETITOR_TERMS[brandName] ?? brandName, countryCode);
-    const match = results.find((item) => `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes('western union'))
+    const brandLower = brandName.toLowerCase();
+    const match = results.find((item) => `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes(brandLower))
       ?? results[0];
     if (!match?.trackId) return [];
 

@@ -11,6 +11,7 @@ import { SafeView } from './SafeView';
 type AIInsightsBriefProps = {
   reviews: CustomerSentiment[];
   competitors: LiveCompetitor[];
+  brand?: string;
   country: string;
   months: number;
   loading: boolean;
@@ -200,6 +201,7 @@ function Metric({
 export function AIInsightsBrief({
   reviews,
   competitors,
+  brand = 'Western Union',
   country,
   months,
   loading,
@@ -233,9 +235,9 @@ export function AIInsightsBrief({
     : Math.round(latestMonth.negativeRate);
   const maxMonthlyVolume = Math.max(1, ...monthlySentiment.map((month) => month.total));
   const sourceNames = [...new Set(reviews.map((review) => review.source))];
-  const brandRating = competitors.find((competitor) => competitor.name === 'Western Union')?.rating;
+  const brandRating = competitors.find((competitor) => competitor.name === brand)?.rating;
   const otherRatedCompetitors = competitors.filter(
-    (competitor) => competitor.name !== 'Western Union' && competitor.rating !== null,
+    (competitor) => competitor.name !== brand && competitor.rating !== null,
   );
   const leadingCompetitor = otherRatedCompetitors.sort((left, right) => (right.rating ?? 0) - (left.rating ?? 0))[0];
   const ratingGap = brandRating !== null && brandRating !== undefined && leadingCompetitor?.rating !== null && leadingCompetitor?.rating !== undefined
