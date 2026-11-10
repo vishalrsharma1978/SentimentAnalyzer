@@ -32,7 +32,7 @@ function RevCounter({ value, size }: { value: number; size: number }) {
         cy={c}
         r={96}
         fill="#FFFFFF"
-        stroke="#E2E4E9"
+        stroke="#D9E2F0"
         strokeWidth={8}
       />
       <Circle
@@ -40,12 +40,12 @@ function RevCounter({ value, size }: { value: number; size: number }) {
         cy={c}
         r={96}
         fill="none"
-        stroke="#B9D6F2"
+        stroke="#A9CDF0"
         strokeWidth={2}
       />
       <Path
         d={`M ${redFrom.x} ${redFrom.y} A 84 84 0 0 1 ${redTo.x} ${redTo.y}`}
-        stroke="#509EE3"
+        stroke="#1B4F8A"
         strokeWidth={8}
         fill="none"
       />
@@ -87,12 +87,12 @@ function RevCounter({ value, size }: { value: number; size: number }) {
           y1={c}
           x2={needle.x}
           y2={needle.y}
-          stroke="#509EE3"
+          stroke="#1B4F8A"
           strokeWidth={5}
           strokeLinecap="round"
         />
-        <Circle cx={c} cy={c} r={11} fill="#22242B" />
-        <Circle cx={c} cy={c} r={4} fill="#509EE3" />
+        <Circle cx={c} cy={c} r={11} fill="#1A2B4A" />
+        <Circle cx={c} cy={c} r={4} fill="#1B4F8A" />
       </G>
     </Svg>
   );
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     minHeight: 220,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
     padding: 20,
@@ -169,12 +169,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 18,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#509EE3" },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#1B4F8A" },
   toplineText: {
     fontSize: 9,
     letterSpacing: 2.4,
     fontWeight: "800",
-    color: "#509EE3",
+    color: "#1B4F8A",
   },
   gauges: {
     flexDirection: "row",
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 2.2,
     fontWeight: "800",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
   },
   brand: {
     marginTop: 4,
@@ -231,6 +231,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 4,
-    backgroundColor: "#509EE3",
+    backgroundColor: "#1B4F8A",
   },
 });

@@ -350,7 +350,7 @@ export default function Onboarding() {
       <View style={styles.frame}>
         <View accessibilityRole="header" style={styles.topHeader}>
           <View style={styles.topHeaderMark}>
-            <Ionicons name="pulse" size={20} color="#FFFFFF" />
+            <Ionicons name="pulse" size={20} color={colors.primary} />
           </View>
           <View style={styles.topHeaderTitleRow}>
             <Text
@@ -359,7 +359,7 @@ export default function Onboarding() {
             >
               Customer Sentiment Analyzer
             </Text>
-            <PulseDot />
+            <PulseDot color={colors.primaryBorder} />
           </View>
           <Pressable
             accessibilityRole="button"
@@ -367,7 +367,7 @@ export default function Onboarding() {
             onPress={() => setShowLogin(true)}
             style={[styles.signInButton, styles.headerSignInButton]}
           >
-            <Ionicons name="person-circle-outline" size={17} color="#FFFFFF" />
+            <Ionicons name="person-circle-outline" size={17} color={colors.primary} />
             <Text style={styles.signInText}>
               {isWide ? "Partner sign in" : "Sign in"}
             </Text>
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.card,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -966,14 +966,9 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.card,
     borderColor: colors.primaryBorder,
     gap: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
   },
   heroBanner: {
     width: "100%",
@@ -995,22 +990,17 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryBorder,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    backgroundColor: colors.primary,
-    shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    backgroundColor: colors.card,
   },
   signInText: {
     fontSize: 13,
     fontFamily: fonts.bold,
-    color: "#FFFFFF",
+    color: colors.primary,
   },
   logo: {
     width: 36,
@@ -1019,11 +1009,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   brandName: {
     marginLeft: 10,
@@ -1282,7 +1267,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 7,
   },
-  brandPresetActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft, shadowColor: colors.primary, shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  brandPresetActive: { borderColor: colors.primary, backgroundColor: colors.card, borderWidth: 2 },
   brandPresetMark: {
     width: 28,
     height: 28,
@@ -1291,7 +1276,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.badge,
   },
-  brandPresetMarkActive: { backgroundColor: colors.primary, shadowColor: colors.primaryDeep, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  brandPresetMarkActive: { backgroundColor: colors.primary },
   brandPresetInitial: { fontSize: 11, fontFamily: fonts.black, color: colors.muted },
   brandPresetInitialActive: { color: "#FFFFFF" },
   brandPresetText: { fontSize: 11, fontFamily: fonts.bold, color: colors.text },
@@ -1312,7 +1297,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.primaryBorder,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.card,
   },
   suggestionCopy: { gap: 5 },
   suggestionHeading: {
@@ -1393,7 +1378,7 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: colors.card,
   },
-  chipActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft, shadowColor: colors.primary, shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  chipActive: { borderColor: colors.primary, backgroundColor: colors.card, borderWidth: 2 },
   chipText: { fontSize: 12, fontFamily: fonts.bold, color: colors.text },
   chipTextActive: { color: colors.primaryDark },
   marketHeader: {
@@ -1427,12 +1412,8 @@ const styles = StyleSheet.create({
   },
   sourceChipActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    backgroundColor: colors.card,
+    borderWidth: 2,
   },
   clearText: {
     fontSize: 11,
@@ -1460,19 +1441,15 @@ const styles = StyleSheet.create({
   },
   bundleChipActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    backgroundColor: colors.card,
+    borderWidth: 2,
   },
   bundleText: { fontSize: 11, fontFamily: fonts.bold, color: colors.text },
   bundleTextActive: { color: colors.primaryDark },
   selectionSummary: {
     minHeight: 52,
     borderRadius: 12,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.primaryBorder,
     padding: 10,
@@ -1573,11 +1550,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   loginEyebrow: {
     fontSize: 9,
@@ -1609,10 +1581,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
+    elevation: 4,
   },
   loginButtonText: {
     fontSize: 13,
@@ -1623,7 +1595,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     borderRadius: 10,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
     padding: 10,
     marginTop: 12,
   },
@@ -1638,10 +1612,10 @@ const styles = StyleSheet.create({
     gap: 9,
     marginTop: 8,
     shadowColor: colors.primaryDeep,
-    shadowOpacity: 0.4,
-    shadowRadius: 14,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    elevation: 5,
   },
   buttonPressed: { opacity: 0.88 },
   buttonText: {

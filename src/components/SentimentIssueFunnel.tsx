@@ -34,7 +34,7 @@ export function SentimentIssueFunnel({
     <SafeView style={styles.card}>
       <SafeView style={styles.header}>
         <SafeView style={styles.iconFrame}>
-          <Ionicons name="filter-outline" size={17} color="#A9CDF0" />
+          <Ionicons name="filter-outline" size={17} color="#1B4F8A" />
         </SafeView>
         <SafeView style={styles.headerCopy}>
           <Text style={styles.title}>What’s shaping sentiment?</Text>
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#A9CDF0',
+    borderColor: '#1B4F8A',
     backgroundColor: '#FFFFFF',
     shadowColor: '#1B4F8A',
     shadowOpacity: 0.08,
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#12325E',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#1B4F8A',
   },
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     borderColor: '#D9E2F0',
     backgroundColor: '#FFFFFF',
   },
-  categorySelected: { borderColor: '#509EE3', backgroundColor: '#E3F0FC' },
+  categorySelected: { borderColor: '#1B4F8A', backgroundColor: '#FFFFFF', borderWidth: 2 },
   categoryPressed: { opacity: 0.78 },
   categoryEdge: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 3 },
   categoryContent: { flex: 1, paddingHorizontal: 12, paddingVertical: 8 },

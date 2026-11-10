@@ -1,4 +1,4 @@
-// Blue design tokens: white canvas, dark-blue headers, layered blue shades.
+// Blue design tokens: white canvas, dark-blue buttons/frames, white text.
 export const colors = {
   navy: "#1A2B4A",
   text: "#33415C",
@@ -7,14 +7,14 @@ export const colors = {
   line: "#D9E2F0",
   canvas: "#FFFFFF",
   card: "#FFFFFF",
-  primary: "#509EE3",
-  primaryDark: "#2E6DB4",
-  primaryDeep: "#1B4F8A",
+  primary: "#1B4F8A",
+  primaryDark: "#12325E",
+  primaryDeep: "#0E2748",
   header: "#12325E",
   headerText: "#FFFFFF",
-  primarySoft: "#E3F0FC",
-  primaryBorder: "#A9CDF0",
-  badge: "#E4EBF5",
+  primarySoft: "#FFFFFF",
+  primaryBorder: "#1B4F8A",
+  badge: "#EEF2F7",
   green: "#12B76A",
   greenSoft: "#ECFDF3",
   greenText: "#027A48",

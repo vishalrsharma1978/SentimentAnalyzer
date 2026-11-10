@@ -182,7 +182,7 @@ export function SentimentMindMap({
         </SafeView>
         <SafeView style={styles.headerMeta}>
           <SafeView style={styles.marketBadge}>
-            <Ionicons name="location" size={11} color="#3B7EC2" />
+            <Ionicons name="location" size={11} color="#A9CDF0" />
             <Text style={styles.marketBadgeText}>
               {country === 'United States' ? 'US MARKET' : `${country.toUpperCase()} MARKET`}
             </Text>
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#A9CDF0',
+    borderColor: '#1B4F8A',
     backgroundColor: '#FFFFFF',
     shadowColor: '#1B4F8A',
     shadowOpacity: 0.08,
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1, paddingRight: 12 },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  kickerMark: { width: 22, height: 2, borderRadius: 1, backgroundColor: '#509EE3' },
+  kickerMark: { width: 22, height: 2, borderRadius: 1, backgroundColor: '#A9CDF0' },
   kicker: { fontSize: 9, fontWeight: '900', letterSpacing: 1.7, color: '#A9CDF0' },
   title: { marginTop: 5, fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
   headerMeta: { alignItems: 'flex-end' },

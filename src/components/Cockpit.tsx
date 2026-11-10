@@ -117,7 +117,7 @@ export function Cockpit({
         {promises.map((p) => (
           <View key={p.title} style={styles.promise}>
             <View style={styles.promiseIcon}>
-              <Ionicons name={p.icon} size={18} color="#3B7EC2" />
+              <Ionicons name={p.icon} size={18} color="#1B4F8A" />
             </View>
             <View style={styles.promiseBody}>
               <Text style={styles.promiseHeading}>{p.title}</Text>
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     minHeight: 540,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
     justifyContent: "flex-start",
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
   },
   message: {
     marginTop: 6,
@@ -184,18 +184,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
   },
   promise: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   promiseIcon: {
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: "#E3F0FC",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
   },
   promiseBody: { flex: 1 },
   promiseHeading: {
@@ -211,6 +211,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 4,
-    backgroundColor: "#509EE3",
+    backgroundColor: "#1B4F8A",
   },
 });

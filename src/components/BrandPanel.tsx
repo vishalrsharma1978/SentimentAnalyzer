@@ -49,7 +49,7 @@ export function BrandPanel() {
       <View style={styles.trust}>
         {trust.map((t) => (
           <View key={t.label} style={styles.trustItem}>
-            <Ionicons name={t.icon} size={16} color="#509EE3" />
+            <Ionicons name={t.icon} size={16} color="#1B4F8A" />
             <Text style={styles.trustLabel}>{t.label}</Text>
           </View>
         ))}
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   wrap: {
     marginTop: 16,
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
     overflow: "hidden",
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 3,
     fontWeight: "800",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
   },
   title: {
     fontSize: 22,
@@ -94,13 +94,13 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: "#E3F0FC",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
   },
-  badgeText: { fontSize: 13, fontWeight: "800", color: "#2E6DB4" },
+  badgeText: { fontSize: 13, fontWeight: "800", color: "#1B4F8A" },
   stepBody: { flex: 1 },
   stepTitle: {
     fontSize: 13,
@@ -132,6 +132,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 4,
-    backgroundColor: "#509EE3",
+    backgroundColor: "#1B4F8A",
   },
 });

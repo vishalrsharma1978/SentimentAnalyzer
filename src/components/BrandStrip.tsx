@@ -28,7 +28,7 @@ export function BrandStrip({ isWide }: { isWide: boolean }) {
         {stats.map((s) => (
           <View key={s.label} style={[styles.stat, !isWide && styles.statHalf]}>
             <View style={styles.statIcon}>
-              <Ionicons name={s.icon} size={18} color="#3B7EC2" />
+              <Ionicons name={s.icon} size={18} color="#1B4F8A" />
             </View>
             <View>
               <Text style={styles.statValue}>{s.value}</Text>
@@ -76,7 +76,7 @@ export function BrandFooter() {
 const styles = StyleSheet.create({
   wrap: {
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
     paddingVertical: 18,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 3.5,
     fontWeight: "800",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
     textAlign: "center",
   },
   tagline: {
@@ -121,11 +121,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: "#E3F0FC",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
   },
   statValue: { fontSize: 20, fontWeight: "300", color: "#1A2B4A" },
   statLabel: {
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   footer: { marginTop: 28, paddingBottom: 6 },
-  footerStripe: { height: 4, backgroundColor: "#509EE3", marginBottom: 14 },
+  footerStripe: { height: 4, backgroundColor: "#1B4F8A", marginBottom: 14 },
   footerRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "#509EE3",
+    backgroundColor: "#1B4F8A",
     alignItems: "center",
     justifyContent: "center",
   },

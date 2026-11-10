@@ -137,7 +137,7 @@ export function SentimentStoryRails() {
                   <Ionicons
                     name={step.icon}
                     size={16}
-                    color={index === 3 ? "#3B7EC2" : "#5A6072"}
+                    color={index === 3 ? "#1B4F8A" : "#5A6B8C"}
                   />
                 </Animated.View>
                 <View style={styles.stepCopy}>
@@ -149,7 +149,7 @@ export function SentimentStoryRails() {
           })}
         </View>
         <View style={styles.quote}>
-          <Ionicons name="chatbox-ellipses-outline" size={14} color="#509EE3" />
+          <Ionicons name="chatbox-ellipses-outline" size={14} color="#1B4F8A" />
           <Text style={styles.quoteText}>Every review starts a better journey.</Text>
         </View>
       </View>
@@ -178,7 +178,7 @@ export function SentimentStoryRails() {
                 <Ionicons
                   name={icon as keyof typeof Ionicons.glyphMap}
                   size={index === 1 ? 22 : 18}
-                  color={index === 1 ? "#FFFFFF" : "#509EE3"}
+                  color={index === 1 ? "#FFFFFF" : "#1B4F8A"}
                 />
               </Animated.View>
             ),
@@ -195,15 +195,15 @@ export function SentimentStoryRails() {
             <Path
               d="M8 62 L37 52 L65 55 L94 29 L120 11"
               fill="none"
-              stroke="#509EE3"
+              stroke="#1B4F8A"
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <Circle cx="37" cy="52" r="3" fill="#3B7EC2" />
-            <Circle cx="65" cy="55" r="3" fill="#3B7EC2" />
-            <Circle cx="94" cy="29" r="3" fill="#3B7EC2" />
-            <Circle cx="120" cy="11" r="4" fill="#3B7EC2" />
+            <Circle cx="37" cy="52" r="3" fill="#1B4F8A" />
+            <Circle cx="65" cy="55" r="3" fill="#1B4F8A" />
+            <Circle cx="94" cy="29" r="3" fill="#1B4F8A" />
+            <Circle cx="120" cy="11" r="4" fill="#1B4F8A" />
           </Svg>
           <Animated.View
             style={[
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     width: 154,
     alignSelf: "center",
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
     borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.97)",
     padding: 12,
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 1.5,
     fontWeight: "900",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
   },
   railTitle: {
     marginTop: 7,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 6,
-    backgroundColor: "#509EE3",
+    backgroundColor: "#1B4F8A",
     borderWidth: 2,
     borderColor: "#A9CDF0",
   },
@@ -298,16 +298,16 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E3F0FC",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#A9CDF0",
+    borderColor: "#1B4F8A",
   },
   stepCopy: { flex: 1 },
   stepTitle: {
     fontSize: 8,
     letterSpacing: 0.8,
     fontWeight: "900",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
   },
   stepDetail: { marginTop: 2, fontSize: 8, lineHeight: 11, color: "#8FA3C4" },
   quote: {
@@ -341,8 +341,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#509EE3",
-    borderColor: "#2E6DB4",
+    backgroundColor: "#1B4F8A",
+    borderColor: "#0E2748",
     shadowColor: "#1B4F8A",
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -370,9 +370,9 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: "#509EE3",
+    backgroundColor: "#1B4F8A",
     borderWidth: 2,
-    borderColor: "#2E6DB4",
+    borderColor: "#0E2748",
   },
   growthFooter: {
     marginTop: 10,
@@ -390,12 +390,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#509EE3",
+    backgroundColor: "#1B4F8A",
   },
   growthText: {
     fontSize: 8,
     letterSpacing: 1,
     fontWeight: "900",
-    color: "#2E6DB4",
+    color: "#1B4F8A",
   },
 });
