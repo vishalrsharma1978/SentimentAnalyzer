@@ -161,7 +161,7 @@ export function SunburstChart({ markets, selected, onSelect, platformRatings, pl
         android={platformRatings.android}
         iosDetail={platformReviewCounts?.ios ? `${platformReviewCounts.ios.toLocaleString()} ratings` : 'Source unavailable'}
         androidDetail={platformReviewCounts?.android ? `${platformReviewCounts.android.toLocaleString()} ratings` : 'Source unavailable'}
-        brandDetail={platformRatings.brand !== null ? 'Average of live platforms' : 'No live platform rating'}
+        brandDetail={platformRatings.ios !== null && platformRatings.android !== null ? 'Provisional · equal store average' : platformRatings.ios !== null ? 'Single source · App Store' : platformRatings.android !== null ? 'Single source · Google Play' : 'No store rating available'}
       />
       <Text style={styles.panelTitleMarket}>SELECTED MARKETS</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.marketList}>

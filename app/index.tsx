@@ -104,6 +104,20 @@ const countryBundles: Record<string, string[]> = {
   ],
 };
 const countries = [...new Set(Object.values(countryBundles).flat())];
+const westernUnionExcludedCountries = new Set([
+  "South Korea",
+  "Indonesia",
+  "South Africa",
+  "Egypt",
+  "Iceland",
+  "Nigeria",
+]);
+const isWesternUnion = (name: string) =>
+  name.trim().toLowerCase() === "western union";
+const countriesForBrand = (items: string[], name: string) =>
+  isWesternUnion(name)
+    ? items.filter((country) => !westernUnionExcludedCountries.has(country))
+    : items;
 const brandPresets = [
   { name: "Western Union", website: "https://www.westernunion.com" },
   { name: "Wise", website: "https://wise.com" },
@@ -150,7 +164,6 @@ const brandSetupSuggestions: Record<
       "Norway",
       "Denmark",
       "Finland",
-      "Iceland",
     ],
     corridors: ["US ↔ India", "US ↔ Mexico", "UK ↔ India", "UAE ↔ Philippines"],
   },
@@ -232,6 +245,12 @@ export default function Onboarding() {
   const isWide = width >= 900;
   const isCompact = width < 560;
   const showStoryRails = width >= 1200;
+  const availableCountries = countriesForBrand(countries, businessName);
+  const setBrandName = (name: string) => {
+    setBusinessName(name);
+    setSelectedCountries((current) => countriesForBrand(current, name));
+    setSelectedBundles([]);
+  };
   const toggleSelection = (
     value: string,
     current: string[],
@@ -245,13 +264,13 @@ export default function Onboarding() {
   };
 
   const selectBrand = (brand: (typeof brandPresets)[number]) => {
-    setBusinessName(brand.name);
+    setBrandName(brand.name);
     setAppName(brand.name);
     setWebsite(brand.website);
   };
 
   const selectCustomBrand = () => {
-    setBusinessName("");
+    setBrandName("");
     setAppName("");
     setWebsite("");
     setCollectionState("idle");
@@ -265,25 +284,29 @@ export default function Onboarding() {
     setBusinessType(selectedBrandSuggestion.businessType);
     setSelectedPlatforms([...selectedBrandSuggestion.platforms]);
     setSelectedSources([...selectedBrandSuggestion.sources]);
-    setSelectedCountries([...selectedBrandSuggestion.countries]);
+    setSelectedCountries(countriesForBrand(selectedBrandSuggestion.countries, businessName));
     setSelectedBundles([]);
     setCollectionState("idle");
     setCollectionMessage("Suggested setup loaded · review your selections");
   };
 
   const toggleCountry = (country: string) => {
-    setSelectedCountries((current) =>
-      current.includes(country)
-        ? current.filter((item) => item !== country)
-        : [...current, country],
-    );
+    const next = selectedCountries.includes(country)
+      ? selectedCountries.filter((item) => item !== country)
+      : [...selectedCountries, country];
+    setSelectedCountries(next);
+    setSelectedBundles((current) => current.filter((bundle) =>
+      countriesForBrand(countryBundles[bundle], businessName)
+        .every((item) => next.includes(item)),
+    ));
   };
 
   const toggleBundle = (bundle: string) => {
-    const bundleCountries = countryBundles[bundle];
-    const isSelected = selectedBundles.includes(bundle);
+    const bundleCountries = countriesForBrand(countryBundles[bundle], businessName);
+    const isSelected = selectedBundles.includes(bundle) ||
+      (bundle === "Global" && bundleCountries.every((country) => selectedCountries.includes(country)));
     if (bundle === "Global") {
-      setSelectedCountries(isSelected ? [] : [...countryBundles.Global]);
+      setSelectedCountries(isSelected ? [] : bundleCountries);
       setSelectedBundles(isSelected ? [] : ["Global"]);
       return;
     }
@@ -562,7 +585,7 @@ export default function Onboarding() {
                         touched && !businessName && styles.inputError,
                       ]}
                       value={businessName}
-                      onChangeText={setBusinessName}
+                      onChangeText={setBrandName}
                     />
                   </View>
                   <View style={styles.field}>
@@ -738,8 +761,8 @@ export default function Onboarding() {
                     const active =
                       selectedBundles.includes(bundle) ||
                       (bundle === "Global" &&
-                        selectedCountries.length ===
-                          countryBundles.Global.length);
+                        countriesForBrand(countryBundles.Global, businessName)
+                          .every((country) => selectedCountries.includes(country)));
                     return (
                       <Pressable
                         key={bundle}
@@ -782,7 +805,7 @@ export default function Onboarding() {
                   A la carte countries
                 </Text>
                 <View style={styles.chips}>
-                  {countries.map((country) => (
+                  {availableCountries.map((country) => (
                     <Pressable
                       key={country}
                       onPress={() => toggleCountry(country)}

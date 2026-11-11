@@ -210,7 +210,7 @@ export async function fetchPlaystoreAggregateRating(countryCode: string, brandNa
   }
 }
 
-type PlatformRatings = {
+export type PlatformRatings = {
   google: { rating: number | null; reviewCount: number };
   apple: { rating: number | null; reviewCount: number };
 };
@@ -220,28 +220,83 @@ type PlatformRatings = {
 const PLATFORM_RATINGS_CACHE_TTL_MS = 5 * 60 * 1000;
 const platformRatingsCache = new Map<string, { expiresAt: number; value: PlatformRatings }>();
 
-async function fetchPlatformRatings(countryCode: string, brandName: string, forceRefresh = false): Promise<PlatformRatings> {
+export async function fetchPlatformRatings(countryCode: string, brandName: string, forceRefresh = false): Promise<PlatformRatings> {
   const cacheKey = `${countryCode.toUpperCase()}:${brandName}`;
   const cached = platformRatingsCache.get(cacheKey);
   if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.value;
 
   const apiUrl = getApiUrl();
   const refreshParam = forceRefresh ? '&refresh=1' : '';
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store', signal: controller.signal })
+    .finally(() => clearTimeout(timeout));
   if (!response.ok) throw new Error(`Platform-ratings service returned HTTP ${response.status}.`);
-  const data = await response.json();
+  const data: unknown = await response.json();
+  if (!isRecord(data) || !isRecord(data.google) || !isRecord(data.apple)) {
+    throw new Error('Platform-ratings service returned invalid platform data.');
+  }
+  if (typeof data.error === 'string' && data.error) {
+    throw new Error('The country rating collector could not load its sources.');
+  }
+  const parseStoreRating = (store: Record<string, unknown>) => {
+    const rating = store.rating === null ? null : Number(store.rating);
+    const reviewCount = Number(store.reviewCount);
+    if ((rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5))
+      || !Number.isSafeInteger(reviewCount) || reviewCount < 0) {
+      throw new Error('Platform-ratings service returned an invalid score or rating count.');
+    }
+    return { rating, reviewCount };
+  };
   const value: PlatformRatings = {
-    google: {
-      rating: data.google?.rating !== null && data.google?.rating !== undefined ? Number(data.google.rating) : null,
-      reviewCount: Number(data.google?.reviewCount ?? 0),
-    },
-    apple: {
-      rating: data.apple?.rating !== null && data.apple?.rating !== undefined ? Number(data.apple.rating) : null,
-      reviewCount: Number(data.apple?.reviewCount ?? 0),
-    },
+    google: parseStoreRating(data.google),
+    apple: parseStoreRating(data.apple),
   };
   platformRatingsCache.set(cacheKey, { expiresAt: Date.now() + PLATFORM_RATINGS_CACHE_TTL_MS, value });
   return value;
+}
+
+export type ChannelScoreData = {
+  rating: number | null;
+  sampleSize: number;
+  basis: string;
+  components: { label: string; score: number }[];
+};
+export type ChannelRatings = { brand: ChannelScoreData | null; web: ChannelScoreData | null };
+
+function parseChannelScore(value: unknown): ChannelScoreData | null {
+  if (!isRecord(value)) return null;
+  const rating = value.rating === null ? null : Number(value.rating);
+  if (rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5)) return null;
+  const sampleSize = Number(value.sampleSize);
+  const components = Array.isArray(value.components)
+    ? value.components.flatMap((item) => {
+      if (!isRecord(item) || typeof item.label !== 'string') return [];
+      const score = Number(item.score);
+      return Number.isFinite(score) && score >= 0 && score <= 1 ? [{ label: item.label.slice(0, 60), score }] : [];
+    })
+    : [];
+  return {
+    rating,
+    sampleSize: Number.isSafeInteger(sampleSize) && sampleSize >= 0 ? sampleSize : 0,
+    basis: typeof value.basis === 'string' ? value.basis.slice(0, 240) : '',
+    components,
+  };
+}
+
+// Brand (service-themed customer reviews) and Website (live site checks) for one
+// country. Slower than store ratings because the site is probed live.
+export async function fetchChannelRatings(countryCode: string, brandName: string, forceRefresh = false): Promise<ChannelRatings> {
+  const apiUrl = getApiUrl();
+  const refreshParam = forceRefresh ? '&refresh=1' : '';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/channel-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}${refreshParam}`, { cache: 'no-store', signal: controller.signal })
+    .finally(() => clearTimeout(timeout));
+  if (!response.ok) throw new Error(`Channel-ratings service returned HTTP ${response.status}.`);
+  const data: unknown = await response.json();
+  if (!isRecord(data)) throw new Error('Channel-ratings service returned invalid data.');
+  return { brand: parseChannelScore(data.brand), web: parseChannelScore(data.web) };
 }
 
 export async function fetchReviewCollector(countryCode: string, brandName = 'Western Union', months = 1, refreshNonce = 0): Promise<CustomerSentiment[]> {

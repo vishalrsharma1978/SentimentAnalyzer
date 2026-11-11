@@ -38,6 +38,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Browser test output
+test-results/
+playwright-report/
+
 # generated native folders
 /ios
 /android

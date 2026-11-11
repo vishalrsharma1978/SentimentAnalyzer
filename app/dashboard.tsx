@@ -5,12 +5,15 @@ import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Switch, Tex
 import { SafeView } from '../src/components/SafeView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SunburstChart, SunburstMarket } from '../src/components/SunburstChart';
+import { GlobalRatingsExplorer } from '../src/components/GlobalRatingsExplorer';
+import { aggregateRating, storeRatingBasis } from '../src/data/marketAnalytics';
+import type { MarketRatings } from '../src/data/marketAnalytics';
 import { SentimentMindMap } from '../src/components/SentimentMindMap';
 import { CustomerReviewFeed } from '../src/components/CustomerReviewFeed';
 import { SentimentIssueFunnel } from '../src/components/SentimentIssueFunnel';
 import { AIInsightsBrief } from '../src/components/AIInsightsBrief';
 import { countries } from '../src/data/demoData';
-import { fetchAppleCompetitors, fetchAppleStoreRating, fetchCompetitorRatings, fetchCompetitorSharePrices, fetchPlaystoreAggregateRating, fetchRedditMentions, fetchReviewCollector } from '../src/data/liveData';
+import { fetchAppleCompetitors, fetchChannelRatings, fetchCompetitorRatings, fetchCompetitorSharePrices, fetchPlatformRatings, fetchRedditMentions, fetchReviewCollector } from '../src/data/liveData';
 import type { CompetitorSharePrice, CustomerSentiment, LiveCompetitor } from '../src/data/liveData';
 import { CORRIDOR_FEE_PERIOD, CORRIDOR_FEE_SOURCE, formatDailyVolume, formatFeeRange, getBenchmarkCostOnAmount, getBrandCorridorFee, getBrandDailyVolume, getCorridorAverageFee, getCorridorForCountry, getFeeDelta } from '../src/data/corridorData';
 import { categorizeSentimentReviews } from '../src/data/sentimentCategories';
@@ -23,7 +26,6 @@ const nav = [
   ['people-outline', 'Competitors'], ['sparkles-outline', 'AI Insights'], ['document-text-outline', 'Reports'],
   ['notifications-outline', 'Alerts'], ['people-circle-outline', 'Team'], ['server-outline', 'Sources'], ['settings-outline', 'Settings'],
 ];
-const regions = ['Global', 'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East & Africa'];
 
 const COUNTRY_METADATA: Record<string, { code: string; region: string; score: number; rank: number }> = {
   'United States': { code: 'US', region: 'North America', score: 4.1, rank: 4 },
@@ -129,24 +131,6 @@ type PlatformRating = { rating: number | null; reviewCount: number; sourceCount:
 
 function getReviewIdentity(review: CustomerSentiment) {
   return `${review.source}\u0000${review.author}\u0000${review.text}`;
-}
-
-function calculatePlatformRatings(reviews: CustomerSentiment[]) {
-  const averages: Record<'Google Play' | 'Apple App Store', PlatformRating> = {
-    'Google Play': { rating: null, reviewCount: 0, sourceCount: 0 },
-    'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
-  };
-  (Object.keys(averages) as ('Google Play' | 'Apple App Store')[]).forEach((source) => {
-    const sourceReviews = reviews.filter((review) => review.source === source && review.rating > 0);
-    if (sourceReviews.length) {
-      averages[source] = {
-        rating: sourceReviews.reduce((sum, review) => sum + review.rating, 0) / sourceReviews.length,
-        reviewCount: sourceReviews.length,
-        sourceCount: sourceReviews.length,
-      };
-    }
-  });
-  return averages;
 }
 
 function formatSharePrice(quote: CompetitorSharePrice) {
@@ -311,10 +295,12 @@ export default function Dashboard() {
     'Google Play': { rating: null, reviewCount: 0, sourceCount: 0 },
     'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
   });
-  const [marketRatings, setMarketRatings] = useState<Record<string, number | null>>({});
+  const [marketRatings, setMarketRatings] = useState<MarketRatings>({});
+  const [marketRatingErrors, setMarketRatingErrors] = useState<Record<string, string>>({});
+  const [marketRatingsLoading, setMarketRatingsLoading] = useState(false);
 
   const filteredMarkets = selectedRegion === 'Global' ? selectedMarkets : selectedMarkets.filter((item) => item.region === selectedRegion);
-  const sunburstMarkets = filteredMarkets.length ? filteredMarkets : selectedMarkets;
+  const sunburstMarkets = filteredMarkets;
 
   useEffect(() => {
     if (!durationPullVisible) return;
@@ -370,41 +356,27 @@ export default function Dashboard() {
         'Apple App Store': { rating: null, reviewCount: 0, sourceCount: 0 },
       });
       try {
-        const appleRatingPromise = fetchAppleStoreRating(selectedCountry.code, brandName, forceFresh);
+        const platformPromise = fetchPlatformRatings(selectedCountry.code, brandName, forceFresh).catch((error: unknown) => {
+          console.error('Platform rating lookup failed:', error instanceof Error ? error.message : 'unknown error');
+          return { apple: { rating: null, reviewCount: 0 }, google: { rating: null, reviewCount: 0 } };
+        });
         const competitorRatingsPromise = fetchCompetitorRatings(selectedCountry.code, selectedCountry.region)
           .then((list) => (list.length ? list : fetchAppleCompetitors(selectedCountry.code, selectedCountry.region)));
         const secondaryPromise = Promise.all([
           competitorRatingsPromise,
           fetchRedditMentions(brandName),
           fetchReviewCollector(selectedCountry.code, brandName, durationMonths, dataRefreshNonce),
-          fetchPlaystoreAggregateRating(selectedCountry.code, brandName, forceFresh),
         ]);
 
-        const appleStoreRating = await appleRatingPromise;
+        const stores = await platformPromise;
         if (!active) return;
-        if (appleStoreRating.rating !== null) {
-          setPlatformRatings((current) => ({
-            ...current,
-            'Apple App Store': {
-              rating: appleStoreRating.rating,
-              reviewCount: appleStoreRating.reviewCount,
-              sourceCount: appleStoreRating.reviewCount,
-            },
-          }));
-        }
+        setPlatformRatings({
+          'Google Play': { ...stores.google, sourceCount: stores.google.reviewCount },
+          'Apple App Store': { ...stores.apple, sourceCount: stores.apple.reviewCount },
+        });
 
-        const [ratings, redditMentions, collectorReviews, playstoreRating] = await secondaryPromise;
+        const [ratings, redditMentions, collectorReviews] = await secondaryPromise;
         if (!active) return;
-        if (playstoreRating.rating !== null) {
-          setPlatformRatings((current) => ({
-            ...current,
-            'Google Play': {
-              rating: playstoreRating.rating,
-              reviewCount: playstoreRating.reviewCount,
-              sourceCount: playstoreRating.reviewCount,
-            },
-          }));
-        }
         setLiveCompetitors(ratings);
         void fetchCompetitorSharePrices(ratings.map((item) => item.name))
           .then((quotes) => {
@@ -436,15 +408,6 @@ export default function Dashboard() {
           return rightTime - leftTime;
         });
         setCustomerReviews(uniqueReviews);
-        const calculatedRatings = calculatePlatformRatings(uniqueReviews);
-        setPlatformRatings({
-          'Google Play': playstoreRating.rating !== null
-            ? { rating: playstoreRating.rating, reviewCount: playstoreRating.reviewCount, sourceCount: playstoreRating.reviewCount }
-            : calculatedRatings['Google Play'],
-          'Apple App Store': appleStoreRating.rating !== null
-            ? { rating: appleStoreRating.rating, reviewCount: appleStoreRating.reviewCount, sourceCount: appleStoreRating.reviewCount }
-            : calculatedRatings['Apple App Store'],
-        });
         setLiveError(ratings.every((item) => item.status === 'unavailable') && collectorReviews.length === 0 && redditMentions.length === 0);
       } catch {
         if (active) {
@@ -468,24 +431,33 @@ export default function Dashboard() {
   useEffect(() => {
     let active = true;
     const loadMarketRatings = async () => {
+      setMarketRatingsLoading(true);
       setMarketRatings({});
-      const entries = await Promise.all(selectedMarkets.map(async (market) => {
-        try {
-          const [apple, google] = await Promise.all([
-            fetchAppleStoreRating(market.code, brandName, true),
-            fetchPlaystoreAggregateRating(market.code, brandName, true),
-          ]);
-          const available = [google.rating, apple.rating].filter((rating): rating is number => rating !== null);
-          const rating = available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : null;
-          return [market.code, rating] as const;
-        } catch {
-          return [market.code, null] as const;
-        }
-      }));
-      if (!active) return;
-      const next: Record<string, number | null> = {};
-      entries.forEach(([code, rating]) => { next[code] = rating; });
-      setMarketRatings(next);
+      setMarketRatingErrors({});
+      // Bound country requests so selecting many markets does not flood the collector.
+      for (let index = 0; index < selectedMarkets.length && active; index += 4) {
+        const results = await Promise.all(selectedMarkets.slice(index, index + 4).map(async (market) => {
+          try {
+            const unavailable = (basis: string) => ({ rating: null, sampleSize: 0, basis, components: [] });
+            const [rating, channels] = await Promise.all([
+              fetchPlatformRatings(market.code, brandName, dataRefreshNonce > 0),
+              // Brand/website failures must not hide the app-store data for the country.
+              fetchChannelRatings(market.code, brandName, dataRefreshNonce > 0)
+                .catch(() => ({ brand: unavailable('Collector unavailable'), web: unavailable('Collector unavailable') })),
+            ]);
+            return { code: market.code, rating: { ...rating, ...channels }, error: null };
+          } catch (error) {
+            return { code: market.code, rating: undefined, error: error instanceof Error ? error.message : 'Country rating request failed.' };
+          }
+        }));
+        if (!active) return;
+        setMarketRatings((current) => ({ ...current, ...Object.fromEntries(results.map((result) => [result.code, result.rating])) }));
+        setMarketRatingErrors((current) => ({
+          ...current,
+          ...Object.fromEntries(results.filter((result) => result.error !== null).map((result) => [result.code, result.error!])),
+        }));
+      }
+      if (active) setMarketRatingsLoading(false);
     };
     loadMarketRatings();
     return () => { active = false; };
@@ -522,22 +494,37 @@ export default function Dashboard() {
   const ranked = liveCompetitors.filter((item) => item.status === 'live' && item.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   const brandRank = ranked.findIndex((item) => item.name === brandName) + 1;
   const gap = liveBrand?.rating != null && ranked.length ? Number((liveBrand.rating - ranked[0].rating!).toFixed(1)) : null;
-  const availablePlatformRatings = [platformRatings['Google Play'], platformRatings['Apple App Store']].filter((item) => item.rating !== null);
-  const brandRating: number | null = availablePlatformRatings.length > 0
-    ? availablePlatformRatings.reduce((total, item) => total + item.rating!, 0) / availablePlatformRatings.length
-    : null;
+  const storeData = { apple: platformRatings['Apple App Store'], google: platformRatings['Google Play'] };
+  const brandRating = aggregateRating(storeData);
   const googlePlayRating = platformRatings['Google Play'].rating;
   const appleStoreRating = platformRatings['Apple App Store'].rating;
   const liveSelectedCountry = { ...selectedCountry, score: brandRating ?? 0 };
+
+  const renderGlobalRatings = () => <GlobalRatingsExplorer
+    key={brandName}
+    brand={brandName}
+    markets={selectedMarkets}
+    ratings={marketRatings}
+    errors={marketRatingErrors}
+    loading={marketRatingsLoading}
+    region={selectedRegion}
+    country={selectedCountry}
+    onRegion={chooseRegion}
+    onCountry={(market) => {
+      const country = selectedMarkets.find((item) => item.code === market.code);
+      if (country) handleCountryChange(country);
+    }}
+    onRetry={() => setDataRefreshNonce((current) => current + 1)}
+  />;
 
   const renderOverview = () => {
     const positiveMentions = customerReviews.length
       ? Math.round(customerReviews.filter((review) => review.sentiment === 'positive').length / customerReviews.length * 100)
       : null;
     return <>
-    <SafeView style={styles.filterBar}><Text style={styles.filterLabel}>Market view</Text><ScrollView horizontal showsHorizontalScrollIndicator={false}><SafeView style={styles.regionRow}>{regions.map((region) => <Pressable key={region} onPress={() => chooseRegion(region)} style={[styles.regionChip, selectedRegion === region && styles.regionChipActive]}><Text style={[styles.regionText, selectedRegion === region && styles.regionTextActive]}>{region}</Text></Pressable>)}</SafeView></ScrollView></SafeView>
+    {renderGlobalRatings()}
     <SafeView style={styles.kpiGrid}>{[
-      ['Brand strength', brandRating !== null ? `${brandRating.toFixed(1)} / 5` : '— / 5', 'Arithmetic mean of live platform ratings', '#2563EB', 'ribbon-outline'],
+      ['Brand strength', brandRating !== null ? `${brandRating.toFixed(1)} / 5` : '— / 5', `Provisional · ${storeRatingBasis(storeData)}`, '#2563EB', 'ribbon-outline'],
             ['Category position', brandRank ? `#${brandRank}` : '—', gap !== null ? `${gap >= 0 ? '+' : ''}${gap.toFixed(1)} vs leader` : 'No live rank data', '#7F56D9', 'podium-outline'],
       ['Positive mentions', positiveMentions !== null ? `${positiveMentions}%` : '—', `${customerReviews.filter((review) => review.sentiment === 'positive').length} verified positive records`, '#12B76A', 'trending-up-outline'],
       ['Markets monitored', String(selectedMarkets.length), `${new Set(selectedMarkets.map((market) => market.region)).size} selected regions`, '#F79009', 'globe-outline'],
@@ -662,7 +649,7 @@ export default function Dashboard() {
     {renderReviews()}
   </>;
 
-  const renderMarkets = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Country performance</Text><Text style={styles.cardSub}>Live store ratings and regional position · 1–5 scale</Text></SafeView></SafeView>{selectedMarkets.map((country) => { const marketRating = country.code === selectedCountry.code ? brandRating : (marketRatings[country.code] ?? null); return <Pressable key={country.code} onPress={() => handleCountryChange(country)} style={[styles.marketRow, selectedCountry.code === country.code && styles.marketRowActive]}><SafeView style={styles.flag}><Text style={styles.flagText}>{country.code}</Text></SafeView><SafeView style={styles.marketName}><Text style={styles.marketTitle}>{country.name}</Text><Text style={styles.marketRegion}>{country.region}</Text></SafeView><SafeView style={styles.marketTrack}><SafeView style={[styles.marketFill, { width: `${marketRating !== null ? marketRating * 20 : 0}%` }]}/></SafeView><Text style={styles.marketScore}>{marketRating !== null ? `${marketRating.toFixed(1)} / 5` : '— / 5'}</Text><Text style={styles.marketRank}>—</Text></Pressable>; })}</SafeView>{renderReviews()}</>;
+  const renderMarkets = () => <>{renderGlobalRatings()}{renderReviews()}</>;
 
   const renderCompetitors = () => {
     const selectedBrand = brandName;
