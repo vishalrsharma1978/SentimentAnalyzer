@@ -99,6 +99,15 @@ function buildSelectedMarkets(names: unknown): SunburstMarket[] {
 const POSITIVE_TERMS = ['easy', 'fast', 'helpful', 'love', 'recommend', 'best', 'great', 'excellent', 'quick', 'reliable', 'amazing', 'smooth', 'good'];
 const NEGATIVE_TERMS = ['slow', 'delay', 'problem', 'failed', 'fee', 'fees', 'scam', 'fraud', 'bad', 'terrible', 'laggy', 'stolen', 'support', 'charge', 'frustrating', 'wonky', 'sluggish'];
 
+// Platform filter options for the feedback section. Add an entry here when a
+// new review source is enabled (e.g. Reddit, Trustpilot).
+const PLATFORM_FILTER_OPTIONS = [
+  { id: 'all', label: 'All platforms' },
+  { id: 'Google Play', label: 'Playstore' },
+  { id: 'Apple App Store', label: 'App Store' },
+] as const;
+type PlatformFilter = (typeof PLATFORM_FILTER_OPTIONS)[number]['id'];
+
 function getSentimentWords(reviews: CustomerSentiment[]) {
   const counts = new Map<string, { count: number; sentiment: 'positive' | 'negative' }>();
   reviews.forEach((review) => {
@@ -250,6 +259,7 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState(true);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [sentimentFilter, setSentimentFilter] = useState<'all' | 'positive' | 'neutral' | 'negative'>('all');
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>('all');
   const [durationMonths, setDurationMonths] = useState(1);
   const [durationPickerVisible, setDurationPickerVisible] = useState(false);
   const [durationPullVisible, setDurationPullVisible] = useState(false);
@@ -340,6 +350,7 @@ export default function Dashboard() {
     setIssueReviewIdentities([]);
     setTargetReview(null);
     setSentimentFilter('all');
+    setPlatformFilter('all');
     setShowAllReviews(false);
   }, [brandName]);
 
@@ -457,11 +468,12 @@ export default function Dashboard() {
   useEffect(() => {
     let active = true;
     const loadMarketRatings = async () => {
+      setMarketRatings({});
       const entries = await Promise.all(selectedMarkets.map(async (market) => {
         try {
           const [apple, google] = await Promise.all([
-            fetchAppleStoreRating(market.code, brandName),
-            fetchPlaystoreAggregateRating(market.code, brandName),
+            fetchAppleStoreRating(market.code, brandName, true),
+            fetchPlaystoreAggregateRating(market.code, brandName, true),
           ]);
           const available = [google.rating, apple.rating].filter((rating): rating is number => rating !== null);
           const rating = available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : null;
@@ -478,7 +490,7 @@ export default function Dashboard() {
     loadMarketRatings();
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMarketsKey, brandName, dataRefreshNonce]);
+  }, [selectedMarketsKey, brandName, dataRefreshNonce, refreshToken]);
 
   const handleCountryChange = (country: SunburstMarket) => {
     if (country.code === selectedCountry.code) return;
@@ -489,6 +501,7 @@ export default function Dashboard() {
     setIssueReviewIdentities([]);
     setTargetReview(null);
     setSentimentFilter('all');
+    setPlatformFilter('all');
     setShowAllReviews(false);
     mainScrollRef.current?.scrollTo({ y: 0, animated: true });
   };
@@ -579,9 +592,10 @@ export default function Dashboard() {
     const reviewDateRange = earliestReviewDate && latestReviewDate
       ? `${earliestReviewDate.toLocaleDateString()} – ${latestReviewDate.toLocaleDateString()}`
       : 'dates unavailable';
-    const sentimentFiltered = sentimentFilter === 'all' ? customerReviews : customerReviews.filter((review) => review.sentiment === sentimentFilter);
+    const platformFiltered = platformFilter === 'all' ? customerReviews : customerReviews.filter((review) => review.source === platformFilter);
+    const sentimentFiltered = sentimentFilter === 'all' ? platformFiltered : platformFiltered.filter((review) => review.sentiment === sentimentFilter);
     const filteredReviews = issueCategoryId
-      ? customerReviews.filter((review) => issueReviewIdentities.includes(getReviewIdentity(review)))
+      ? platformFiltered.filter((review) => issueReviewIdentities.includes(getReviewIdentity(review)))
       : themeFilter
         ? sentimentFiltered.filter((review) => review.text.toLowerCase().includes(themeFilter))
         : sentimentFiltered;
@@ -601,7 +615,16 @@ export default function Dashboard() {
       {issueCategories.length > 0 && <SentimentIssueFunnel categories={issueCategories} selectedCategory={issueCategoryId} onSelect={handleIssueCategorySelect} />}
       {liveLoading ? <SafeView style={styles.emptyReviews}><Ionicons name="sync-outline" size={24} color={colors.primary}/><Text style={styles.emptyReviewTitle}>Collecting customer feedback</Text><Text style={styles.emptyReviewText}>Retrieving recent verified reviews for {selectedCountry.name}.</Text></SafeView> : customerReviews.length ? <>
         <SafeView onLayout={(event) => { feedbackListOffset.current = event.nativeEvent.layout.y; }}>
-          <SafeView style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>{(['all', 'positive', 'neutral', 'negative'] as const).map((filter) => <Pressable key={filter} onPress={() => { setSentimentFilter(filter); setThemeFilter(null); setIssueCategoryId(null); setIssueCategoryLabel(null); setIssueReviewIdentities([]); setTargetReview(null); setShowAllReviews(false); }} style={{ height: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: sentimentFilter === filter && !issueCategoryId ? '#2563EB' : '#E4EAF6', backgroundColor: sentimentFilter === filter && !issueCategoryId ? '#2563EB' : '#fff', justifyContent: 'center' }}><Text style={{ fontSize: 10, fontWeight: '800', color: sentimentFilter === filter && !issueCategoryId ? '#FFFFFF' : '#64769B' }}>{filter === 'all' ? `All · ${customerReviews.length}` : `${filter[0].toUpperCase()}${filter.slice(1)} · ${customerReviews.filter((review) => review.sentiment === filter).length}`}</Text></Pressable>)}</SafeView>
+          <SafeView style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <SafeView style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 }}>{(['all', 'positive', 'neutral', 'negative'] as const).map((filter) => <Pressable key={filter} onPress={() => { setSentimentFilter(filter); setThemeFilter(null); setIssueCategoryId(null); setIssueCategoryLabel(null); setIssueReviewIdentities([]); setTargetReview(null); setShowAllReviews(false); }} style={{ height: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: sentimentFilter === filter && !issueCategoryId ? '#2563EB' : '#E4EAF6', backgroundColor: sentimentFilter === filter && !issueCategoryId ? '#2563EB' : '#fff', justifyContent: 'center' }}><Text style={{ fontSize: 10, fontWeight: '800', color: sentimentFilter === filter && !issueCategoryId ? '#FFFFFF' : '#64769B' }}>{filter === 'all' ? `All · ${platformFiltered.length}` : `${filter[0].toUpperCase()}${filter.slice(1)} · ${platformFiltered.filter((review) => review.sentiment === filter).length}`}</Text></Pressable>)}</SafeView>
+            <SafeView accessibilityRole="radiogroup" accessibilityLabel="Filter feedback by platform" style={{ flexDirection: 'row', borderWidth: 1, borderColor: '#E4EAF6', borderRadius: 15, overflow: 'hidden', height: 30, backgroundColor: '#fff' }}>
+              {PLATFORM_FILTER_OPTIONS.map((option, index) => {
+                const isActive = platformFilter === option.id;
+                const count = option.id === 'all' ? customerReviews.length : customerReviews.filter((review) => review.source === option.id).length;
+                return <Pressable key={option.id} accessibilityRole="radio" accessibilityState={{ selected: isActive }} onPress={() => { setPlatformFilter(option.id); setShowAllReviews(false); }} style={{ paddingHorizontal: 10, justifyContent: 'center', backgroundColor: isActive ? '#2563EB' : '#FFFFFF', borderLeftWidth: index === 0 ? 0 : 1, borderLeftColor: '#E4EAF6' }}><Text style={{ fontSize: 10, fontWeight: '800', color: isActive ? '#FFFFFF' : '#64769B' }}>{`${option.label} · ${count}`}</Text></Pressable>;
+              })}
+            </SafeView>
+          </SafeView>
           {(themeFilter || issueCategoryId) && <Pressable accessibilityRole="button" accessibilityLabel={issueCategoryId ? `Clear ${selectedCategoryLabel} category filter` : 'Clear ' + themeFilter + ' filter'} onPress={() => { setThemeFilter(null); setIssueCategoryId(null); setIssueCategoryLabel(null); setIssueReviewIdentities([]); setTargetReview(null); setSentimentFilter('all'); setShowAllReviews(false); }} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 10, marginTop: 4, marginBottom: 6, borderRadius: 15, borderWidth: 1, borderColor: sentimentFilter === 'negative' ? '#F04438' : '#12B76A', backgroundColor: sentimentFilter === 'negative' ? '#FEF3F2' : '#ECFDF3' }}>
           <Text style={{ fontSize: 10, fontWeight: '800', color: sentimentFilter === 'negative' ? '#B42318' : '#027A48' }}>{issueCategoryId ? `${selectedCategoryLabel} · ${filteredReviews.length} comments` : '"' + themeFilter + '" · ' + filteredReviews.length + (filteredReviews.length === 1 ? ' review' : ' reviews')}</Text>
           <Ionicons name="close" size={12} color="#93A5C8" /></Pressable>}
@@ -609,7 +632,7 @@ export default function Dashboard() {
             <Text style={{ fontSize: 11, fontWeight: '900', color: '#7A2E0E' }}>Showing feedback for {selectedCategoryLabel}</Text>
             <Text style={{ marginTop: 3, fontSize: 9, color: '#93370D' }}>{filteredReviews.length} matching {filteredReviews.length === 1 ? 'comment' : 'comments'}</Text>
           </SafeView>}
-          {filteredReviews.length === 0 && <Text style={styles.emptyReviewText}>{issueCategoryId ? `No current comments match ${selectedCategoryLabel}.` : 'No reviews mention this theme.'}</Text>}
+          {filteredReviews.length === 0 && <Text style={styles.emptyReviewText}>{issueCategoryId ? `No current comments match ${selectedCategoryLabel}.` : themeFilter ? 'No reviews mention this theme.' : platformFilter !== 'all' ? `No ${PLATFORM_FILTER_OPTIONS.find((option) => option.id === platformFilter)?.label ?? 'platform'} feedback returned for this market.` : 'No reviews match the current filters.'}</Text>}
           <CustomerReviewFeed reviews={visibleReviews} highlightedReview={selectedTargetReview} autoTranslateReview={selectedTargetReview} />
         </SafeView>
         {filteredReviews.length > 4 && <Pressable onPress={() => setShowAllReviews((current) => !current)} style={{ alignSelf: 'flex-start', marginTop: 8, height: 34, borderRadius: 10, borderWidth: 1, borderColor: '#60A5FA', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 10, fontWeight: '900', color: '#3B82F6' }}>{showAllReviews ? 'Show less' : `View all ${filteredReviews.length} sentiments`}</Text></Pressable>}
