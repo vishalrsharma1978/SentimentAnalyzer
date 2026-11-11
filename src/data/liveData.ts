@@ -202,19 +202,46 @@ export async function fetchRedditMentions(brandName = 'Western Union'): Promise<
 }
 
 export async function fetchPlaystoreAggregateRating(countryCode: string, brandName = 'Western Union', forceRefresh = false): Promise<{ rating: number | null; reviewCount: number }> {
-  const apiUrl = getApiUrl();
   try {
-    const refreshParam = forceRefresh ? '&refresh=1' : '';
-    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store' });
-    if (!response.ok) return { rating: null, reviewCount: 0 };
-    const data = await response.json();
-    return {
-      rating: data.google?.rating !== null && data.google?.rating !== undefined ? Number(data.google.rating) : null,
-      reviewCount: Number(data.google?.reviewCount ?? 0),
-    };
+    const data = await fetchPlatformRatings(countryCode, brandName, forceRefresh);
+    return data.google;
   } catch {
     return { rating: null, reviewCount: 0 };
   }
+}
+
+type PlatformRatings = {
+  google: { rating: number | null; reviewCount: number };
+  apple: { rating: number | null; reviewCount: number };
+};
+
+// Both platform fetchers call /api/platform-ratings; sharing one cache keeps the
+// server from firing duplicate Apple lookups for the same brand+country.
+const PLATFORM_RATINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+const platformRatingsCache = new Map<string, { expiresAt: number; value: PlatformRatings }>();
+
+async function fetchPlatformRatings(countryCode: string, brandName: string, forceRefresh = false): Promise<PlatformRatings> {
+  const cacheKey = `${countryCode.toUpperCase()}:${brandName}`;
+  const cached = platformRatingsCache.get(cacheKey);
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const apiUrl = getApiUrl();
+  const refreshParam = forceRefresh ? '&refresh=1' : '';
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Platform-ratings service returned HTTP ${response.status}.`);
+  const data = await response.json();
+  const value: PlatformRatings = {
+    google: {
+      rating: data.google?.rating !== null && data.google?.rating !== undefined ? Number(data.google.rating) : null,
+      reviewCount: Number(data.google?.reviewCount ?? 0),
+    },
+    apple: {
+      rating: data.apple?.rating !== null && data.apple?.rating !== undefined ? Number(data.apple.rating) : null,
+      reviewCount: Number(data.apple?.reviewCount ?? 0),
+    },
+  };
+  platformRatingsCache.set(cacheKey, { expiresAt: Date.now() + PLATFORM_RATINGS_CACHE_TTL_MS, value });
+  return value;
 }
 
 export async function fetchReviewCollector(countryCode: string, brandName = 'Western Union', months = 1, refreshNonce = 0): Promise<CustomerSentiment[]> {
@@ -308,23 +335,17 @@ export async function fetchAppleStoreRating(countryCode: string, brandName = 'We
   const cached = appleRatingCache.get(cacheKey);
   if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.value;
 
-  const apiUrl = getApiUrl();
   try {
-    const refreshParam = forceRefresh ? '&refresh=1' : '';
-    const platformResponse = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store' });
-    if (platformResponse.ok) {
-      const platformData = await platformResponse.json();
-      const serverRating = platformData.apple?.rating !== null && platformData.apple?.rating !== undefined
-        ? Number(platformData.apple.rating)
-        : null;
-      const serverReviewCount = Number(platformData.apple?.reviewCount ?? 0);
-      if (serverRating !== null) {
-        const value = { rating: serverRating, reviewCount: serverReviewCount };
-        appleRatingCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, value });
-        return value;
-      }
+    const platformData = await fetchPlatformRatings(countryCode, brandName, forceRefresh);
+    if (platformData.apple.rating !== null) {
+      const value = { rating: platformData.apple.rating, reviewCount: platformData.apple.reviewCount };
+      appleRatingCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, value });
+      return value;
     }
-
+  } catch {
+    // fall through to the direct Apple lookup below
+  }
+  try {
     const searchTerms = [COMPETITOR_TERMS[brandName] ?? brandName, brandName];
     let results: any[] = [];
     for (const term of searchTerms) {

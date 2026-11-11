@@ -288,6 +288,29 @@ function decodeTranslationEntities(text) {
   });
 }
 
+// Apple throttles bursts of requests from the same IP; the dashboard fires
+// several endpoints at once on load, so serialize outbound Apple calls and
+// retry with backoff before giving up.
+let appleQueue = Promise.resolve();
+
+async function appleFetchJson(url) {
+  const run = appleQueue.then(async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (response.ok) return await response.json();
+        if (response.status !== 429 && response.status < 500) return null;
+      } catch {
+        // fall through to retry
+      }
+      await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+    }
+    return null;
+  });
+  appleQueue = run.catch(() => {});
+  return run;
+}
+
 function classifySentiment(text, rating) {
   const lower = String(text || '').toLowerCase();
   if (/scam|fraud|delay|slow|fee|failed|problem|bad|hate|terrible|stolen/i.test(lower)) return 'negative';
@@ -371,19 +394,23 @@ async function collectAppleReviews(brand, country) {
     const brandLower = brand.toLowerCase();
     const candidates = [];
     for (const term of [...new Set([brand, `${brand} Send Money`])]) {
-      const lookup = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=${countryCode}&entity=software&limit=15&_ts=${Date.now()}`, { cache: 'no-store' });
-      if (!lookup.ok) continue;
-      const candidate = await lookup.json();
-      candidates.push(...(candidate.results || []));
+      const candidate = await appleFetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=${countryCode}&entity=software&limit=15&_ts=${Date.now()}`);
+      if (candidate) candidates.push(...(candidate.results || []));
     }
     const appNameIncludesBrand = (app) => `${app.trackName || ''} ${app.sellerName || app.artistName || ''}`.toLowerCase().includes(brandLower);
     const matches = candidates.filter(appNameIncludesBrand);
     const match = matches.find((app) => String(app.trackName || '').toLowerCase().startsWith(brandLower)) || matches[0];
     if (!match?.trackId) return [];
-    const response = await fetch(`https://itunes.apple.com/${countryCode}/rss/customerreviews/id=${match.trackId}/sortBy=mostRecent/json?_ts=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) return [];
-    const data = await response.json();
-    const entries = Array.isArray(data.feed?.entry) ? data.feed.entry : (data.feed?.entry ? [data.feed.entry] : []);
+    // The page=1 RSS path is measurably more reliable, and Apple sometimes
+    // answers 200 with an empty feed under throttling — retry on empty.
+    let entries = [];
+    for (let attempt = 0; attempt < 4 && entries.length === 0; attempt++) {
+      const data = await appleFetchJson(`https://itunes.apple.com/rss/customerreviews/page=1/id=${match.trackId}/sortby=mostrecent/json?l=en&cc=${countryCode}&_ts=${Date.now()}`);
+      if (data) {
+        entries = Array.isArray(data.feed?.entry) ? data.feed.entry : (data.feed?.entry ? [data.feed.entry] : []);
+      }
+      if (entries.length === 0) await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+    }
     return entries.slice(0, 100).map((entry) => {
       const rating = Number(entry['im:rating']?.label || 0);
       const text = String(entry.content?.label || '').replace(/\s+/g, ' ').trim();
@@ -569,9 +596,8 @@ app.get('/api/platform-ratings', async (request, response) => {
     try {
       const appleCountry = country.toLowerCase();
       const brandLower = brand.toLowerCase();
-      const lookup = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(brand)}&country=${appleCountry}&entity=software&limit=15&_ts=${Date.now()}`, { cache: 'no-store' });
-      if (lookup.ok) {
-        const appleData = await lookup.json();
+      const appleData = await appleFetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(brand)}&country=${appleCountry}&entity=software&limit=15&_ts=${Date.now()}`);
+      if (appleData) {
         const matches = (appleData.results || []).filter((item) =>
           `${item.trackName || ''} ${item.sellerName || item.artistName || ''}`.toLowerCase().includes(brandLower),
         );
@@ -626,9 +652,8 @@ app.get('/api/competitor-ratings', async (request, response) => {
       console.error(`Competitor Google rating failed for ${name}:`, error.message);
     }
     try {
-      const lookup = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(name)}&country=${appleCountry}&entity=software&limit=15&_ts=${Date.now()}`, { cache: 'no-store' });
-      if (lookup.ok) {
-        const data = await lookup.json();
+      const data = await appleFetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(name)}&country=${appleCountry}&entity=software&limit=15&_ts=${Date.now()}`);
+      if (data) {
         const needle = name.toLowerCase();
         const matches = (data.results || []).filter((item) =>
           `${item.trackName || ''} ${item.sellerName || item.artistName || ''}`.toLowerCase().includes(needle),
