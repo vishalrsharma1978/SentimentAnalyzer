@@ -458,7 +458,11 @@ export function AIInsightsBrief({
         <Text style={styles.panelDescription}>
           Customer complaints can reveal areas to investigate; they do not prove a feature is missing. Competitor capabilities are not connected to a verified feature feed.
         </Text>
-        {categories.filter((category) => category.reviews.length > 0).slice(0, 6).map((category) => (
+        {categories.filter((category) => category.reviews.length > 0).slice(0, 6).map((category) => {
+          const total = category.reviews.length;
+          const negativePercent = total ? Math.round((category.negative / total) * 100) : 0;
+          const positivePercent = total ? Math.round((category.positive / total) * 100) : 0;
+          return (
           <Pressable
             accessibilityRole="button"
             key={category.id}
@@ -467,7 +471,14 @@ export function AIInsightsBrief({
           >
             <SafeView style={styles.capabilityCopy}>
               <Text style={styles.capabilityTitle}>{category.label}</Text>
-              <Text style={styles.capabilityDetail}>{category.negative} negative / {category.reviews.length} matching comments</Text>
+              <Text style={styles.capabilityDetail}>{category.negative} negative / {total} matching comments</Text>
+              <SafeView style={styles.capabilityMeter}>
+                <SafeView style={styles.capabilityMeterTrack}>
+                  <SafeView style={[styles.capabilityMeterFill, { width: `${negativePercent}%` }, negativePercent === 0 && styles.capabilityMeterFillGood]} />
+                </SafeView>
+                <Text style={[styles.capabilityMeterValue, negativePercent > 0 && styles.capabilityMeterValueAttention]}>{negativePercent}% negative</Text>
+              </SafeView>
+              <Text style={styles.capabilitySubDetail}>{positivePercent}% positive · {category.neutral} neutral</Text>
             </SafeView>
             <SafeView style={[styles.statusPill, category.negative > 0 && styles.statusPillAttention]}>
               <Text style={[styles.statusText, category.negative > 0 && styles.statusTextAttention]}>
@@ -476,7 +487,8 @@ export function AIInsightsBrief({
             </SafeView>
             <Text style={styles.unverified}>Peer data n/a</Text>
           </Pressable>
-        ))}
+          );
+        })}
         {!categories.length && <Text style={styles.emptyText}>No capability-related comments are available in this sample.</Text>}
       </SafeView>
 
@@ -617,6 +629,13 @@ const styles = StyleSheet.create({
   capabilityCopy: { flex: 1, minWidth: 150 },
   capabilityTitle: { fontSize: 10, fontWeight: '800', color: '#344054' },
   capabilityDetail: { marginTop: 3, fontSize: 8, color: '#667085' },
+  capabilityMeter: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 6 },
+  capabilityMeterTrack: { flex: 1, maxWidth: 140, height: 6, borderRadius: 3, backgroundColor: '#F2F4F7', overflow: 'hidden' },
+  capabilityMeterFill: { height: 6, borderRadius: 3, backgroundColor: '#F04438' },
+  capabilityMeterFillGood: { backgroundColor: '#12B76A' },
+  capabilityMeterValue: { fontSize: 9, fontWeight: '900', color: '#667085' },
+  capabilityMeterValueAttention: { color: '#B42318' },
+  capabilitySubDetail: { marginTop: 3, fontSize: 8, color: '#98A2B3' },
   statusPill: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: '#F2F4F7' },
   statusPillAttention: { backgroundColor: '#FEF3F2' },
   statusText: { fontSize: 8, fontWeight: '800', color: '#667085' },
