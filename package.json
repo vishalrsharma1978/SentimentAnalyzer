@@ -41,7 +41,7 @@
     "start:server": "node server/index.js",
     "lint": "expo lint",
     "test": "npm run test:unit && npm run test:e2e",
-    "test:unit": "node --test --experimental-test-coverage src/data/marketAnalytics.test.mjs server/channelRatings.test.js server/westernUnionApps.test.js",
+    "test:unit": "node --test --experimental-test-coverage src/data/marketAnalytics.test.mjs src/data/brandSummary.test.mjs server/channelRatings.test.js server/westernUnionApps.test.js server/storeChartRank.test.js",
     "test:e2e": "playwright test"
   },
   "private": true

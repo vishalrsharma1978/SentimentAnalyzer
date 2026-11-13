@@ -12,6 +12,7 @@ const YahooFinance = require('yahoo-finance2').default;
 const { brandWebsiteUrl, fetchLighthouse, probeWebsite, scoreWebsiteProbe } = require('./channelRatings');
 const { westernUnionStoreIds } = require('./westernUnionApps');
 const { storeBrandRating } = require('./storeBrandRating');
+const { appleChartRank, playChartRank } = require('./storeChartRank');
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 const app = express();
@@ -639,6 +640,55 @@ app.get('/api/platform-ratings', async (request, response) => {
   } catch {
     response.status(502).json({ error: 'Platform ratings are unavailable.' });
   }
+});
+
+const chartRanksCache = new Map();
+const CHART_RANKS_CACHE_TTL_MS = 60 * 60 * 1000;
+
+async function appleTopChartRank(brand, country) {
+  const match = await findAppleBrandApp(brand, country);
+  if (!match?.trackId) return { rank: null, chartSize: 0, category: null, appId: null };
+  const genreId = Number(match.primaryGenreId);
+  if (!Number.isInteger(genreId)) return { rank: null, chartSize: 0, category: null, appId: String(match.trackId) };
+  const feed = await appleFetchJson(`https://itunes.apple.com/${country.toLowerCase()}/rss/topfreeapplications/limit=200/genre=${genreId}/json`);
+  return { ...appleChartRank(feed, match.trackId), category: match.primaryGenreName || null, appId: String(match.trackId) };
+}
+
+async function playTopChartRank(brand, country) {
+  const appId = await resolvePlayAppId(brand, country);
+  if (!appId) return { rank: null, chartSize: 0, category: null, appId: null };
+  const detail = await gplay.app({ appId, country: country.toLowerCase(), lang: 'en' });
+  const category = Object.values(gplay.category).includes(detail.genreId) ? detail.genreId : null;
+  if (!category) return { rank: null, chartSize: 0, category: detail.genre || null, appId };
+  const list = await gplay.list({ category, collection: gplay.collection.TOP_FREE, country: country.toLowerCase(), lang: 'en', num: 200 });
+  return { ...playChartRank(list, appId), category: detail.genre || category, appId };
+}
+
+// Position of the brand's app in each store's top-free chart for its own category.
+app.get('/api/store-chart-ranks', async (request, response) => {
+  const brand = String(request.query.brand || 'Western Union').slice(0, 80);
+  const country = String(request.query.country || 'US').toUpperCase();
+  if (!/^[A-Z]{2}$/.test(country)) {
+    response.status(400).json({ error: 'country must be a two-letter ISO code' });
+    return;
+  }
+  const cacheKey = `${brand}:${country}`;
+  const cached = chartRanksCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < CHART_RANKS_CACHE_TTL_MS) {
+    response.json(cached.value);
+    return;
+  }
+  const unavailable = (label, error) => {
+    console.error(`${label} chart rank failed for ${brand} (${country}):`, error.message);
+    return { rank: null, chartSize: 0, category: null, appId: null, error: `${label} chart unavailable` };
+  };
+  const [apple, google] = await Promise.all([
+    appleTopChartRank(brand, country).catch((error) => unavailable('App Store', error)),
+    playTopChartRank(brand, country).catch((error) => unavailable('Google Play', error)),
+  ]);
+  const value = { brand, country, collection: 'Top free', apple, google, collectedAt: new Date().toISOString() };
+  if (!apple.error && !google.error) chartRanksCache.set(cacheKey, { cachedAt: Date.now(), value });
+  response.json(value);
 });
 
 const channelRatingsCache = new Map();

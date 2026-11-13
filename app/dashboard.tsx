@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import type { ComponentRef } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useWindowDimensions } from 'react-native';
 import { SafeView } from '../src/components/SafeView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SunburstChart, SunburstMarket } from '../src/components/SunburstChart';
 import { GlobalRatingsExplorer } from '../src/components/GlobalRatingsExplorer';
-import { aggregateRating, storeRatingBasis } from '../src/data/marketAnalytics';
+import { BrandHeadline } from '../src/components/BrandHeadline';
+import { aggregateRating, rankMarkets, storeRatingBasis } from '../src/data/marketAnalytics';
+import { buildBrandSummary, rankCompetitors } from '../src/data/brandSummary';
 import type { MarketRatings } from '../src/data/marketAnalytics';
 import { SentimentMindMap } from '../src/components/SentimentMindMap';
 import { CustomerReviewFeed } from '../src/components/CustomerReviewFeed';
@@ -225,12 +228,16 @@ export default function Dashboard() {
   const brandInitials = getBrandInitials(brandName);
   const isWide = width >= 900;
   const isNarrow = width < 560;
-  const mainScrollRef = useRef<any>(null);
+  const mainScrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const previousBrandRef = useRef(brandName);
   const consumedRefreshTokenRef = useRef('');
   const reviewFeedOffset = useRef(0);
   const feedbackListOffset = useRef(0);
-  const [activeSection, setActiveSection] = useState('Overview');
+  const [activeSection, setSection] = useState('Overview');
+  const setActiveSection = (section: string) => {
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    setSection(section);
+  };
   const [selectedRegion, setSelectedRegion] = useState('Global');
   const [selectedCountry, setSelectedCountry] = useState<SunburstMarket>(selectedMarkets[0]);
   const [liveCompetitors, setLiveCompetitors] = useState<LiveCompetitor[]>([]);
@@ -490,15 +497,33 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  const liveBrand = liveCompetitors.find((item) => item.name === brandName && item.status === 'live');
-  const ranked = liveCompetitors.filter((item) => item.status === 'live' && item.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  const brandRank = ranked.findIndex((item) => item.name === brandName) + 1;
-  const gap = liveBrand?.rating != null && ranked.length ? Number((liveBrand.rating - ranked[0].rating!).toFixed(1)) : null;
   const storeData = { apple: platformRatings['Apple App Store'], google: platformRatings['Google Play'] };
   const brandRating = aggregateRating(storeData);
   const googlePlayRating = platformRatings['Google Play'].rating;
   const appleStoreRating = platformRatings['Apple App Store'].rating;
   const liveSelectedCountry = { ...selectedCountry, score: brandRating ?? 0 };
+  const topIssue = categorizeSentimentReviews(customerReviews)
+    .filter((category) => category.negative > 0)
+    .sort((left, right) => right.negative - left.negative)[0] ?? null;
+  const brandSummary = buildBrandSummary({
+    brand: brandName,
+    countryName: selectedCountry.name,
+    brandRating,
+    competitors: liveCompetitors,
+    reviews: customerReviews,
+    topIssue: topIssue ? { label: topIssue.label, negative: topIssue.negative } : null,
+    marketLadder: rankMarkets(selectedMarkets, marketRatings, 'Global', 'mobile'),
+  });
+  const renderHeadline = (section: string) => <BrandHeadline
+    brand={brandName}
+    countryCode={selectedCountry.code}
+    countryName={selectedCountry.name}
+    section={section}
+    brandRating={brandRating}
+    ratingBasis={storeRatingBasis(storeData)}
+    summary={brandSummary}
+    loading={liveLoading}
+  />;
 
   const renderGlobalRatings = () => <GlobalRatingsExplorer
     key={brandName}
@@ -517,21 +542,12 @@ export default function Dashboard() {
     onRetry={() => setDataRefreshNonce((current) => current + 1)}
   />;
 
-  const renderOverview = () => {
-    const positiveMentions = customerReviews.length
-      ? Math.round(customerReviews.filter((review) => review.sentiment === 'positive').length / customerReviews.length * 100)
-      : null;
-    return <>
+  const renderOverview = () => <>
+    {renderHeadline('Overview')}
     {renderGlobalRatings()}
-    <SafeView style={styles.kpiGrid}>{[
-      ['Brand strength', brandRating !== null ? `${brandRating.toFixed(1)} / 5` : '— / 5', `Provisional · ${storeRatingBasis(storeData)}`, '#2563EB', 'ribbon-outline'],
-            ['Category position', brandRank ? `#${brandRank}` : '—', gap !== null ? `${gap >= 0 ? '+' : ''}${gap.toFixed(1)} vs leader` : 'No live rank data', '#7F56D9', 'podium-outline'],
-      ['Positive mentions', positiveMentions !== null ? `${positiveMentions}%` : '—', `${customerReviews.filter((review) => review.sentiment === 'positive').length} verified positive records`, '#12B76A', 'trending-up-outline'],
-      ['Markets monitored', String(selectedMarkets.length), `${new Set(selectedMarkets.map((market) => market.region)).size} selected regions`, '#F79009', 'globe-outline'],
-    ].map(([label, value, change, tone, icon]) => <SafeView key={String(label)} style={styles.kpi}><SafeView style={[styles.kpiIcon, { backgroundColor: `${tone}14` }]}><Ionicons name={icon as any} size={20} color={tone as string}/></SafeView><SafeView style={styles.kpiCopy}><Text style={styles.kpiLabel}>{label}</Text><Text style={styles.kpiValue}>{value}</Text><Text style={[styles.kpiChange, { color: tone as string }]}>{change}</Text></SafeView></SafeView>)}</SafeView>
     <SafeView style={[styles.card, styles.fullCard, styles.dashboardCard]}>
       <SafeView style={styles.cardHeader}>
-        <SafeView style={styles.sectionCluster}><SafeView style={styles.sectionGauge}><SafeView style={styles.sectionGaugeNeedle}/></SafeView><SafeView><Text style={styles.cardTitle}>Market & platform coverage · Rating scorecard</Text>        <Text style={styles.cardSub}>{selectedCountry.name} · synchronized 5-point live platform gauges</Text></SafeView></SafeView>
+        <SafeView style={styles.sectionCluster}><SafeView style={styles.sectionGauge}><SafeView style={styles.sectionGaugeNeedle}/></SafeView><SafeView><Text style={styles.cardTitle}>Rating scorecard</Text><Text style={styles.cardSub}>{selectedCountry.name} · brand, iOS and Android on a 5-point scale</Text></SafeView></SafeView>
         <SafeView style={styles.liveBadge}><SafeView style={styles.liveDot}/><Text style={styles.liveBadgeText}>LIVE</Text></SafeView>
       </SafeView>
       <SunburstChart
@@ -540,13 +556,12 @@ export default function Dashboard() {
         onSelect={handleCountryChange}
         platformRatings={{ brand: brandRating, ios: appleStoreRating, android: googlePlayRating }}
         platformReviewCounts={{ ios: platformRatings['Apple App Store'].reviewCount, android: platformRatings['Google Play'].reviewCount }}
-        marketPosition={brandRank || undefined}
-        leaderGap={gap}
+        marketPosition={brandSummary.competitorRank ?? undefined}
+        leaderGap={brandSummary.gapToLeader}
       />
     </SafeView>
     {renderReviews()}
   </>;
-  };
 
   const renderReviews = () => {
     const positiveCount = customerReviews.filter((review) => review.sentiment === 'positive').length;
@@ -591,12 +606,8 @@ export default function Dashboard() {
     return <SafeView style={[styles.card, styles.fullCard]} onLayout={(event) => { reviewFeedOffset.current = event.nativeEvent.layout.y; }}>
       <SafeView style={styles.cardHeader}><SafeView style={styles.sectionCluster}><SafeView style={styles.sectionGauge}><SafeView style={styles.sectionGaugeNeedle}/></SafeView><SafeView><Text style={styles.cardTitle}>What customers are saying</Text><Text style={styles.cardSub}>{liveLoading ? 'Connecting to verified review sources' : liveError ? 'Review source status: unavailable' : `${customerReviews.length} live sentiments · Last ${durationMonths} ${durationMonths === 1 ? 'month' : 'months'} · ${selectedCountry.name}`}</Text></SafeView></SafeView><SafeView style={[styles.liveBadge, liveError && styles.warningBadge]}><SafeView style={styles.liveDot}/><Text style={[styles.liveBadgeText, liveError && styles.warningText]}>{liveLoading ? 'LOADING' : liveError ? 'UNAVAILABLE' : 'LIVE SOURCES'}</Text></SafeView></SafeView>
       {!liveLoading && <Text style={{ marginTop: 2, marginBottom: 10, fontSize: 10, lineHeight: 15, color: '#64769B' }}>
-        {`Records by source: ${reviewSourceCounts.map(({ source, count }) => `${source} ${count}`).join(' · ')}. `}
-        {`Available review dates: ${reviewDateRange}. `}
-        {earliestReviewDate && earliestReviewDate > requestedWindowStart
-          ? `History starts after the selected window (${requestedWindowStart.toLocaleDateString()}); this is not a complete archive. `
-          : ''}
-        Other feeds require credentials in Sources.
+        {`${reviewSourceCounts.map(({ source, count }) => `${source} ${count}`).join(' · ')} · ${reviewDateRange}`}
+        {earliestReviewDate && earliestReviewDate > requestedWindowStart ? ' · partial history' : ''}
       </Text>}
       {customerReviews.length > 0 && <SentimentMindMap country={selectedCountry.name} total={customerReviews.length} positive={positiveCount} neutral={neutralCount} negative={negativeCount} words={sentimentWords} onThemeSelect={handleThemeSelect} />}
       {issueCategories.length > 0 && <SentimentIssueFunnel categories={issueCategories} selectedCategory={issueCategoryId} onSelect={handleIssueCategorySelect} />}
@@ -649,25 +660,16 @@ export default function Dashboard() {
     {renderReviews()}
   </>;
 
-  const renderMarkets = () => <>{renderGlobalRatings()}{renderReviews()}</>;
+  const renderMarkets = () => <>{renderHeadline('Markets')}{renderGlobalRatings()}{renderReviews()}</>;
 
   const renderCompetitors = () => {
     const selectedBrand = brandName;
-    // Use the selected brand's accurate combined (Google Play + Apple) rating for
-    // its rank, rather than the Apple-only competitor-list lookup, so the table
-    // reflects how the brand is actually performing in the selected country.
     const competitorsForRanking = liveCompetitors.map((item) =>
       item.name === selectedBrand && brandRating !== null
         ? { ...item, rating: brandRating, status: 'live' as const }
         : item,
     );
-    const rankedCompetitors = competitorsForRanking
-      .filter((item) => item.status === 'live' && item.rating !== null)
-      .sort((left, right) =>
-        (right.rating ?? 0) - (left.rating ?? 0) ||
-        (right.reviewCount ?? 0) - (left.reviewCount ?? 0) ||
-        left.name.localeCompare(right.name),
-      );
+    const rankedCompetitors = rankCompetitors(liveCompetitors, selectedBrand, brandRating);
     const countryRanks = new Map(rankedCompetitors.map((item, index) => [item.name, index + 1]));
     const sharePriceByName = new Map(competitorSharePrices.map((quote) => [quote.name, quote]));
     const selectedBrandRank = countryRanks.get(selectedBrand);
@@ -684,6 +686,7 @@ export default function Dashboard() {
     });
 
     return <>
+      {renderHeadline('Competitors')}
       <SafeView style={[styles.card, styles.fullCard]}>
         <SafeView style={styles.cardHeader}>
           <SafeView style={{ flex: 1 }}>
@@ -701,7 +704,7 @@ export default function Dashboard() {
           </SafeView>
         </SafeView>
         <Text style={styles.competitorDataNote}>
-          {`Share quotes use Yahoo Finance and may be delayed. Transfer fees are the average total cost (fee + FX margin) of a ${topCorridor?.benchmarkAmount ?? '$200'} transfer on the market's top corridor${topCorridor ? ` (${topCorridor.fromName} → ${topCorridor.toName})` : ''} — ${CORRIDOR_FEE_SOURCE}, ${CORRIDOR_FEE_PERIOD}. Daily transactions are global company-reported averages; country-level volumes are not publicly disclosed.`}
+          {`Fees: avg cost (fee + FX margin) of ${topCorridor?.benchmarkAmount ?? '$200'} on the top corridor · ${CORRIDOR_FEE_SOURCE}, ${CORRIDOR_FEE_PERIOD}. Share prices may be delayed. Volumes are global, company-reported.`}
         </Text>
         {topCorridor && corridorAverage && (
           <SafeView style={styles.corridorBenchmark}>
@@ -881,12 +884,13 @@ export default function Dashboard() {
   const renderSources = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Sources & integrations</Text><Text style={styles.cardSub}>Review live availability and credential requirements</Text></SafeView><SafeView style={styles.liveBadge}><SafeView style={styles.liveDot}/><Text style={styles.liveBadgeText}>CONFIGURATION</Text></SafeView></SafeView><SafeView style={styles.settingsGrid}>{sourceConfigs.map((source) => { const connected = source.status === 'public' || source.status === 'connected'; return <SafeView key={source.name} style={styles.sourceSetting}><SafeView style={styles.sourceIcon}><Ionicons name={source.credential === 'public' ? 'globe-outline' : 'key-outline'} size={18} color={colors.primary}/></SafeView><SafeView style={styles.sourceSettingCopy}><Text style={styles.sourceSettingTitle}>{source.name}</Text><Text style={styles.sourceSettingDetail}>{source.detail}</Text></SafeView><SafeView style={[styles.connectionStatus, connected && styles.connectionStatusLive]}><Text style={[styles.connectionStatusText, connected && styles.connectionStatusTextLive]}>{source.status === 'connected' ? 'Connected' : source.status === 'public' ? 'Public' : 'Setup required'}</Text></SafeView></SafeView>; })}</SafeView><SafeView style={styles.integrationNotice}><Ionicons name="shield-checkmark-outline" size={20} color={colors.primary}/><SafeView style={styles.integrationNoticeCopy}><Text style={styles.integrationNoticeTitle}>Secure credential setup</Text><Text style={styles.integrationNoticeText}>Google Play and Apple App Store reviews are collected through the backend. Meta, LinkedIn, X, Trustpilot, and Reviews.io credentials must be stored server-side and must never be committed to Expo public environment variables.</Text></SafeView></SafeView><Text style={[styles.settingsLabel, { marginTop: 18 }]}>Credential workspace</Text><Text style={styles.integrationNoticeText}>Production secrets belong in a backend or secret vault. The required server-side variable names and setup template are in `.env.example`.</Text><SafeView style={styles.toggleRow}><SafeView><Text style={styles.settingsLabel}>Automatic refresh</Text><Text style={styles.settingsDetail}>Refresh live public ratings every 6 hours</Text></SafeView><Switch value={autoRefresh} onValueChange={setAutoRefresh} trackColor={{ true: '#2563EB', false: '#D0D5DD'}}/></SafeView><SafeView style={styles.toggleRow}><SafeView><Text style={styles.settingsLabel}>Sentiment alerts</Text><Text style={styles.settingsDetail}>Notify when negative sentiment exceeds a threshold</Text></SafeView><Switch value={alerts} onValueChange={setAlerts} trackColor={{ true: '#2563EB', false: '#D0D5DD'}}/></SafeView></SafeView></>;
 
   const renderInsights = () => {
-    return (
+    return <>
+      {renderHeadline('AI Insights')}
       <SafeView style={[styles.card, styles.fullCard]}>
         <SafeView style={styles.cardHeader}>
           <SafeView>
             <Text style={styles.cardTitle}>Live data brief</Text>
-            <Text style={styles.cardSub}>Evidence-led product priorities and competitive data gaps</Text>
+            <Text style={styles.cardSub}>What to fix, what is working, how you compare</Text>
           </SafeView>
           <SafeView style={styles.liveBadge}>
             <SafeView style={styles.liveDot} />
@@ -897,6 +901,7 @@ export default function Dashboard() {
           reviews={customerReviews}
           competitors={liveCompetitors}
           brand={brandName}
+          brandRating={brandRating}
           country={selectedCountry.name}
           months={durationMonths}
           loading={liveLoading}
@@ -904,7 +909,7 @@ export default function Dashboard() {
           onOpenSources={() => setActiveSection('Sources')}
         />
       </SafeView>
-    );
+    </>;
   };
 
   const renderReports = () => <><SafeView style={[styles.card, styles.fullCard]}><SafeView style={styles.cardHeader}><SafeView><Text style={styles.cardTitle}>Executive reports</Text><Text style={styles.cardSub}>Board-ready exports and recurring digests</Text></SafeView><Pressable style={styles.primaryButton}><Ionicons name="download-outline" size={15} color="#fff"/><Text style={styles.primaryButtonText}>Generate report</Text></Pressable></SafeView>{[['Global Sentiment Brief','Updated 12 minutes ago','PDF'],['Competitive Market Review','Updated yesterday','PPTX'],['Customer Voice Summary','Updated weekly','XLSX']].map((item,index)=><SafeView key={item[0]} style={styles.reportRow}><SafeView style={styles.reportIcon}><Ionicons name={index===0?'document-text-outline':index===1?'stats-chart-outline':'grid-outline'} size={18} color="#2563EB"/></SafeView><SafeView style={styles.reportCopy}><Text style={styles.reportTitle}>{item[0]}</Text><Text style={styles.reportMeta}>{item[1]}</Text></SafeView><SafeView style={styles.formatBadge}><Text style={styles.formatText}>{item[2]}</Text></SafeView><Pressable style={styles.reportAction}><Ionicons name="ellipsis-horizontal" size={18} color="#93A5C8"/></Pressable></SafeView>)}</SafeView></>;

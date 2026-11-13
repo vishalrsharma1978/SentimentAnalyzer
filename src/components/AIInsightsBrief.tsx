@@ -12,6 +12,7 @@ type AIInsightsBriefProps = {
   reviews: CustomerSentiment[];
   competitors: LiveCompetitor[];
   brand?: string;
+  brandRating?: number | null;
   country: string;
   months: number;
   loading: boolean;
@@ -202,6 +203,7 @@ export function AIInsightsBrief({
   reviews,
   competitors,
   brand = 'Western Union',
+  brandRating: combinedBrandRating,
   country,
   months,
   loading,
@@ -235,13 +237,13 @@ export function AIInsightsBrief({
     : Math.round(latestMonth.negativeRate);
   const maxMonthlyVolume = Math.max(1, ...monthlySentiment.map((month) => month.total));
   const sourceNames = [...new Set(reviews.map((review) => review.source))];
-  const brandRating = competitors.find((competitor) => competitor.name === brand)?.rating;
+  const brandRating = combinedBrandRating ?? competitors.find((competitor) => competitor.name === brand)?.rating;
   const otherRatedCompetitors = competitors.filter(
     (competitor) => competitor.name !== brand && competitor.rating !== null,
   );
   const leadingCompetitor = otherRatedCompetitors.sort((left, right) => (right.rating ?? 0) - (left.rating ?? 0))[0];
   const ratingGap = brandRating !== null && brandRating !== undefined && leadingCompetitor?.rating !== null && leadingCompetitor?.rating !== undefined
-    ? Number((leadingCompetitor.rating - brandRating).toFixed(1))
+    ? Number((brandRating - leadingCompetitor.rating).toFixed(1))
     : null;
 
   return (
@@ -254,8 +256,8 @@ export function AIInsightsBrief({
           <Text style={styles.eyebrow}>DECISION SUPPORT · {country.toUpperCase()}</Text>
           <Text style={styles.introText}>
             {reviews.length
-              ? `Evidence from ${reviews.length} comments collected over the last ${monthCount(months)} ${monthCount(months) === 1 ? 'month' : 'months'}. Recommendations below are signals to investigate, not confirmed product defects.`
-              : 'Live review evidence will appear here when the connected sources return customer comments.'}
+              ? `${reviews.length} comments · last ${monthCount(months)} ${monthCount(months) === 1 ? 'month' : 'months'}. Signals to investigate, not confirmed defects.`
+              : 'Insights appear once live sources return customer comments.'}
           </Text>
         </SafeView>
       </SafeView>

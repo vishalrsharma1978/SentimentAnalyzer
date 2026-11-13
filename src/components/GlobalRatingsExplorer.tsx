@@ -19,7 +19,6 @@ type Props = {
 const modes = ['Sunburst', 'Heatmap', 'Ranked bars'] as const;
 const channels: Channel[] = ['brand', 'web', 'mobile', 'ios', 'android'];
 const scoreText = (score: number | null) => score === null ? 'N/A' : score.toFixed(2);
-
 export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading, region, country, onRegion, onCountry, onRetry }: Props) {
   const [mode, setMode] = useState<(typeof modes)[number]>('Sunburst');
   const [focused, setFocused] = useState(false);
@@ -27,9 +26,6 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
   const regions = ['Global', ...new Set(markets.map((market) => market.region))];
   const visible = markets.filter((market) => region === 'Global' || market.region === region);
   const ranked = rankMarkets(markets, ratings, region, channel);
-  const globalRanked = rankMarkets(markets, ratings, 'Global', channel);
-  const selectedRank = ranked.find((market) => market.code === country.code)?.rank;
-  const covered = globalRanked.length;
   const selectCountry = (market: Market, nextChannel: Channel = 'mobile') => {
     setFocused(true);
     setChannel(nextChannel);
@@ -42,8 +38,6 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
   const selectedScore = channelRating(ratings[country.code], channel);
   const selectedData = ratings[country.code];
   const selectedDetail = channelScore(selectedData, channel);
-  const sourceCount = (['brand', 'web', 'ios', 'android'] as Channel[]).filter((item) => channelRating(selectedData, item) !== null).length;
-  const leader = ranked[0];
   const channelName = channelLabels[channel].toLowerCase();
 
   const rankingChart = () => <View style={styles.ranking}>
@@ -83,20 +77,6 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
   </View>;
 
   return <View style={styles.shell} testID="global-ratings-explorer">
-    <View style={styles.hero}>
-      <View style={styles.heroTitle}><View style={styles.brandMark}><Text style={styles.brandMarkText}>{brand === 'Western Union' ? 'WU' : brand.slice(0, 2).toUpperCase()}</Text></View>
-        <View style={styles.heroCopy}><Text style={styles.eyebrow}>GLOBAL EXPERIENCE INTELLIGENCE</Text><Text style={styles.title}>{brand}</Text><Text style={styles.heroSub}>Country ratings. Channel clarity. One global lens.</Text></View>
-      </View>
-      <View style={styles.summary}>
-        {[
-          [String(covered), `of ${markets.length} markets with ${channelName} data`],
-          [selectedRank ? `#${selectedRank}` : 'N/A', `${country.code} ${channelName} rank in ${region === 'Global' ? 'monitored markets' : region}`],
-          [leader ? leader.code : 'N/A', `highest-rated ${channelName}`],
-          [String(sourceCount), `of 4 channels rated in ${country.code}`],
-        ].map(([value, label]) => <View key={label} style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>)}
-      </View>
-    </View>
-
     <View style={styles.body}>
       <Text style={styles.fieldLabel}>REGION</Text>
       <View style={styles.chips}>{regions.map((item) => <Pressable key={item} accessibilityRole="button"
@@ -114,7 +94,7 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
         onPress={() => setMode(item)} style={[styles.chip, mode === item && styles.activeChip]}><Text style={[styles.chipText, mode === item && styles.activeChipText]}>{item}</Text></Pressable>)}</View>
         <Pressable accessibilityRole="button" accessibilityLabel="Refresh country ratings" onPress={onRetry} style={styles.chip}><Text style={styles.chipText}>{loading ? 'Refreshing...' : 'Refresh ratings'}</Text></Pressable>
       </View>
-      <Text style={styles.method}>Rank scope: {region} · {ranked.length} rated / {visible.length} monitored countries · ranked by {channelLabels[channel]} rating{channel === 'mobile' || channel === 'brand' ? ' (equal mean of available iOS + Android)' : ''}; ties share rank. Not an official global ranking.</Text>
+      <Text style={styles.method}>Rank scope: {region} · {ranked.length} rated / {visible.length} monitored · by {channelLabels[channel]} rating; ties share rank.</Text>
       {Object.keys(errors).length > 0 && <Text accessibilityRole="alert" style={styles.error}>Some countries could not be loaded: {Object.keys(errors).join(', ')}. {Object.values(errors)[0]} Refresh to retry.</Text>}
       {visible.length === 0 ? <Text style={styles.empty}>No monitored countries in this region.</Text>
         : mode === 'Heatmap' ? heatmap()
@@ -125,7 +105,7 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
         </View>}
 
       <View style={styles.detailHeader}><View><Text style={styles.panelTitle}>{country.name} / {channelLabels[channel]}</Text>
-        <Text style={styles.caption}>Tap an experience card to focus the sunburst and inspect its source.</Text></View><Text style={styles.detailScore}>{scoreText(selectedScore)}<Text style={styles.outOf}> / 5</Text></Text></View>
+        <Text style={styles.caption}>Tap a card to focus the sunburst.</Text></View><Text style={styles.detailScore}>{scoreText(selectedScore)}<Text style={styles.outOf}> / 5</Text></Text></View>
       <View style={styles.channelGrid}>{channels.map((item) => {
         const score = channelRating(selectedData, item);
         const store = item === 'ios' ? selectedData?.apple : item === 'android' ? selectedData?.google : null;
@@ -150,23 +130,13 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
           <Text style={styles.componentValue}>{Math.round(component.score * 100)}%</Text>
         </View>)}
       </View>}
-      <Text style={styles.method}>Brand is a provisional proxy based only on app ratings: the equal average of Apple App Store and Google Play, or the available store alone when the other is unavailable. It is not a comprehensive brand sentiment score. Google Play aggregates may be shared across storefronts. Website is a live check of {brand}&apos;s localized country site: availability, response time, page weight, security headers and mobile/SEO markup, scaled to 1–5. Country refers to storefront or localized site, not verified customer residence.</Text>
+      <Text style={styles.method}>Brand = provisional average of App Store + Google Play ratings. Website = live check of the country site (speed, security, mobile/SEO), scaled 1–5.</Text>
     </View>
   </View>;
 }
 
 const styles = StyleSheet.create({
   shell: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 20, backgroundColor: '#FFFFFF', overflow: 'hidden', marginBottom: 20, marginTop: 12 },
-  hero: { backgroundColor: '#0F172A', padding: 22, gap: 24 },
-  heroTitle: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  brandMark: { width: 58, height: 58, borderRadius: 16, backgroundColor: '#FACC15', alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: '#0F172A', fontSize: 23, fontWeight: '900' }, heroCopy: { flex: 1 },
-  eyebrow: { color: '#FACC15', fontSize: 9, letterSpacing: 1.8, fontWeight: '800' },
-  title: { color: '#FFFFFF', fontSize: 27, fontWeight: '900', marginVertical: 5 },
-  heroSub: { color: '#CBD5E1', fontSize: 12, lineHeight: 18 },
-  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 },
-  stat: { flex: 1, minWidth: 115, borderLeftWidth: 2, borderLeftColor: '#334155', paddingLeft: 12 },
-  statValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '800' }, statLabel: { color: '#94A3B8', fontSize: 10, lineHeight: 16 },
   body: { padding: 16 }, fieldLabel: { fontSize: 10, color: '#64748B', letterSpacing: 1, fontWeight: '800', marginBottom: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14 },
   chip: { paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', backgroundColor: '#F8FAFC' },

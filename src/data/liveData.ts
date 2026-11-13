@@ -256,6 +256,26 @@ export async function fetchPlatformRatings(countryCode: string, brandName: strin
   return value;
 }
 
+export type StoreChartRank = { rank: number | null; chartSize: number; category: string | null };
+export type StoreChartRanks = { apple: StoreChartRank; google: StoreChartRank };
+
+export async function fetchStoreChartRanks(countryCode: string, brandName: string): Promise<StoreChartRanks> {
+  const apiUrl = getApiUrl();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/store-chart-ranks?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}`, { cache: 'no-store', signal: controller.signal })
+    .finally(() => clearTimeout(timeout));
+  if (!response.ok) throw new Error(`Store chart service returned HTTP ${response.status}.`);
+  const data: unknown = await response.json();
+  if (!isRecord(data) || !isRecord(data.apple) || !isRecord(data.google)) throw new Error('Store chart service returned invalid data.');
+  const parse = (store: Record<string, unknown>): StoreChartRank => {
+    const rank = typeof store.rank === 'number' && Number.isSafeInteger(store.rank) && store.rank > 0 ? store.rank : null;
+    const chartSize = typeof store.chartSize === 'number' && Number.isSafeInteger(store.chartSize) && store.chartSize >= 0 ? store.chartSize : 0;
+    return { rank, chartSize, category: typeof store.category === 'string' ? store.category : null };
+  };
+  return { apple: parse(data.apple), google: parse(data.google) };
+}
+
 export type ChannelScoreData = {
   rating: number | null;
   sampleSize: number;

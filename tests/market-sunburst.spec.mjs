@@ -36,7 +36,7 @@ test('brand rating identifies when only the App Store is available', async ({ pa
 
 test('a different selected brand shows its provisional store-based rating', async ({ page }) => {
   const explorer = await openExplorer(page, 'live', 'Wise');
-  await expect(explorer.getByText('Wise', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('brand-headline').getByText('Wise', { exact: true })).toBeVisible();
   await explorer.getByRole('button', { name: 'Focus Brand', exact: true }).click();
   await expect(explorer.getByText('United States / Brand', { exact: true })).toBeVisible();
   await expect(explorer.getByTestId('channel-breakdown').getByText('Equal average of Apple App Store and Google Play ratings', { exact: true })).toBeVisible();

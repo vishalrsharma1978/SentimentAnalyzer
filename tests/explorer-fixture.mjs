@@ -14,6 +14,13 @@ export async function openExplorer(page, sourceMode = 'live', brand = 'Western U
         google: { rating: sourceMode === 'single' ? null : value, reviewCount: sourceMode === 'single' || value === null ? 0 : 200 },
       } });
     }
+    if (url.pathname === '/api/store-chart-ranks') {
+      if (sourceMode === 'error') return route.fulfill({ status: 503, json: { error: 'Test source offline' } });
+      return route.fulfill({ json: {
+        apple: { rank: 67, chartSize: 100, category: 'Finance' },
+        google: { rank: null, chartSize: 200, category: 'Finance' },
+      } });
+    }
     if (url.pathname === '/api/channel-ratings') {
       const country = url.searchParams.get('country');
       if (sourceMode !== 'live' && sourceMode !== 'single') {
@@ -28,13 +35,20 @@ export async function openExplorer(page, sourceMode = 'live', brand = 'Western U
         country,
       } });
     }
+    if (url.pathname === '/api/competitor-ratings') {
+      return route.fulfill({ json: { competitors: [
+        { name: 'Western Union', rating: 3.0, reviewCount: 500, status: 'live' },
+        { name: 'Remitly', rating: 4.8, reviewCount: 1200, status: 'live' },
+        { name: 'Wise', rating: 4.4, reviewCount: 900, status: 'live' },
+      ] } });
+    }
     return route.fulfill({ json: { items: [], reviews: [], competitors: [] } });
   });
   await page.route('https://itunes.apple.com/**', (route) => route.fulfill({ json: { results: [] } }));
   await page.route('https://www.reddit.com/**', (route) => route.fulfill({ json: { data: { children: [] } } }));
   await page.goto(`/dashboard?brand=${encodeURIComponent(brand)}`);
   const explorer = page.getByTestId('global-ratings-explorer');
-  await expect(explorer.getByText('GLOBAL EXPERIENCE INTELLIGENCE')).toBeVisible();
+  await expect(page.getByTestId('brand-headline')).toBeVisible();
   await expect(explorer.getByRole('button', { name: 'Refresh country ratings', exact: true })).toHaveText('Refresh ratings');
   return explorer;
 }
