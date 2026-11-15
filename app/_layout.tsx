@@ -8,6 +8,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { colors } from "../src/theme";
+import { ModelPreparationProvider } from "../src/components/ModelPreparation";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -22,7 +23,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ModelPreparationProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -33,6 +34,6 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="dashboard" />
       </Stack>
-    </>
+    </ModelPreparationProvider>
   );
 }

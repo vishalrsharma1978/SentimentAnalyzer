@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions } from 'react-native';
 import { translateReviewText } from '../data/liveData';
 import type { CustomerSentiment, ReviewTranslation } from '../data/liveData';
 import { SafeView } from './SafeView';
+import { colors } from '../theme';
 
 const sentimentTheme = {
   positive: { color: '#027A48', soft: '#ECFDF3', border: '#A6F4C5', icon: 'happy-outline' as const },
@@ -95,7 +96,7 @@ function ReviewCard({
         </SafeView>
         {!isLast && <SafeView style={styles.timelineLine} />}
       </SafeView>
-      <SafeView style={[styles.cardBody, { borderColor: highlighted ? '#2563EB' : theme.border }, highlighted && styles.highlightedCard]}>
+      <SafeView style={[styles.cardBody, { borderColor: highlighted ? colors.primary : theme.border }, highlighted && styles.highlightedCard]}>
         <SafeView style={styles.cardTop}>
           <SafeView style={styles.authorBlock}>
             <SafeView style={[styles.avatar, { backgroundColor: theme.soft }]}>
@@ -160,7 +161,7 @@ function ReviewCard({
           onPress={() => void translate()}
           style={({ pressed }) => [styles.translateButton, pressed && styles.translateButtonPressed]}
         >
-          <Ionicons name={isTranslating ? 'sync-outline' : 'language-outline'} size={13} color="#175CD3" />
+          <Ionicons name={isTranslating ? 'sync-outline' : 'language-outline'} size={13} color={colors.primary} />
           <Text style={styles.translateButtonText}>{isTranslating ? 'Translating…' : translationError ? 'Try translation again' : 'Translate to English'}</Text>
         </Pressable>
       </SafeView>
@@ -200,7 +201,7 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', gap: 1 },
   ratingValue: { marginLeft: 7, fontSize: 10, fontWeight: '900', color: '#344054' },
   verified: { marginLeft: 'auto', fontSize: 9, fontWeight: '700', color: '#98A2B3' },
-  translateButton: { alignSelf: 'flex-start', minHeight: 30, marginTop: 8, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: '#B2DDFF', backgroundColor: '#F5FAFF', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  translateButton: { alignSelf: 'flex-start', minHeight: 30, marginTop: 8, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.primaryTint, flexDirection: 'row', alignItems: 'center', gap: 6 },
   translateButtonPressed: { opacity: 0.75 },
-  translateButtonText: { fontSize: 9, fontWeight: '800', color: '#175CD3' },
+  translateButtonText: { fontSize: 9, fontWeight: '800', color: colors.primary },
 });

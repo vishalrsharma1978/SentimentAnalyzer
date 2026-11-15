@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { RatingSunburst } from './RatingSunburst';
 import { channelColors, channelLabels, channelRating, channelScore, rankMarkets, storeRatingBasis } from '../data/marketAnalytics';
 import type { Channel, Market, MarketRatings } from '../data/marketAnalytics';
+import { colors } from '../theme';
 
 type Props = {
   brand: string;
@@ -50,7 +51,7 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
       <Text style={styles.rank}>#{market.rank}</Text>
       <View style={styles.rankCopy}><View style={styles.rankLabel}><Text style={styles.countryName}>{market.name}</Text><Text style={styles.score}>{market.score.toFixed(2)}</Text></View>
         {(channel === 'brand' || channel === 'mobile') && <Text style={styles.caption}>{storeRatingBasis(ratings[market.code])}</Text>}
-        <View style={styles.track}><View style={[styles.bar, { width: `${market.score * 20}%`, backgroundColor: country.code === market.code ? '#EAB308' : '#6366F1' }]} /></View>
+        <View style={styles.track}><View style={[styles.bar, { width: `${market.score * 20}%`, backgroundColor: country.code === market.code ? colors.primary : colors.sky }]} /></View>
       </View>
     </Pressable>)}
   </View>;
@@ -67,7 +68,7 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
             const value = channelRating(ratings[market.code], item);
             return <Pressable key={item} accessibilityRole="button" accessibilityLabel={`${market.name} ${channelLabels[item]} ${value === null ? 'unavailable' : value.toFixed(2)}`}
               onPress={() => selectCountry(market, item)}
-              style={[styles.heatCell, { backgroundColor: value === null ? '#F1F5F9' : value >= 4 ? '#D1FAE5' : value >= 3 ? '#FEF3C7' : '#FEE2E2' }]}>
+              style={[styles.heatCell, { backgroundColor: value === null ? colors.lineSoft : value >= 4 ? colors.greenSoft : value >= 3 ? colors.orangeSoft : colors.redSoft }]}>
               <Text style={styles.heatValue}>{scoreText(value)}</Text>
             </Pressable>;
           })}
@@ -106,7 +107,7 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
 
       <View style={styles.detailHeader}><View><Text style={styles.panelTitle}>{country.name} / {channelLabels[channel]}</Text>
         <Text style={styles.caption}>Tap a card to focus the sunburst.</Text></View><Text style={styles.detailScore}>{scoreText(selectedScore)}<Text style={styles.outOf}> / 5</Text></Text></View>
-      <View style={styles.channelGrid}>{channels.map((item) => {
+      <View style={styles.channelGrid}>{channels.filter((item) => item !== 'web' || channelRating(selectedData, 'web') !== null).map((item) => {
         const score = channelRating(selectedData, item);
         const store = item === 'ios' ? selectedData?.apple : item === 'android' ? selectedData?.google : null;
         const scoreDetail = channelScore(selectedData, item);
@@ -120,7 +121,7 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
           <Text style={styles.channelLabel}>{channelLabels[item]}</Text><Text style={styles.channelValue}>{scoreText(score)}</Text><Text style={styles.caption}>{detail}</Text>
         </Pressable>;
       })}</View>
-      {selectedDetail && <View style={styles.breakdown} testID="channel-breakdown">
+      {selectedDetail && !(channel === 'web' && selectedScore === null) && <View style={styles.breakdown} testID="channel-breakdown">
         <Text style={styles.panelTitle}>{channelLabels[channel]} breakdown · {country.name}</Text>
         <Text style={styles.caption}>{selectedDetail.basis}</Text>
         {selectedDetail.components.map((component) => <View key={component.label} style={styles.componentRow}
@@ -136,43 +137,43 @@ export function GlobalRatingsExplorer({ brand, markets, ratings, errors, loading
 }
 
 const styles = StyleSheet.create({
-  shell: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 20, backgroundColor: '#FFFFFF', overflow: 'hidden', marginBottom: 20, marginTop: 12 },
-  body: { padding: 16 }, fieldLabel: { fontSize: 10, color: '#64748B', letterSpacing: 1, fontWeight: '800', marginBottom: 10 },
+  shell: { borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.card, overflow: 'hidden', marginBottom: 20, marginTop: 12 },
+  body: { padding: 16 }, fieldLabel: { fontSize: 10, color: colors.muted, letterSpacing: 1, fontWeight: '800', marginBottom: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14 },
-  chip: { paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', backgroundColor: '#F8FAFC' },
-  chipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
-  activeChip: { backgroundColor: '#0F172A', borderColor: '#0F172A' }, activeChipText: { color: '#FFFFFF' },
-  activeCountry: { backgroundColor: '#FEF9C3', borderColor: '#EAB308' },
+  chip: { paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.line, justifyContent: 'center', backgroundColor: colors.primaryTint },
+  chipText: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  activeChip: { backgroundColor: colors.primary, borderColor: colors.primary }, activeChipText: { color: colors.onPrimary },
+  activeCountry: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', marginTop: 4 },
-  method: { fontSize: 11, lineHeight: 18, color: '#64748B', marginVertical: 12 },
-  error: { fontSize: 12, lineHeight: 18, color: '#B42318', backgroundColor: '#FEF3F2', padding: 12, borderRadius: 10 },
-  empty: { fontSize: 13, lineHeight: 20, color: '#64748B', paddingVertical: 28 },
+  method: { fontSize: 11, lineHeight: 18, color: colors.muted, marginVertical: 12 },
+  error: { fontSize: 12, lineHeight: 18, color: colors.redText, backgroundColor: colors.redSoft, padding: 12, borderRadius: 10 },
+  empty: { fontSize: 13, lineHeight: 20, color: colors.muted, paddingVertical: 28 },
   chartGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, marginTop: 10, alignItems: 'flex-start' },
   ranking: { flex: 1, minWidth: 240, paddingVertical: 14 },
-  panelTitle: { color: '#0F172A', fontSize: 16, fontWeight: '800' },
-  caption: { color: '#64748B', fontSize: 11, lineHeight: 17, marginTop: 5 },
+  panelTitle: { color: colors.navy, fontSize: 16, fontWeight: '800' },
+  caption: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 5 },
   rankRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, marginTop: 8, minHeight: 52 },
-  selectedRow: { backgroundColor: '#FFFBEB' }, rank: { width: 25, fontSize: 14, color: '#64748B', fontWeight: '700' },
+  selectedRow: { backgroundColor: colors.primarySoft }, rank: { width: 25, fontSize: 14, color: colors.muted, fontWeight: '700' },
   rankCopy: { flex: 1 }, rankLabel: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  countryName: { fontSize: 12, fontWeight: '600', color: '#334155', flexShrink: 1 },
-  score: { fontSize: 12, fontWeight: '800', color: '#0F172A' },
-  track: { height: 8, backgroundColor: '#F1F5F9', borderRadius: 4, marginTop: 8, overflow: 'hidden' },
+  countryName: { fontSize: 12, fontWeight: '600', color: colors.text, flexShrink: 1 },
+  score: { fontSize: 12, fontWeight: '800', color: colors.navy },
+  track: { height: 8, backgroundColor: colors.lineSoft, borderRadius: 4, marginTop: 8, overflow: 'hidden' },
   bar: { height: 8, borderRadius: 4 }, heatmap: { paddingVertical: 14 },
-  matrix: { minWidth: 635, marginTop: 16 }, matrixRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 50, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  matrixName: { width: 155, minHeight: 44, justifyContent: 'center', color: '#64748B', fontSize: 11, paddingTop: 6 },
-  columnHeading: { width: 88, textAlign: 'center', fontSize: 11, color: '#64748B' },
+  matrix: { minWidth: 635, marginTop: 16 }, matrixRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 50, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+  matrixName: { width: 155, minHeight: 44, justifyContent: 'center', color: colors.muted, fontSize: 11, paddingTop: 6 },
+  columnHeading: { width: 88, textAlign: 'center', fontSize: 11, color: colors.muted },
   heatCell: { width: 88, minHeight: 44, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  heatValue: { fontSize: 12, fontWeight: '700', color: '#334155' },
-  detailHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 20, marginTop: 20, gap: 10 },
-  detailScore: { fontSize: 28, fontWeight: '800', color: '#0F172A' }, outOf: { fontSize: 13, color: '#64748B' },
+  heatValue: { fontSize: 12, fontWeight: '700', color: colors.text },
+  detailHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 20, marginTop: 20, gap: 10 },
+  detailScore: { fontSize: 28, fontWeight: '800', color: colors.navy }, outOf: { fontSize: 13, color: colors.muted },
   channelGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
-  channelCard: { flex: 1, minWidth: 125, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
-  channelSelected: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
+  channelCard: { flex: 1, minWidth: 125, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.primaryTint },
+  channelSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   channelAccent: { height: 4, width: 28, borderRadius: 2, marginBottom: 12 },
-  channelLabel: { fontSize: 12, fontWeight: '700', color: '#475569' }, channelValue: { fontSize: 25, fontWeight: '800', color: '#0F172A', marginTop: 8 },
-  breakdown: { marginTop: 18, padding: 16, borderRadius: 14, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
+  channelLabel: { fontSize: 12, fontWeight: '700', color: colors.text }, channelValue: { fontSize: 25, fontWeight: '800', color: colors.navy, marginTop: 8 },
+  breakdown: { marginTop: 18, padding: 16, borderRadius: 14, backgroundColor: colors.primaryTint, borderWidth: 1, borderColor: colors.line },
   componentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
-  componentLabel: { width: 170, fontSize: 12, color: '#334155', fontWeight: '600' },
+  componentLabel: { width: 170, fontSize: 12, color: colors.text, fontWeight: '600' },
   componentTrack: { flex: 1, marginTop: 0 },
-  componentValue: { width: 44, textAlign: 'right', fontSize: 12, fontWeight: '800', color: '#0F172A' },
+  componentValue: { width: 44, textAlign: 'right', fontSize: 12, fontWeight: '800', color: colors.navy },
 });

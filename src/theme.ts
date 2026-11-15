@@ -1,6 +1,8 @@
-// Blue & white design tokens: soft blue canvas, white cards, royal-blue accents.
+// Shared landing/dashboard palette: navy heroes and controls, white cards.
+const NAVY = "#0F2B57";
+
 export const colors = {
-  navy: "#0F2B57",
+  navy: NAVY,
   text: "#3C4C6D",
   muted: "#64769B",
   faint: "#93A5C8",
@@ -8,17 +10,23 @@ export const colors = {
   lineSoft: "#EEF3FB",
   canvas: "#F4F8FF",
   card: "#FFFFFF",
-  primary: "#2563EB",
-  primaryDark: "#1D4ED8",
-  primaryDeep: "#1E3A8A",
+  primary: NAVY,
+  primaryDark: NAVY,
+  primaryDeep: NAVY,
   accent: "#38BDF8",
   sky: "#60A5FA",
   header: "#FFFFFF",
-  headerText: "#0F2B57",
+  headerText: NAVY,
   primarySoft: "#EAF1FE",
   primaryTint: "#F5F9FF",
-  primaryBorder: "#2563EB",
+  primaryBorder: NAVY,
   badge: "#EFF4FD",
+  onPrimary: "#FFFFFF",
+  onDark: "#FFFFFF",
+  onDarkMuted: "#CBDCF4",
+  darkCard: NAVY,
+  darkBorder: "#355278",
+  backdrop: "rgba(15,43,87,0.45)",
   green: "#12B76A",
   greenSoft: "#ECFDF3",
   greenText: "#027A48",
@@ -50,7 +58,7 @@ export const radii = {
 
 // Soft blue-tinted elevation used on white cards.
 export const cardShadow = {
-  shadowColor: "#2563EB",
+  shadowColor: colors.primary,
   shadowOpacity: 0.08,
   shadowRadius: 16,
   shadowOffset: { width: 0, height: 6 },

@@ -12,6 +12,9 @@ const YahooFinance = require('yahoo-finance2').default;
 const { brandWebsiteUrl, fetchLighthouse, probeWebsite, scoreWebsiteProbe } = require('./channelRatings');
 const { westernUnionStoreIds } = require('./westernUnionApps');
 const { storeBrandRating } = require('./storeBrandRating');
+const { discoverCompetitors } = require('./competitorDiscovery');
+const { discoverAppleCompetitors } = require('./appleCompetitors');
+const { registerModelRoute } = require('./runtimeModel');
 const { appleChartRank, playChartRank } = require('./storeChartRank');
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
@@ -69,30 +72,6 @@ const APP_PACKAGES = {
   'Cash App': 'com.squareup.cash',
   Monzo: 'co.uk.getmondo',
   Chime: 'com.onedebit.chime',
-};
-
-const COUNTRY_COMPETITOR_NAMES = {
-  US: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'PayPal'],
-  CA: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom'],
-  MX: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
-  IN: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'BookMyForex', 'Xoom'],
-  PH: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'GCash', 'WorldRemit'],
-  GB: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit'],
-  DE: ['Western Union', 'Wise', 'Remitly', 'Revolut', 'MoneyGram', 'Skrill'],
-  AE: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'WorldRemit'],
-  SA: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'Ria'],
-  AU: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'WorldRemit', 'Xoom'],
-  SG: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit'],
-  BR: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
-};
-
-const REGIONAL_COMPETITOR_NAMES = {
-  'North America': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'PayPal'],
-  Europe: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit', 'Skrill'],
-  'Asia Pacific': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'GCash', 'WorldRemit', 'BookMyForex'],
-  'Latin America': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
-  'Middle East & Africa': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'WorldRemit'],
-  Global: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'WorldRemit'],
 };
 
 const COMPETITOR_STOCK_SYMBOLS = {
@@ -301,7 +280,7 @@ async function appleFetchJson(url) {
   const run = appleQueue.then(async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const response = await fetch(url, { cache: 'no-store' });
+        const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(12000) });
         if (response.ok) return await response.json();
         if (response.status !== 429 && response.status < 500) return null;
       } catch {
@@ -331,48 +310,53 @@ function normalizeBrandText(value) {
 
 // Brands without a hardcoded package are resolved live via Google Play search
 // so any newly selected brand still gets its own reviews.
-async function resolvePlayAppId(brand, country = 'US') {
-  if (brand.trim().toLowerCase() === 'western union') return westernUnionStoreIds(country)?.google ?? null;
-  if (APP_PACKAGES[brand]) return APP_PACKAGES[brand];
-  const cacheKey = brand.toLowerCase();
+async function resolvePlayAppId(brand, country = 'US', propagateError = false, appName = '') {
+  if (appName && normalizeBrandText(appName) === normalizeBrandText(brand)) appName = '';
+  if (!appName) {
+    if (brand.trim().toLowerCase() === 'western union') return westernUnionStoreIds(country)?.google ?? null;
+    if (APP_PACKAGES[brand]) return APP_PACKAGES[brand];
+  }
+  const cacheKey = `${brand.toLowerCase()}:${country.toUpperCase()}:${appName.toLowerCase()}:${propagateError}`;
   if (resolvedAppIds.has(cacheKey)) return resolvedAppIds.get(cacheKey);
   let appId = null;
   try {
-    const results = await gplay.search({ term: brand, num: 5, country: country.toLowerCase(), lang: 'en' });
+    const results = await gplay.search({ term: appName || brand, num: 5, country: country.toLowerCase(), lang: 'en', requestOptions: { timeout: 12000 } });
     const needle = normalizeBrandText(brand);
     const matches = (results || []).filter((app) => {
       const developer = typeof app.developer === 'string' ? app.developer : '';
-      return needle && normalizeBrandText(`${app.title || ''} ${developer} ${app.summary || ''}`).includes(needle);
+      return needle && normalizeBrandText(`${app.title || ''} ${developer}`).includes(needle);
     });
     const best = matches.find((app) => normalizeBrandText(app.title).startsWith(needle)) || matches[0];
     if (best?.appId) {
-      appId = best.appId;
+      appId = propagateError ? await verifyPlayAppBelongsToBrand(best.appId, brand, country, true) : best.appId;
     } else if (results?.[0]?.appId) {
       // The top hit can be a renamed app (e.g. Nubank lists as "Nu"); only
       // attribute it when the developer's website/email references the brand.
-      appId = await verifyPlayAppBelongsToBrand(results[0].appId, brand, country);
+      appId = await verifyPlayAppBelongsToBrand(results[0].appId, brand, country, propagateError);
     }
   } catch (error) {
     console.error(`Google Play search failed for ${brand}:`, error.message);
+    if (propagateError) throw error;
   }
-  resolvedAppIds.set(cacheKey, appId);
+  if (appId) resolvedAppIds.set(cacheKey, appId);
   return appId;
 }
 
-async function verifyPlayAppBelongsToBrand(appId, brand, country) {
+async function verifyPlayAppBelongsToBrand(appId, brand, country, propagateError = false) {
   try {
-    const detail = await gplay.app({ appId, country: country.toLowerCase(), lang: 'en' });
+    const detail = await gplay.app({ appId, country: country.toLowerCase(), lang: 'en', requestOptions: { timeout: 12000 } });
     const slug = normalizeBrandText(brand).replace(/\s+/g, '');
     if (!slug) return null;
     const signals = [detail.developerWebsite, detail.developerEmail, detail.developer]
       .map((value) => String(value || '').toLowerCase());
     return signals.some((value) => value.includes(slug)) ? appId : null;
-  } catch {
+  } catch (error) {
+    if (propagateError) throw error;
     return null;
   }
 }
 
-async function findAppleBrandApp(brand, country) {
+async function findAppleBrandApp(brand, country, appName = '', strict = false) {
   const countryCode = country.toLowerCase();
   if (brand.trim().toLowerCase() === 'western union') {
     const ids = westernUnionStoreIds(country);
@@ -382,19 +366,22 @@ async function findAppleBrandApp(brand, country) {
       String(item.trackId) === ids.apple && /western union/i.test(`${item.sellerName || ''} ${item.artistName || ''}`),
     ) || null;
   }
-  const data = await appleFetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(brand)}&country=${countryCode}&entity=software&limit=15&_ts=${Date.now()}`);
+  const data = await appleFetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(appName || brand)}&country=${countryCode}&entity=software&limit=15&_ts=${Date.now()}`);
   const brandLower = brand.toLowerCase();
-  const matches = (data?.results || []).filter((item) =>
-    `${item.trackName || ''} ${item.sellerName || item.artistName || ''}`.toLowerCase().includes(brandLower),
-  );
+  const slug = normalizeBrandText(brand).replace(/\s+/g, '');
+  const matches = (data?.results || []).filter((item) => {
+    const named = `${item.trackName || ''} ${item.sellerName || item.artistName || ''}`.toLowerCase().includes(brandLower);
+    const publisher = normalizeBrandText(`${item.sellerName || ''} ${item.artistName || ''} ${item.sellerUrl || ''}`).replace(/\s+/g, '');
+    return named && (!strict || (slug && publisher.includes(slug)));
+  });
   return matches.find((item) => String(item.trackName || '').toLowerCase().startsWith(brandLower)) || matches[0] || null;
 }
 
-async function collectGooglePlayReviews(brand, country, months = 1) {
-  const appId = await resolvePlayAppId(brand, country);
+async function collectGooglePlayReviews(brand, country, months = 1, options = {}) {
+  const appId = await resolvePlayAppId(brand, country, options.strict, options.appName);
   if (!appId) return [];
   try {
-    const result = await gplay.reviews({ appId, country: country.toLowerCase(), sort: gplay.sort.NEWEST, num: Math.min(500 * months, 3000) });
+    const result = await gplay.reviews({ appId, country: country.toLowerCase(), sort: gplay.sort.NEWEST, num: Math.min(500 * months, 3000), requestOptions: { timeout: 12000 } });
     return (result.data || []).map((review) => ({
       source: 'Google Play',
       author: review.userName || 'Verified customer',
@@ -407,14 +394,15 @@ async function collectGooglePlayReviews(brand, country, months = 1) {
     })).filter((review) => review.text);
   } catch (error) {
     console.error(`Google Play collection failed for ${brand}:`, error.message);
+    if (options.strict) throw error;
     return [];
   }
 }
 
-async function collectAppleReviews(brand, country) {
+async function collectAppleReviews(brand, country, options = {}) {
   const countryCode = country.toLowerCase();
   try {
-    const match = await findAppleBrandApp(brand, country);
+    const match = await findAppleBrandApp(brand, country, options.appName, options.strict);
     if (!match?.trackId) return [];
     // The page=1 RSS path is measurably more reliable, and Apple sometimes
     // answers 200 with an empty feed under throttling — retry on empty.
@@ -442,6 +430,7 @@ async function collectAppleReviews(brand, country) {
     }).filter((review) => review.text);
   } catch (error) {
     console.error(`Apple RSS collection failed for ${brand}:`, error.message);
+    if (options.strict) throw error;
     return [];
   }
 }
@@ -582,18 +571,20 @@ app.post('/api/translate', async (request, response) => {
   }
 });
 
-async function getPlatformRatings(brand, country, bypassCache = false) {
-  const cacheKey = `${brand}:${country}`;
+async function getPlatformRatings(brand, country, bypassCache = false, options = {}) {
+  const useGoogle = !options.platforms || options.platforms.includes('Mobile · Android');
+  const useApple = !options.platforms || options.platforms.includes('Mobile · iOS');
+  const cacheKey = `${brand}:${country}:${options.appName || ''}:${useGoogle}:${useApple}:${Boolean(options.strict)}`;
   const cached = platformRatingsCache.get(cacheKey);
   if (!bypassCache && cached && Date.now() - cached.cachedAt < PLATFORM_RATINGS_CACHE_TTL_MS) {
     return { ...cached.value, collectedAt: cached.collectedAt };
   }
   try {
-    const appId = await resolvePlayAppId(brand, country);
+    const appId = useGoogle ? await resolvePlayAppId(brand, country, options.strict, options.appName) : null;
     let google = { rating: null, reviewCount: 0 };
     if (appId) {
       try {
-        const app = await gplay.app({ appId, country: country.toLowerCase() });
+        const app = await gplay.app({ appId, country: country.toLowerCase(), requestOptions: { timeout: 12000 } });
         google = {
           rating: typeof app.score === 'number' && app.score >= 1 && app.score <= 5 ? app.score : null,
           reviewCount: Math.max(Number(app.ratings || 0), Number(app.reviews || 0)),
@@ -605,7 +596,7 @@ async function getPlatformRatings(brand, country, bypassCache = false) {
     let appleRating = null;
     let appleReviewCount = 0;
     try {
-      const match = await findAppleBrandApp(brand, country);
+      const match = useApple ? await findAppleBrandApp(brand, country, options.appName, options.strict) : null;
       if (match?.averageUserRating) {
         appleRating = Number(Number(match.averageUserRating).toFixed(2));
         appleReviewCount = Number(match.userRatingCount || 0);
@@ -645,8 +636,8 @@ app.get('/api/platform-ratings', async (request, response) => {
 const chartRanksCache = new Map();
 const CHART_RANKS_CACHE_TTL_MS = 60 * 60 * 1000;
 
-async function appleTopChartRank(brand, country) {
-  const match = await findAppleBrandApp(brand, country);
+async function appleTopChartRank(brand, country, appName = '', strict = false) {
+  const match = await findAppleBrandApp(brand, country, appName, strict);
   if (!match?.trackId) return { rank: null, chartSize: 0, category: null, appId: null };
   const genreId = Number(match.primaryGenreId);
   if (!Number.isInteger(genreId)) return { rank: null, chartSize: 0, category: null, appId: String(match.trackId) };
@@ -654,13 +645,13 @@ async function appleTopChartRank(brand, country) {
   return { ...appleChartRank(feed, match.trackId), category: match.primaryGenreName || null, appId: String(match.trackId) };
 }
 
-async function playTopChartRank(brand, country) {
-  const appId = await resolvePlayAppId(brand, country);
+async function playTopChartRank(brand, country, appName = '', strict = false) {
+  const appId = await resolvePlayAppId(brand, country, strict, appName);
   if (!appId) return { rank: null, chartSize: 0, category: null, appId: null };
-  const detail = await gplay.app({ appId, country: country.toLowerCase(), lang: 'en' });
+  const detail = await gplay.app({ appId, country: country.toLowerCase(), lang: 'en', requestOptions: { timeout: 12000 } });
   const category = Object.values(gplay.category).includes(detail.genreId) ? detail.genreId : null;
   if (!category) return { rank: null, chartSize: 0, category: detail.genre || null, appId };
-  const list = await gplay.list({ category, collection: gplay.collection.TOP_FREE, country: country.toLowerCase(), lang: 'en', num: 200 });
+  const list = await gplay.list({ category, collection: gplay.collection.TOP_FREE, country: country.toLowerCase(), lang: 'en', num: 200, requestOptions: { timeout: 12000 } });
   return { ...playChartRank(list, appId), category: detail.genre || category, appId };
 }
 
@@ -722,6 +713,22 @@ async function computeWebChannel(brand, country) {
   return scoreWebsiteProbe(probe);
 }
 
+// Runtime models supply their own website URL, so probe it directly for any
+// brand rather than relying on the per-brand localized URL map.
+async function computeRuntimeWebChannel(website, country) {
+  if (!website) return { rating: null, sampleSize: 0, basis: 'No website provided for this model', components: [] };
+  let probe = null;
+  try {
+    probe = await probeWebsite(website, country);
+  } catch (error) {
+    console.error(`Runtime website probe failed (${country}):`, error.name === 'AbortError' ? 'timeout' : error.message);
+  }
+  if (probe && process.env.GOOGLE_PAGESPEED_API_KEY) {
+    probe.lighthouse = await fetchLighthouse(probe.finalUrl, process.env.GOOGLE_PAGESPEED_API_KEY).catch(() => null);
+  }
+  return scoreWebsiteProbe(probe);
+}
+
 // The brand score is a provisional proxy based on available app-store ratings.
 app.get('/api/channel-ratings', async (request, response) => {
   const brand = String(request.query.brand || 'Western Union').slice(0, 80);
@@ -743,41 +750,43 @@ app.get('/api/channel-ratings', async (request, response) => {
 
 // Combined Google Play + Apple rating for every competitor in a country, so the
 // client can rank all brands (including the selected one) on the same basis.
+// Discovery makes ~100 store/Wikidata requests, so successful results are reused.
+const COMPETITOR_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const competitorCache = new Map();
+
 app.get('/api/competitor-ratings', async (request, response) => {
+  const brand = String(request.query.brand || '').trim();
   const country = String(request.query.country || 'US').toUpperCase();
   const region = String(request.query.region || 'Global');
-  const names = COUNTRY_COMPETITOR_NAMES[country] || REGIONAL_COMPETITOR_NAMES[region] || REGIONAL_COMPETITOR_NAMES.Global;
-  const appleCountry = country.toLowerCase();
-  const items = await Promise.all(names.map(async (name) => {
-    let google = null;
-    let apple = null;
-    let reviewCount = 0;
-    try {
-      const appId = await resolvePlayAppId(name, country);
-      if (appId) {
-        const app = await gplay.app({ appId, country: appleCountry, lang: 'en' });
-        if (typeof app.score === 'number' && app.score >= 1 && app.score <= 5) {
-          google = Number(app.score);
-          reviewCount = Math.max(Number(app.ratings || 0), Number(app.reviews || 0));
-        }
-      }
-    } catch (error) {
-      console.error(`Competitor Google rating failed for ${name}:`, error.message);
-    }
-    try {
-      const match = await findAppleBrandApp(name, country);
-      if (match?.averageUserRating) {
-        apple = Number(Number(match.averageUserRating).toFixed(2));
-        reviewCount = Math.max(reviewCount, Number(match.userRatingCount || 0));
-      }
-    } catch (error) {
-      console.error(`Competitor Apple rating failed for ${name}:`, error.message);
-    }
-    const available = [google, apple].filter((value) => value !== null);
-    const rating = available.length ? Number((available.reduce((sum, value) => sum + value, 0) / available.length).toFixed(2)) : null;
-    return { name, rating, google, apple, reviewCount, status: rating !== null ? 'live' : 'unavailable' };
-  }));
-  response.json({ country, region, competitors: items, collectedAt: new Date().toISOString() });
+  if (!brand || brand.length > 80 || !/^[A-Z]{2}$/.test(country)) {
+    response.status(400).json({ error: 'Provide a brand of 1–80 characters and a two-letter country code.' });
+    return;
+  }
+  const cacheKey = `${brand.toLowerCase()}|${country}`;
+  const cached = competitorCache.get(cacheKey);
+  if (cached && Date.now() - cached.storedAt < COMPETITOR_CACHE_TTL_MS) {
+    response.json({ ...cached.payload, region });
+    return;
+  }
+  try {
+    const discovery = await discoverCompetitors({ brand, country, gplay, resolveAppId: (name, code) => resolvePlayAppId(name, code, true) });
+    const peers = discovery.apps.map((item) => ({
+      ...item, source: 'Google Play', status: item.rating === null ? 'unavailable' : 'live',
+    }));
+    // Include the searched brand only when real peers exist; a lone brand is not a category leader.
+    const stores = peers.some((peer) => peer.rating !== null) ? await getPlatformRatings(brand, country) : null;
+    const rating = stores ? storeBrandRating(stores).rating : null;
+    const selected = stores ? [{
+      name: brand, rating, reviewCount: Math.max(stores.google.reviewCount, stores.apple.reviewCount),
+      source: 'Apple App Store + Google Play', status: rating === null ? 'unavailable' : 'live',
+    }] : [];
+    const payload = { brand, country, region, basis: discovery.basis, competitors: [...selected, ...peers], collectedAt: new Date().toISOString() };
+    if (peers.length) competitorCache.set(cacheKey, { storedAt: Date.now(), payload });
+    response.json(payload);
+  } catch (error) {
+    console.error(`Competitor discovery failed for ${brand} (${country}):`, error.message);
+    response.status(502).json({ error: 'Live competitor discovery is temporarily unavailable. Refresh to retry.' });
+  }
 });
 
 // Server-side Reddit proxy: browsers block reddit.com/search.json via CORS,
@@ -888,6 +897,28 @@ app.get('/api/reviews', async (request, response) => {
     console.error('Review collection failed:', error instanceof Error ? error.message : error);
     response.status(500).json({ brand, country, months, count: 0, reviews: [], error: 'Review collection failed.' });
   }
+});
+
+registerModelRoute(app, {
+  stores: (config) => getPlatformRatings(config.brand, config.country, false, { ...config, strict: true }),
+  reviews: (source, config) => source === 'Google Play'
+    ? collectGooglePlayReviews(config.brand, config.country, config.months, { ...config, strict: true })
+    : collectAppleReviews(config.brand, config.country, { ...config, strict: true }),
+  peers: (platform, config) => platform === 'google'
+    ? discoverCompetitors({
+      brand: config.brand, country: config.country, gplay,
+      resolveAppId: (name, code) => resolvePlayAppId(name, code, true, config.appName),
+    })
+    : discoverAppleCompetitors({
+      brand: config.brand, country: config.country, appName: config.appName,
+      findApp: (brand, country, appName) => findAppleBrandApp(brand, country, appName, true), fetchJson: appleFetchJson,
+    }),
+  chart: (platform, config) => platform === 'google'
+    ? playTopChartRank(config.brand, config.country, config.appName, true)
+    : appleTopChartRank(config.brand, config.country, config.appName, true),
+  quotes: (names) => Promise.all(names.map(getCompetitorSharePrice)),
+  web: (config) => computeRuntimeWebChannel(config.website, config.country),
+  log: console,
 });
 
 // SPA fallback: client-side routes (e.g. /dashboard) must serve index.html.

@@ -1,8 +1,11 @@
+import { parseRuntimeMarket } from './runtimeModel';
+import type { ModelConfiguration, RuntimeMarket } from './runtimeModel';
+
 export type LiveCompetitor = {
   name: string;
   rating: number | null;
   reviewCount: number | null;
-  source: 'Apple App Store' | 'Google Play' | 'Unavailable';
+  source: 'Apple App Store' | 'Google Play' | 'Apple App Store + Google Play' | 'Unavailable';
   status: 'live' | 'unavailable';
   updatedAt: string | null;
 };
@@ -41,34 +44,67 @@ function getApiUrl(): string {
   return 'http://localhost:3001';
 }
 
-export async function fetchCompetitorSharePrices(names: string[]): Promise<CompetitorSharePrice[]> {
-  const apiUrl = getApiUrl();
-  const response = await fetch(
-    `${apiUrl.replace(/\/$/, '')}/api/competitor-share-prices?names=${encodeURIComponent(names.join(','))}`,
-    { headers: { Accept: 'application/json' }, cache: 'no-store' },
-  );
-  if (!response.ok) {
-    throw new Error(`Share-price service returned HTTP ${response.status}.`);
-  }
-
-  const data: unknown = await response.json();
-  if (!isRecord(data) || !Array.isArray(data.items)) {
-    throw new Error('Share-price service returned an invalid response.');
-  }
-
-  return data.items.map((item) => {
-    if (!isRecord(item) || typeof item.name !== 'string') {
-      throw new Error('Share-price service returned an invalid competitor quote.');
-    }
-    return {
-      name: item.name,
-      symbol: typeof item.symbol === 'string' ? item.symbol : null,
-      price: typeof item.price === 'number' && Number.isFinite(item.price) ? item.price : null,
-      currency: typeof item.currency === 'string' ? item.currency : null,
-      quoteTime: typeof item.quoteTime === 'string' ? item.quoteTime : null,
-      status: item.status === 'live' || item.status === 'not-listed' ? item.status : 'unavailable',
-    };
+export async function fetchRuntimeMarket(
+  config: ModelConfiguration, country: string, months: number, signal: AbortSignal,
+): Promise<RuntimeMarket> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal.addEventListener('abort', abort);
+  if (signal.aborted) abort();
+  const timer = setTimeout(abort, 240000);
+  try {
+  const response = await fetch(`${getApiUrl().replace(/\/$/, '')}/api/models/evaluate`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...config, country, months }),
+    signal: controller.signal,
   });
+  const data: unknown = await response.json();
+  if (!response.ok) {
+    throw new Error(isRecord(data) && typeof data.error === 'string'
+      ? data.error : `Model service returned HTTP ${response.status}.`);
+  }
+  return parseRuntimeMarket(data, country);
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener('abort', abort);
+  }
+}
+
+export async function fetchCompetitorSharePrices(names: string[]): Promise<CompetitorSharePrice[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+  try {
+    const apiUrl = getApiUrl();
+    const response = await fetch(
+      `${apiUrl.replace(/\/$/, '')}/api/competitor-share-prices?names=${encodeURIComponent(names.join(','))}`,
+      { headers: { Accept: 'application/json' }, cache: 'no-store', signal: controller.signal },
+    );
+    if (!response.ok) {
+      throw new Error(`Share-price service returned HTTP ${response.status}.`);
+    }
+
+    const data: unknown = await response.json();
+    if (!isRecord(data) || !Array.isArray(data.items)) {
+      throw new Error('Share-price service returned an invalid response.');
+    }
+
+    return data.items.map((item) => {
+      if (!isRecord(item) || typeof item.name !== 'string') {
+        throw new Error('Share-price service returned an invalid competitor quote.');
+      }
+      return {
+        name: item.name,
+        symbol: typeof item.symbol === 'string' ? item.symbol : null,
+        price: typeof item.price === 'number' && Number.isFinite(item.price) ? item.price : null,
+        currency: typeof item.currency === 'string' ? item.currency : null,
+        quoteTime: typeof item.quoteTime === 'string' ? item.quoteTime : null,
+        status: item.status === 'live' || item.status === 'not-listed' ? item.status : 'unavailable',
+      };
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -134,30 +170,6 @@ const COMPETITOR_TERMS: Record<string, string> = {
   Chime: 'Chime Mobile Banking',
 };
 
-const COUNTRY_COMPETITOR_NAMES: Record<string, string[]> = {
-  US: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'PayPal'],
-  CA: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom'],
-  MX: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
-  IN: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'BookMyForex', 'Xoom'],
-  PH: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'GCash', 'WorldRemit'],
-  GB: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit'],
-  DE: ['Western Union', 'Wise', 'Remitly', 'Revolut', 'MoneyGram', 'Skrill'],
-  AE: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'WorldRemit'],
-  SA: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'Ria'],
-  AU: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'WorldRemit', 'Xoom'],
-  SG: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit'],
-  BR: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
-};
-
-const REGIONAL_COMPETITOR_NAMES: Record<string, string[]> = {
-  'North America': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'PayPal'],
-  Europe: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Revolut', 'WorldRemit', 'Skrill'],
-  'Asia Pacific': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'GCash', 'WorldRemit', 'BookMyForex'],
-  'Latin America': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'Ria'],
-  'Middle East & Africa': ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Al Ansari Exchange', 'WorldRemit'],
-  Global: ['Western Union', 'Wise', 'Remitly', 'MoneyGram', 'Xoom', 'WorldRemit'],
-};
-
 const APPLE_COUNTRY: Record<string, string> = {
   US: 'us', GB: 'gb', IN: 'in', DE: 'de', PH: 'ph', MX: 'mx', AE: 'ae', FR: 'fr',
   AU: 'au', CA: 'ca', BR: 'br', JP: 'jp', SG: 'sg', SE: 'se', NO: 'no', DK: 'dk',
@@ -167,12 +179,14 @@ const APPLE_COUNTRY: Record<string, string> = {
 };
 
 export async function fetchRedditMentions(brandName = 'Western Union'): Promise<CustomerSentiment[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
   try {
     // Routed through the review server because browsers block reddit.com via CORS.
     const apiUrl = getApiUrl();
     const url = `${apiUrl.replace(/\/$/, '')}/api/reddit-mentions?brand=${encodeURIComponent(brandName)}&_ts=${Date.now()}`;
-    const response = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' });
-    if (!response.ok) return [];
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store', signal: controller.signal });
+    if (!response.ok) throw new Error(`Reddit source returned HTTP ${response.status}.`);
     const data = await response.json();
     const posts = Array.isArray(data?.mentions) ? data.mentions : [];
 
@@ -196,8 +210,8 @@ export async function fetchRedditMentions(brandName = 'Western Union'): Promise<
         publishedAt: typeof post.publishedAt === 'string' ? post.publishedAt : null,
       };
     }).filter((review: CustomerSentiment) => review.text.length > 0);
-  } catch {
-    return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -321,12 +335,15 @@ export async function fetchChannelRatings(countryCode: string, brandName: string
 
 export async function fetchReviewCollector(countryCode: string, brandName = 'Western Union', months = 1, refreshNonce = 0): Promise<CustomerSentiment[]> {
   const apiUrl = getApiUrl();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 80000);
   try {
     const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/reviews?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&limit=3600&months=${months}&refresh=${refreshNonce}_${Date.now()}`, {
       headers: { Accept: 'application/json' },
       cache: 'no-store',
+      signal: controller.signal,
     });
-    if (!response.ok) return [];
+    if (!response.ok) throw new Error(`Review collector returned HTTP ${response.status}.`);
     const data = await response.json();
     return (data.reviews ?? []).map((review: any) => ({
       source: String(review.source ?? 'Review source'),
@@ -336,8 +353,8 @@ export async function fetchReviewCollector(countryCode: string, brandName = 'Wes
       sentiment: review.sentiment === 'positive' || review.sentiment === 'negative' ? review.sentiment : 'neutral',
       publishedAt: typeof review.publishedAt === 'string' ? review.publishedAt : null,
     })).filter((review: CustomerSentiment) => review.text.length > 0);
-  } catch {
-    return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -356,51 +373,29 @@ async function appleLookup(term: string, countryCode: string): Promise<any[]> {
   }
 }
 
-// Combined Google Play + Apple rating per competitor for a country, resolved
-// server-side (avoids browser CORS and ranks all brands on the same basis).
-export async function fetchCompetitorRatings(countryCode: string, region = 'Global'): Promise<LiveCompetitor[]> {
+// Brand-seeded Google Play peers, resolved server-side to avoid browser CORS.
+export async function fetchCompetitorRatings(countryCode: string, region: string, brand: string): Promise<LiveCompetitor[]> {
   const apiUrl = getApiUrl();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
   try {
-    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/competitor-ratings?country=${encodeURIComponent(countryCode)}&region=${encodeURIComponent(region)}&_ts=${Date.now()}`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/competitor-ratings?brand=${encodeURIComponent(brand)}&country=${encodeURIComponent(countryCode)}&region=${encodeURIComponent(region)}&_ts=${Date.now()}`, { headers: { Accept: 'application/json' }, cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    const items = Array.isArray(data?.competitors) ? data.competitors : [];
+    if (!Array.isArray(data?.competitors)) throw new Error('Invalid competitor discovery response');
+    const items = data.competitors;
     return items.map((item: any) => ({
       name: String(item.name ?? ''),
       rating: typeof item.rating === 'number' && Number.isFinite(item.rating) ? item.rating : null,
       reviewCount: typeof item.reviewCount === 'number' ? item.reviewCount : null,
-      source: 'Apple App Store' as const,
+      source: item.source === 'Google Play' ? 'Google Play' as const :
+        item.source === 'Apple App Store + Google Play' ? 'Apple App Store + Google Play' as const : 'Apple App Store' as const,
       status: item.status === 'live' ? 'live' as const : 'unavailable' as const,
       updatedAt: typeof data.collectedAt === 'string' ? data.collectedAt : null,
     })).filter((item: LiveCompetitor) => item.name.length > 0);
-  } catch {
-    return [];
+  } finally {
+    clearTimeout(timeout);
   }
-}
-
-export async function fetchAppleCompetitors(countryCode: string, region = 'Global'): Promise<LiveCompetitor[]> {  const competitorNames = COUNTRY_COMPETITOR_NAMES[countryCode.toUpperCase()] ??
-    REGIONAL_COMPETITOR_NAMES[region] ?? REGIONAL_COMPETITOR_NAMES.Global;
-  const competitors = competitorNames.map((name) => [name, COMPETITOR_TERMS[name]] as const);
-  return Promise.all(competitors.map(async ([name, term]) => {
-    try {
-      const results = await appleLookup(term, countryCode);
-      const expected = name.toLowerCase();
-      const match = results.find((item) =>
-        `${item.trackName ?? ''} ${item.sellerName ?? item.artistName ?? ''}`.toLowerCase().includes(name === 'Wise' ? 'wise' : expected),
-      );
-      if (!match?.averageUserRating) throw new Error(`No Apple result for ${name}`);
-      return {
-        name,
-        rating: Number(match.averageUserRating.toFixed(1)),
-        reviewCount: Number(match.userRatingCount ?? 0),
-        source: 'Apple App Store' as const,
-        status: 'live' as const,
-        updatedAt: new Date().toISOString(),
-      };
-    } catch {
-      return { name, rating: null, reviewCount: null, source: 'Unavailable' as const, status: 'unavailable' as const, updatedAt: null };
-    }
-  }));
 }
 
 const appleRatingCache = new Map<string, { expiresAt: number; value: { rating: number | null; reviewCount: number } }>();

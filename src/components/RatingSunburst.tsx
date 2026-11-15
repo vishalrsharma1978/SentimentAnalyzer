@@ -5,6 +5,7 @@ import {
   aggregateRating, channelColors, channelLabels, channelRating, hitTestSunburst, polarPoint, ringPath, sunburstSegments,
 } from '../data/marketAnalytics';
 import type { Channel, Market, MarketRatings, SunburstSegment } from '../data/marketAnalytics';
+import { colors } from '../theme';
 
 type Props = {
   markets: Market[];
@@ -24,10 +25,10 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
   const colorFor = (segment: SunburstSegment) => {
     if (segment.channel) {
       return channelRating(ratings[segment.countryCode], segment.channel) === null
-        ? '#CBD5E1' : channelColors[segment.channel];
+        ? colors.line : channelColors[segment.channel];
     }
-    return segment.countryCode === country.code ? '#FACC15'
-      : aggregateRating(ratings[segment.countryCode]) === null ? '#CBD5E1' : '#2563EB';
+    return segment.countryCode === country.code ? colors.primaryDark
+      : aggregateRating(ratings[segment.countryCode]) === null ? colors.line : colors.primary;
   };
   return <View style={styles.container}>
     <View style={styles.breadcrumb}>
@@ -52,7 +53,7 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
       }}>
     <View pointerEvents="none">
     <Svg width="100%" height={340} viewBox="0 0 400 400" accessibilityLabel="Country and platform rating sunburst; use the country and channel buttons to explore">
-      <Circle cx={200} cy={200} r={190} fill="#F8FAFC" />
+      <Circle cx={200} cy={200} r={190} fill={colors.primaryTint} />
       {segments.map((segment) => {
         const inner = segment.depth === 0 ? 85 : 141;
         const outer = segment.depth === 0 ? 138 : 188;
@@ -62,7 +63,7 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
           d={ringPath(inner, outer, segment.start + 0.6, segment.end - 0.6)}
           fill={colorFor(segment)}
           opacity={segment.depth === 1 ? 0.75 : 1}
-          stroke={highlighted ? '#0F172A' : '#FFFFFF'}
+          stroke={highlighted ? colors.navy : colors.card}
           strokeWidth={highlighted ? 3 : 1}
           accessibilityLabel={`${segment.countryCode} ${segment.label}`}
         />;
@@ -70,19 +71,19 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
       {segments.filter((segment) => segment.end - segment.start > 17).map((segment) => {
         const point = polarPoint(segment.depth === 0 ? 111 : 164, (segment.start + segment.end) / 2);
         return <SvgText key={`label-${segment.id}`} x={point.x} y={point.y + 3} textAnchor="middle"
-          fill={colorFor(segment) === '#CBD5E1' || colorFor(segment) === '#FACC15' ? '#334155' : '#FFFFFF'}
+          fill={colorFor(segment) === colors.line ? colors.text : colors.onPrimary}
           fontSize={segment.depth === 0 ? 11 : 9} fontWeight="700">
           {segment.label}
         </SvgText>;
       })}
-      <Circle cx={200} cy={200} r={78} fill="#0F172A" />
-      <SvgText x={200} y={178} textAnchor="middle" fill="#FACC15" fontSize={10} fontWeight="700">
+      <Circle cx={200} cy={200} r={78} fill={colors.navy} />
+      <SvgText x={200} y={178} textAnchor="middle" fill={colors.accent} fontSize={10} fontWeight="700">
         {focused ? country.code : 'GLOBAL LENS'}
       </SvgText>
-      <SvgText x={200} y={213} textAnchor="middle" fill="#FFFFFF" fontSize={30} fontWeight="700">
+      <SvgText x={200} y={213} textAnchor="middle" fill={colors.onDark} fontSize={30} fontWeight="700">
         {focused ? score === null ? 'N/A' : score.toFixed(2) : String(markets.length)}
       </SvgText>
-      <SvgText x={200} y={236} textAnchor="middle" fill="#CBD5E1" fontSize={10}>
+      <SvgText x={200} y={236} textAnchor="middle" fill={colors.onDarkMuted} fontSize={10}>
         {focused ? `${channelLabels[channel]} / 5` : 'monitored countries'}
       </SvgText>
     </Svg>
@@ -93,7 +94,7 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
       {(['brand', 'web', 'ios', 'android'] as const).map((item) => <View key={item} style={styles.legendItem}>
         <View style={[styles.dot, { backgroundColor: channelColors[item] }]} /><Text style={styles.legendText}>{channelLabels[item]}</Text>
       </View>)}
-      <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#CBD5E1' }]} /><Text style={styles.legendText}>No source</Text></View>
+      <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.line }]} /><Text style={styles.legendText}>No source</Text></View>
     </View>
   </View>;
 }
@@ -102,10 +103,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, minWidth: 240 },
   breadcrumb: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', minHeight: 44 },
   back: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-  backText: { color: '#2563EB', fontWeight: '700', fontSize: 12 },
-  crumb: { color: '#64748B', fontSize: 12, flexShrink: 1 },
-  hint: { color: '#64748B', fontSize: 11, lineHeight: 17, textAlign: 'center', paddingHorizontal: 12 },
+  backText: { color: colors.primary, fontWeight: '700', fontSize: 12 },
+  crumb: { color: colors.muted, fontSize: 12, flexShrink: 1 },
+  hint: { color: colors.muted, fontSize: 11, lineHeight: 17, textAlign: 'center', paddingHorizontal: 12 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 16 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendText: { fontSize: 11, color: '#475569' }, dot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 11, color: colors.text }, dot: { width: 8, height: 8, borderRadius: 4 },
 });

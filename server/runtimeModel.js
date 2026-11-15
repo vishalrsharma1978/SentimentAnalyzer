@@ -1,0 +1,182 @@
+const PLATFORMS = ['Web', 'Mobile · iOS', 'Mobile · Android', 'Desktop app', 'Agent network'];
+const SOURCES = ['App Store', 'Google Play', 'Instagram', 'Facebook', 'LinkedIn', 'X / Twitter',
+  'YouTube', 'Reddit', 'Trustpilot', 'Reviews.io', 'Other web reviews'];
+const emptyStore = () => ({ rating: null, reviewCount: 0 });
+const emptyChart = () => ({ rank: null, chartSize: 0, category: null });
+const validRating = (value) => Number.isFinite(value) && value >= 1 && value <= 5;
+
+function parseModelRequest(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Provide a model configuration.');
+  const text = (key, max, optional = false) => {
+    if (optional && (value[key] === undefined || value[key] === '')) return '';
+    if (typeof value[key] !== 'string' || !value[key].trim() || value[key].trim().length > max) {
+      throw new Error(`Provide a valid ${key} (maximum ${max} characters).`);
+    }
+    return value[key].trim();
+  };
+  const selection = (key, allowed) => {
+    if (!Array.isArray(value[key]) || !value[key].length || value[key].length > allowed.length
+      || value[key].some((item) => !allowed.includes(item))) throw new Error(`Select valid ${key}.`);
+    return [...new Set(value[key])];
+  };
+  const brand = text('brand', 80);
+  const country = text('country', 2).toUpperCase();
+  if (!/^[A-Z]{2}$/.test(country)) throw new Error('Provide a two-letter country code.');
+  const website = text('website', 2048);
+  let url;
+  try { url = new URL(website); } catch { throw new Error('Provide a valid http(s) website.'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Provide a valid http(s) website.');
+  const months = value.months ?? 1;
+  if (!Number.isInteger(months) || months < 1 || months > 6) throw new Error('Select a review window of 1–6 months.');
+  return {
+    brand, appName: text('appName', 80, true), website, businessType: text('businessType', 80, true),
+    country, platforms: selection('platforms', PLATFORMS), sources: selection('sources', SOURCES), months,
+  };
+}
+
+function summarize(reviews, ratings, competitors, brand) {
+  const scores = [ratings.apple.rating, ratings.google.rating].filter(validRating);
+  const count = (sentiment) => reviews.filter((review) => review.sentiment === sentiment).length;
+  const positive = count('positive');
+  const negative = count('negative');
+  const ranked = competitors.filter((peer) => validRating(peer.rating))
+    .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount || a.name.localeCompare(b.name));
+  const position = ranked.findIndex((peer) => peer.name === brand);
+  return {
+    rating: scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null,
+    competitorRank: position >= 0 && ranked.length > 1 ? position + 1 : null,
+    sentiment: {
+      total: reviews.length, positive, neutral: count('neutral'), negative,
+      positiveShare: reviews.length ? Math.round(positive / reviews.length * 100) : null,
+      net: reviews.length ? Math.round((positive - negative) / reviews.length * 100) : null,
+    },
+  };
+}
+
+async function evaluateMarket(config, collectors) {
+  const availability = [];
+  const record = (source, available, reason) => availability.push({
+    source, status: available ? 'available' : 'unavailable', reason,
+  });
+  const attempt = async (label, work, unavailable) => {
+    try { return await work(); } catch (error) {
+      collectors.log.error(`Runtime model ${label} failed (${config.country}):`, error.message);
+      record(label, false, `${label} could not be collected. Retry model creation.`);
+      return unavailable;
+    }
+  };
+  const google = config.platforms.includes('Mobile · Android');
+  const apple = config.platforms.includes('Mobile · iOS');
+  const webEnabled = config.platforms.includes('Web');
+  const stores = google || apple
+    ? await attempt('Store ratings', () => collectors.stores(config), null) : null;
+  let web = { rating: null, sampleSize: 0, basis: 'Website metrics could not be measured for this model.', components: [] };
+  if (webEnabled && collectors.web) {
+    try {
+      const result = await collectors.web(config);
+      if (result && typeof result === 'object') web = result;
+    } catch (error) {
+      collectors.log.error(`Runtime model Website failed (${config.country}):`, error.message);
+    }
+  }
+  const ratings = {
+    google: google && stores ? stores.google : emptyStore(),
+    apple: apple && stores ? stores.apple : emptyStore(),
+    web,
+  };
+  for (const [enabled, key, label] of [[google, 'google', 'Google Play ratings'], [apple, 'apple', 'App Store ratings']]) {
+    if (enabled) record(label, validRating(ratings[key].rating),
+      validRating(ratings[key].rating) ? 'Live store aggregate for the selected storefront.' : 'No verified app rating found in this storefront.');
+  }
+  if (webEnabled) record('Web', validRating(ratings.web.rating),
+    validRating(ratings.web.rating)
+      ? (ratings.web.basis || 'Live website quality measurement.')
+      : (ratings.web.basis || 'Live website metrics could not be measured. No score was estimated.'));
+  for (const platform of config.platforms.filter((item) => !item.startsWith('Mobile') && item !== 'Web')) {
+    record(platform, false, `A country-specific ${platform.toLowerCase()} metrics connector is not available. No score was estimated.`);
+  }
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setMonth(cutoff.getMonth() - config.months);
+  const batches = await Promise.all(config.sources.map(async (source) => {
+    const enabled = source === 'Google Play' ? google : source === 'App Store' ? apple : false;
+    if (!enabled) {
+      record(source, false, ['Google Play', 'App Store'].includes(source)
+        ? 'The corresponding mobile platform is not selected.'
+        : ['Reddit', 'Trustpilot'].includes(source)
+          ? 'This connector cannot verify country attribution; global content is excluded from country sentiment.'
+          : 'A verified country-specific connector is not configured for this source.');
+      return [];
+    }
+    const label = source === 'App Store' ? 'Apple App Store' : source;
+    const items = await attempt(source, () => collectors.reviews(label, config), []);
+    const reviews = items.filter((review) => {
+      const date = new Date(review.publishedAt);
+      return review.source === label && typeof review.text === 'string' && review.text.trim()
+        && validRating(review.rating) && review.publishedAt && !Number.isNaN(date.getTime())
+        && date >= cutoff && date <= now;
+    });
+    record(source, reviews.length > 0, reviews.length
+      ? `${reviews.length} dated reviews from this storefront; sentiment uses review stars (4–5 positive, 3 neutral, 1–2 negative). Storefront does not establish reviewer residence.`
+      : 'No verified, dated reviews returned within the selected time window.');
+    return reviews.map((review) => ({
+      ...review, sentiment: review.rating >= 4 ? 'positive' : review.rating <= 2 ? 'negative' : 'neutral',
+    }));
+  }));
+  const unique = new Map(batches.flat().map((review) => [`${review.source}:${review.sourceId || `${review.author}:${review.text}`}`, review]));
+  const reviews = [...unique.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+  const primary = google ? 'google' : apple ? 'apple' : null;
+  const source = primary === 'google' ? 'Google Play' : 'Apple App Store';
+  const discovery = primary ? await attempt('Competitors', () => collectors.peers(primary, config), null) : null;
+  const peerApps = (discovery?.apps || []).filter((item) => validRating(item.rating) && item.name !== config.brand);
+  record('Competitors', peerApps.length > 0, discovery?.basis || 'No verified business-matched store peers available for the selected platforms.');
+  const competitor = (item) => ({ ...item, source, status: 'live', updatedAt: new Date().toISOString() });
+  const selected = primary && validRating(ratings[primary].rating) && peerApps.length
+    ? [competitor({ name: config.brand, ...ratings[primary] })] : [];
+  const competitors = [...selected, ...peerApps.map(competitor)];
+  const chartEntries = await Promise.all([['apple', apple], ['google', google]].map(async ([platform, enabled]) => {
+    if (!enabled) return [platform, emptyChart()];
+    const result = await attempt(`${platform} chart`, () => collectors.chart(platform, config), emptyChart());
+    record(`${platform} chart`, result.chartSize > 0,
+      result.chartSize > 0 ? 'Live category top-free chart; no rank means outside the returned chart.' : 'Store chart evidence unavailable.');
+    return [platform, result];
+  }));
+  const chart = Object.fromEntries(chartEntries);
+  const quotes = competitors.length ? await attempt('Share prices', () => collectors.quotes(competitors.map((item) => item.name)), []) : [];
+  for (const quote of quotes) {
+    record(`Share price: ${quote.name}`, quote.status === 'live',
+      quote.status === 'live' ? 'Public quote; may be delayed.' : 'No verified public share price available. No price was estimated.');
+  }
+  const statistics = summarize(reviews, ratings, competitors, config.brand);
+  const hasData = statistics.rating !== null || reviews.length > 0 || peerApps.length > 0;
+  return {
+    country: config.country, collectedAt: new Date().toISOString(),
+    status: !hasData ? 'unavailable' : availability.some((item) => item.status === 'unavailable') ? 'limited' : 'ready',
+    ratings, reviews, competitors, competitorBasis: `${discovery?.basis || 'No verified peers.'} Comparison uses ${source} ratings only.`,
+    chart, quotes, statistics, availability,
+  };
+}
+
+function registerModelRoute(app, collectors) {
+  let activeRequests = 0;
+  app.post('/api/models/evaluate', async (request, response) => {
+    let config;
+    try { config = parseModelRequest(request.body); } catch (error) {
+      response.status(400).json({ error: error.message });
+      return;
+    }
+    if (activeRequests >= 4) {
+      response.status(429).json({ error: 'Model generation is busy. Please retry shortly.' });
+      return;
+    }
+    activeRequests += 1;
+    try {
+      response.json(await evaluateMarket(config, collectors));
+    } catch (error) {
+      collectors.log.error('Runtime model evaluation failed:', error.message);
+      response.status(502).json({ error: 'Model evaluation failed. Retry model creation.' });
+    } finally { activeRequests -= 1; }
+  });
+}
+
+module.exports = { evaluateMarket, parseModelRequest, registerModelRoute };
