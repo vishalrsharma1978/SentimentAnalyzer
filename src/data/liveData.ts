@@ -1,13 +1,20 @@
-import { parseRuntimeMarket } from './runtimeModel';
-import type { ModelConfiguration, RuntimeMarket } from './runtimeModel';
+import { parseRuntimeMarket } from "./runtimeModel";
+import type { ModelConfiguration, RuntimeMarket } from "./runtimeModel";
 
 export type LiveCompetitor = {
   name: string;
   rating: number | null;
   reviewCount: number | null;
-  source: 'Apple App Store' | 'Google Play' | 'Apple App Store + Google Play' | 'Unavailable';
-  status: 'live' | 'unavailable';
+  source:
+    | "Apple App Store"
+    | "Google Play"
+    | "Apple App Store + Google Play"
+    | "Unavailable";
+  status: "live" | "unavailable";
   updatedAt: string | null;
+  /** Per-store ratings when the app was found in that store; null when it is not listed there. */
+  apple?: { rating: number; reviewCount: number } | null;
+  google?: { rating: number; reviewCount: number } | null;
 };
 
 export type CompetitorSharePrice = {
@@ -16,7 +23,7 @@ export type CompetitorSharePrice = {
   price: number | null;
   currency: string | null;
   quoteTime: string | null;
-  status: 'live' | 'not-listed' | 'unavailable';
+  status: "live" | "not-listed" | "unavailable";
 };
 
 export type CustomerSentiment = {
@@ -24,7 +31,7 @@ export type CustomerSentiment = {
   author: string;
   rating: number;
   text: string;
-  sentiment: 'positive' | 'neutral' | 'negative';
+  sentiment: "positive" | "neutral" | "negative";
   publishedAt?: string | null;
 };
 
@@ -38,47 +45,109 @@ function getApiUrl(): string {
   if (configured) return configured;
   // In production web builds the review collector serves the static app, so
   // same-origin relative requests work without any configuration.
-  if (typeof window !== 'undefined' && window.location && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
-    return '';
+  if (
+    typeof window !== "undefined" &&
+    window.location &&
+    !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)
+  ) {
+    return "";
   }
-  return 'http://localhost:3001';
+  return "http://localhost:3001";
 }
 
+// Attempts after the first one. Delays grow 0.8s, 1.6s, ... 6.4s (about 19s in total), long enough
+// to ride out a brief API restart as well as a busy response.
+const BUSY_RETRIES = 8;
+const wait = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+
+// A browser reports an unreachable server (restarting, connection reset) as a TypeError such as
+// "Failed to fetch" or "Load failed". That is transient, unlike an HTTP error with a message.
+const isNetworkFailure = (error: unknown) => error instanceof TypeError;
+
+/** Retries when the model service is busy (HTTP 429) or briefly unreachable, with a short growing delay. */
 export async function fetchRuntimeMarket(
-  config: ModelConfiguration, country: string, months: number, signal: AbortSignal,
+  config: ModelConfiguration,
+  country: string,
+  months: number,
+  signal: AbortSignal,
+): Promise<RuntimeMarket> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await requestRuntimeMarket(config, country, months, signal);
+    } catch (error) {
+      const busy = error instanceof Error && error.message.includes("busy");
+      const retryable = busy || isNetworkFailure(error);
+      if (!retryable || attempt >= BUSY_RETRIES || signal.aborted) throw error;
+      await wait(Math.min(800 * (attempt + 1), 6400), signal);
+      if (signal.aborted) throw error;
+    }
+  }
+}
+
+async function requestRuntimeMarket(
+  config: ModelConfiguration,
+  country: string,
+  months: number,
+  signal: AbortSignal,
 ): Promise<RuntimeMarket> {
   const controller = new AbortController();
   const abort = () => controller.abort();
-  signal.addEventListener('abort', abort);
+  signal.addEventListener("abort", abort);
   if (signal.aborted) abort();
   const timer = setTimeout(abort, 240000);
   try {
-  const response = await fetch(`${getApiUrl().replace(/\/$/, '')}/api/models/evaluate`, {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...config, country, months }),
-    signal: controller.signal,
-  });
-  const data: unknown = await response.json();
-  if (!response.ok) {
-    throw new Error(isRecord(data) && typeof data.error === 'string'
-      ? data.error : `Model service returned HTTP ${response.status}.`);
-  }
-  return parseRuntimeMarket(data, country);
+    const response = await fetch(
+      `${getApiUrl().replace(/\/$/, "")}/api/models/evaluate`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...config, country, months }),
+        signal: controller.signal,
+      },
+    );
+    const data: unknown = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        isRecord(data) && typeof data.error === "string"
+          ? data.error
+          : `Model service returned HTTP ${response.status}.`,
+      );
+    }
+    return parseRuntimeMarket(data, country);
   } finally {
     clearTimeout(timer);
-    signal.removeEventListener('abort', abort);
+    signal.removeEventListener("abort", abort);
   }
 }
 
-export async function fetchCompetitorSharePrices(names: string[]): Promise<CompetitorSharePrice[]> {
+export async function fetchCompetitorSharePrices(
+  names: string[],
+): Promise<CompetitorSharePrice[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
   try {
     const apiUrl = getApiUrl();
     const response = await fetch(
-      `${apiUrl.replace(/\/$/, '')}/api/competitor-share-prices?names=${encodeURIComponent(names.join(','))}`,
-      { headers: { Accept: 'application/json' }, cache: 'no-store', signal: controller.signal },
+      `${apiUrl.replace(/\/$/, "")}/api/competitor-share-prices?names=${encodeURIComponent(names.join(","))}`,
+      {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      },
     );
     if (!response.ok) {
       throw new Error(`Share-price service returned HTTP ${response.status}.`);
@@ -86,20 +155,28 @@ export async function fetchCompetitorSharePrices(names: string[]): Promise<Compe
 
     const data: unknown = await response.json();
     if (!isRecord(data) || !Array.isArray(data.items)) {
-      throw new Error('Share-price service returned an invalid response.');
+      throw new Error("Share-price service returned an invalid response.");
     }
 
     return data.items.map((item) => {
-      if (!isRecord(item) || typeof item.name !== 'string') {
-        throw new Error('Share-price service returned an invalid competitor quote.');
+      if (!isRecord(item) || typeof item.name !== "string") {
+        throw new Error(
+          "Share-price service returned an invalid competitor quote.",
+        );
       }
       return {
         name: item.name,
-        symbol: typeof item.symbol === 'string' ? item.symbol : null,
-        price: typeof item.price === 'number' && Number.isFinite(item.price) ? item.price : null,
-        currency: typeof item.currency === 'string' ? item.currency : null,
-        quoteTime: typeof item.quoteTime === 'string' ? item.quoteTime : null,
-        status: item.status === 'live' || item.status === 'not-listed' ? item.status : 'unavailable',
+        symbol: typeof item.symbol === "string" ? item.symbol : null,
+        price:
+          typeof item.price === "number" && Number.isFinite(item.price)
+            ? item.price
+            : null,
+        currency: typeof item.currency === "string" ? item.currency : null,
+        quoteTime: typeof item.quoteTime === "string" ? item.quoteTime : null,
+        status:
+          item.status === "live" || item.status === "not-listed"
+            ? item.status
+            : "unavailable",
       };
     });
   } finally {
@@ -108,18 +185,23 @@ export async function fetchCompetitorSharePrices(names: string[]): Promise<Compe
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === "object" && value !== null;
 }
 
-export async function translateReviewText(text: string): Promise<ReviewTranslation> {
+export async function translateReviewText(
+  text: string,
+): Promise<ReviewTranslation> {
   const apiUrl = getApiUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 50000);
 
   try {
-    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/translate`, {
-      method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    const response = await fetch(`${apiUrl.replace(/\/$/, "")}/api/translate`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ text }),
       signal: controller.signal,
     });
@@ -131,14 +213,23 @@ export async function translateReviewText(text: string): Promise<ReviewTranslati
     try {
       data = await response.json();
     } catch {
-      throw new Error('The translation service returned an unreadable response.');
+      throw new Error(
+        "The translation service returned an unreadable response.",
+      );
     }
 
     if (!response.ok) {
-      throw new Error(typeof data.error === 'string' ? data.error : 'Translation is temporarily unavailable.');
+      throw new Error(
+        typeof data.error === "string"
+          ? data.error
+          : "Translation is temporarily unavailable.",
+      );
     }
-    if (typeof data.translatedText !== 'string' || typeof data.detectedSourceLanguage !== 'string') {
-      throw new Error('The translation service returned an invalid response.');
+    if (
+      typeof data.translatedText !== "string" ||
+      typeof data.detectedSourceLanguage !== "string"
+    ) {
+      throw new Error("The translation service returned an invalid response.");
     }
 
     return {
@@ -151,73 +242,128 @@ export async function translateReviewText(text: string): Promise<ReviewTranslati
 }
 
 const COMPETITOR_TERMS: Record<string, string> = {
-  'Western Union': 'Western Union Send Money',
-  Wise: 'Wise Transfer Money',
-  Remitly: 'Remitly Send Money',
-  MoneyGram: 'MoneyGram Money Transfers',
-  PayPal: 'PayPal Money Transfer',
-  Xoom: 'Xoom Money Transfer',
-  WorldRemit: 'WorldRemit Money Transfer',
-  Revolut: 'Revolut Transfer Money',
-  Ria: 'Ria Money Transfer',
-  GCash: 'GCash Send Money',
-  'BookMyForex': 'BookMyForex Money Transfer',
-  'Al Ansari Exchange': 'Al Ansari Exchange Money Transfer',
-  'Skrill': 'Skrill Money Transfer',
-  Venmo: 'Venmo',
-  'Cash App': 'Cash App',
-  Monzo: 'Monzo Bank',
-  Chime: 'Chime Mobile Banking',
+  "Western Union": "Western Union Send Money",
+  Wise: "Wise Transfer Money",
+  Remitly: "Remitly Send Money",
+  MoneyGram: "MoneyGram Money Transfers",
+  PayPal: "PayPal Money Transfer",
+  Xoom: "Xoom Money Transfer",
+  WorldRemit: "WorldRemit Money Transfer",
+  Revolut: "Revolut Transfer Money",
+  Ria: "Ria Money Transfer",
+  GCash: "GCash Send Money",
+  BookMyForex: "BookMyForex Money Transfer",
+  "Al Ansari Exchange": "Al Ansari Exchange Money Transfer",
+  Skrill: "Skrill Money Transfer",
+  Venmo: "Venmo",
+  "Cash App": "Cash App",
+  Monzo: "Monzo Bank",
+  Chime: "Chime Mobile Banking",
 };
 
 const APPLE_COUNTRY: Record<string, string> = {
-  US: 'us', GB: 'gb', IN: 'in', DE: 'de', PH: 'ph', MX: 'mx', AE: 'ae', FR: 'fr',
-  AU: 'au', CA: 'ca', BR: 'br', JP: 'jp', SG: 'sg', SE: 'se', NO: 'no', DK: 'dk',
-  FI: 'fi', IS: 'is', AR: 'ar', CL: 'cl', CO: 'co', PE: 'pe', IT: 'it', ES: 'es',
-  NL: 'nl', ZA: 'za', EG: 'eg', NG: 'ng', SA: 'sa', ID: 'id', MY: 'my', KR: 'kr',
-  PA: 'pa',
+  US: "us",
+  GB: "gb",
+  IN: "in",
+  DE: "de",
+  PH: "ph",
+  MX: "mx",
+  AE: "ae",
+  FR: "fr",
+  AU: "au",
+  CA: "ca",
+  BR: "br",
+  JP: "jp",
+  SG: "sg",
+  SE: "se",
+  NO: "no",
+  DK: "dk",
+  FI: "fi",
+  IS: "is",
+  AR: "ar",
+  CL: "cl",
+  CO: "co",
+  PE: "pe",
+  IT: "it",
+  ES: "es",
+  NL: "nl",
+  ZA: "za",
+  EG: "eg",
+  NG: "ng",
+  SA: "sa",
+  ID: "id",
+  MY: "my",
+  KR: "kr",
+  PA: "pa",
 };
 
-export async function fetchRedditMentions(brandName = 'Western Union'): Promise<CustomerSentiment[]> {
+export async function fetchRedditMentions(
+  brandName = "Western Union",
+): Promise<CustomerSentiment[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
   try {
     // Routed through the review server because browsers block reddit.com via CORS.
     const apiUrl = getApiUrl();
-    const url = `${apiUrl.replace(/\/$/, '')}/api/reddit-mentions?brand=${encodeURIComponent(brandName)}&_ts=${Date.now()}`;
-    const response = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store', signal: controller.signal });
-    if (!response.ok) throw new Error(`Reddit source returned HTTP ${response.status}.`);
+    const url = `${apiUrl.replace(/\/$/, "")}/api/reddit-mentions?brand=${encodeURIComponent(brandName)}&_ts=${Date.now()}`;
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok)
+      throw new Error(`Reddit source returned HTTP ${response.status}.`);
     const data = await response.json();
     const posts = Array.isArray(data?.mentions) ? data.mentions : [];
 
-    return posts.map((post: any) => {
-      const title = String(post.title ?? '').replace(/\s+/g, ' ').trim();
-      const body = String(post.body ?? '').replace(/\s+/g, ' ').trim();
-      const text = `${title}${title && body ? ' — ' : ''}${body}`.trim();
-      const lower = text.toLowerCase();
-      const sentiment: CustomerSentiment['sentiment'] = /scam|fraud|delay|slow|fee|failed|problem|bad|hate|terrible/i.test(lower)
-        ? 'negative'
-        : /good|great|excellent|fast|easy|helpful|love|recommend|best/i.test(lower)
-          ? 'positive'
-          : 'neutral';
+    return posts
+      .map((post: any) => {
+        const title = String(post.title ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
+        const body = String(post.body ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
+        const text = `${title}${title && body ? " — " : ""}${body}`.trim();
+        const lower = text.toLowerCase();
+        const sentiment: CustomerSentiment["sentiment"] =
+          /scam|fraud|delay|slow|fee|failed|problem|bad|hate|terrible/i.test(
+            lower,
+          )
+            ? "negative"
+            : /good|great|excellent|fast|easy|helpful|love|recommend|best/i.test(
+                  lower,
+                )
+              ? "positive"
+              : "neutral";
 
-      return {
-        source: 'Reddit',
-        author: String(post.author ?? 'Reddit user'),
-        rating: 0,
-        text: text.length > 180 ? `${text.slice(0, 177)}…` : text,
-        sentiment,
-        publishedAt: typeof post.publishedAt === 'string' ? post.publishedAt : null,
-      };
-    }).filter((review: CustomerSentiment) => review.text.length > 0);
+        return {
+          source: "Reddit",
+          author: String(post.author ?? "Reddit user"),
+          rating: 0,
+          text: text.length > 180 ? `${text.slice(0, 177)}…` : text,
+          sentiment,
+          publishedAt:
+            typeof post.publishedAt === "string" ? post.publishedAt : null,
+        };
+      })
+      .filter((review: CustomerSentiment) => review.text.length > 0);
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function fetchPlaystoreAggregateRating(countryCode: string, brandName = 'Western Union', forceRefresh = false): Promise<{ rating: number | null; reviewCount: number }> {
+export async function fetchPlaystoreAggregateRating(
+  countryCode: string,
+  brandName = "Western Union",
+  forceRefresh = false,
+): Promise<{ rating: number | null; reviewCount: number }> {
   try {
-    const data = await fetchPlatformRatings(countryCode, brandName, forceRefresh);
+    const data = await fetchPlatformRatings(
+      countryCode,
+      brandName,
+      forceRefresh,
+    );
     return data.google;
   } catch {
     return { rating: null, reviewCount: 0 };
@@ -232,33 +378,52 @@ export type PlatformRatings = {
 // Both platform fetchers call /api/platform-ratings; sharing one cache keeps the
 // server from firing duplicate Apple lookups for the same brand+country.
 const PLATFORM_RATINGS_CACHE_TTL_MS = 5 * 60 * 1000;
-const platformRatingsCache = new Map<string, { expiresAt: number; value: PlatformRatings }>();
+const platformRatingsCache = new Map<
+  string,
+  { expiresAt: number; value: PlatformRatings }
+>();
 
-export async function fetchPlatformRatings(countryCode: string, brandName: string, forceRefresh = false): Promise<PlatformRatings> {
+export async function fetchPlatformRatings(
+  countryCode: string,
+  brandName: string,
+  forceRefresh = false,
+): Promise<PlatformRatings> {
   const cacheKey = `${countryCode.toUpperCase()}:${brandName}`;
   const cached = platformRatingsCache.get(cacheKey);
-  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.value;
+  if (!forceRefresh && cached && cached.expiresAt > Date.now())
+    return cached.value;
 
   const apiUrl = getApiUrl();
-  const refreshParam = forceRefresh ? '&refresh=1' : '';
+  const refreshParam = forceRefresh ? "&refresh=1" : "";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}${refreshParam}`, { cache: 'no-store', signal: controller.signal })
-    .finally(() => clearTimeout(timeout));
-  if (!response.ok) throw new Error(`Platform-ratings service returned HTTP ${response.status}.`);
+  const response = await fetch(
+    `${apiUrl.replace(/\/$/, "")}/api/platform-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}&_ts=${Date.now()}${refreshParam}`,
+    { cache: "no-store", signal: controller.signal },
+  ).finally(() => clearTimeout(timeout));
+  if (!response.ok)
+    throw new Error(
+      `Platform-ratings service returned HTTP ${response.status}.`,
+    );
   const data: unknown = await response.json();
   if (!isRecord(data) || !isRecord(data.google) || !isRecord(data.apple)) {
-    throw new Error('Platform-ratings service returned invalid platform data.');
+    throw new Error("Platform-ratings service returned invalid platform data.");
   }
-  if (typeof data.error === 'string' && data.error) {
-    throw new Error('The country rating collector could not load its sources.');
+  if (typeof data.error === "string" && data.error) {
+    throw new Error("The country rating collector could not load its sources.");
   }
   const parseStoreRating = (store: Record<string, unknown>) => {
     const rating = store.rating === null ? null : Number(store.rating);
     const reviewCount = Number(store.reviewCount);
-    if ((rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5))
-      || !Number.isSafeInteger(reviewCount) || reviewCount < 0) {
-      throw new Error('Platform-ratings service returned an invalid score or rating count.');
+    if (
+      (rating !== null &&
+        (!Number.isFinite(rating) || rating < 1 || rating > 5)) ||
+      !Number.isSafeInteger(reviewCount) ||
+      reviewCount < 0
+    ) {
+      throw new Error(
+        "Platform-ratings service returned an invalid score or rating count.",
+      );
     }
     return { rating, reviewCount };
   };
@@ -266,26 +431,54 @@ export async function fetchPlatformRatings(countryCode: string, brandName: strin
     google: parseStoreRating(data.google),
     apple: parseStoreRating(data.apple),
   };
-  platformRatingsCache.set(cacheKey, { expiresAt: Date.now() + PLATFORM_RATINGS_CACHE_TTL_MS, value });
+  platformRatingsCache.set(cacheKey, {
+    expiresAt: Date.now() + PLATFORM_RATINGS_CACHE_TTL_MS,
+    value,
+  });
   return value;
 }
 
-export type StoreChartRank = { rank: number | null; chartSize: number; category: string | null };
+export type StoreChartRank = {
+  rank: number | null;
+  chartSize: number;
+  category: string | null;
+};
 export type StoreChartRanks = { apple: StoreChartRank; google: StoreChartRank };
 
-export async function fetchStoreChartRanks(countryCode: string, brandName: string): Promise<StoreChartRanks> {
+export async function fetchStoreChartRanks(
+  countryCode: string,
+  brandName: string,
+): Promise<StoreChartRanks> {
   const apiUrl = getApiUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/store-chart-ranks?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}`, { cache: 'no-store', signal: controller.signal })
-    .finally(() => clearTimeout(timeout));
-  if (!response.ok) throw new Error(`Store chart service returned HTTP ${response.status}.`);
+  const response = await fetch(
+    `${apiUrl.replace(/\/$/, "")}/api/store-chart-ranks?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}`,
+    { cache: "no-store", signal: controller.signal },
+  ).finally(() => clearTimeout(timeout));
+  if (!response.ok)
+    throw new Error(`Store chart service returned HTTP ${response.status}.`);
   const data: unknown = await response.json();
-  if (!isRecord(data) || !isRecord(data.apple) || !isRecord(data.google)) throw new Error('Store chart service returned invalid data.');
+  if (!isRecord(data) || !isRecord(data.apple) || !isRecord(data.google))
+    throw new Error("Store chart service returned invalid data.");
   const parse = (store: Record<string, unknown>): StoreChartRank => {
-    const rank = typeof store.rank === 'number' && Number.isSafeInteger(store.rank) && store.rank > 0 ? store.rank : null;
-    const chartSize = typeof store.chartSize === 'number' && Number.isSafeInteger(store.chartSize) && store.chartSize >= 0 ? store.chartSize : 0;
-    return { rank, chartSize, category: typeof store.category === 'string' ? store.category : null };
+    const rank =
+      typeof store.rank === "number" &&
+      Number.isSafeInteger(store.rank) &&
+      store.rank > 0
+        ? store.rank
+        : null;
+    const chartSize =
+      typeof store.chartSize === "number" &&
+      Number.isSafeInteger(store.chartSize) &&
+      store.chartSize >= 0
+        ? store.chartSize
+        : 0;
+    return {
+      rank,
+      chartSize,
+      category: typeof store.category === "string" ? store.category : null,
+    };
   };
   return { apple: parse(data.apple), google: parse(data.google) };
 }
@@ -296,76 +489,117 @@ export type ChannelScoreData = {
   basis: string;
   components: { label: string; score: number }[];
 };
-export type ChannelRatings = { brand: ChannelScoreData | null; web: ChannelScoreData | null };
+export type ChannelRatings = {
+  brand: ChannelScoreData | null;
+  web: ChannelScoreData | null;
+};
 
 function parseChannelScore(value: unknown): ChannelScoreData | null {
   if (!isRecord(value)) return null;
   const rating = value.rating === null ? null : Number(value.rating);
-  if (rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5)) return null;
+  if (rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5))
+    return null;
   const sampleSize = Number(value.sampleSize);
   const components = Array.isArray(value.components)
     ? value.components.flatMap((item) => {
-      if (!isRecord(item) || typeof item.label !== 'string') return [];
-      const score = Number(item.score);
-      return Number.isFinite(score) && score >= 0 && score <= 1 ? [{ label: item.label.slice(0, 60), score }] : [];
-    })
+        if (!isRecord(item) || typeof item.label !== "string") return [];
+        const score = Number(item.score);
+        return Number.isFinite(score) && score >= 0 && score <= 1
+          ? [{ label: item.label.slice(0, 60), score }]
+          : [];
+      })
     : [];
   return {
     rating,
-    sampleSize: Number.isSafeInteger(sampleSize) && sampleSize >= 0 ? sampleSize : 0,
-    basis: typeof value.basis === 'string' ? value.basis.slice(0, 240) : '',
+    sampleSize:
+      Number.isSafeInteger(sampleSize) && sampleSize >= 0 ? sampleSize : 0,
+    basis: typeof value.basis === "string" ? value.basis.slice(0, 240) : "",
     components,
   };
 }
 
 // Brand (service-themed customer reviews) and Website (live site checks) for one
 // country. Slower than store ratings because the site is probed live.
-export async function fetchChannelRatings(countryCode: string, brandName: string, forceRefresh = false): Promise<ChannelRatings> {
+export async function fetchChannelRatings(
+  countryCode: string,
+  brandName: string,
+  forceRefresh = false,
+): Promise<ChannelRatings> {
   const apiUrl = getApiUrl();
-  const refreshParam = forceRefresh ? '&refresh=1' : '';
+  const refreshParam = forceRefresh ? "&refresh=1" : "";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/channel-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}${refreshParam}`, { cache: 'no-store', signal: controller.signal })
-    .finally(() => clearTimeout(timeout));
-  if (!response.ok) throw new Error(`Channel-ratings service returned HTTP ${response.status}.`);
+  const response = await fetch(
+    `${apiUrl.replace(/\/$/, "")}/api/channel-ratings?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode.toUpperCase())}${refreshParam}`,
+    { cache: "no-store", signal: controller.signal },
+  ).finally(() => clearTimeout(timeout));
+  if (!response.ok)
+    throw new Error(
+      `Channel-ratings service returned HTTP ${response.status}.`,
+    );
   const data: unknown = await response.json();
-  if (!isRecord(data)) throw new Error('Channel-ratings service returned invalid data.');
-  return { brand: parseChannelScore(data.brand), web: parseChannelScore(data.web) };
+  if (!isRecord(data))
+    throw new Error("Channel-ratings service returned invalid data.");
+  return {
+    brand: parseChannelScore(data.brand),
+    web: parseChannelScore(data.web),
+  };
 }
 
-export async function fetchReviewCollector(countryCode: string, brandName = 'Western Union', months = 1, refreshNonce = 0): Promise<CustomerSentiment[]> {
+export async function fetchReviewCollector(
+  countryCode: string,
+  brandName = "Western Union",
+  months = 1,
+  refreshNonce = 0,
+): Promise<CustomerSentiment[]> {
   const apiUrl = getApiUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 80000);
   try {
-    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/reviews?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&limit=3600&months=${months}&refresh=${refreshNonce}_${Date.now()}`, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    if (!response.ok) throw new Error(`Review collector returned HTTP ${response.status}.`);
+    const response = await fetch(
+      `${apiUrl.replace(/\/$/, "")}/api/reviews?brand=${encodeURIComponent(brandName)}&country=${encodeURIComponent(countryCode)}&limit=3600&months=${months}&refresh=${refreshNonce}_${Date.now()}`,
+      {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Review collector returned HTTP ${response.status}.`);
     const data = await response.json();
-    return (data.reviews ?? []).map((review: any) => ({
-      source: String(review.source ?? 'Review source'),
-      author: String(review.author ?? 'Verified customer'),
-      rating: Number(review.rating ?? 0),
-      text: String(review.text ?? '').replace(/\s+/g, ' ').trim(),
-      sentiment: review.sentiment === 'positive' || review.sentiment === 'negative' ? review.sentiment : 'neutral',
-      publishedAt: typeof review.publishedAt === 'string' ? review.publishedAt : null,
-    })).filter((review: CustomerSentiment) => review.text.length > 0);
+    return (data.reviews ?? [])
+      .map((review: any) => ({
+        source: String(review.source ?? "Review source"),
+        author: String(review.author ?? "Verified customer"),
+        rating: Number(review.rating ?? 0),
+        text: String(review.text ?? "")
+          .replace(/\s+/g, " ")
+          .trim(),
+        sentiment:
+          review.sentiment === "positive" || review.sentiment === "negative"
+            ? review.sentiment
+            : "neutral",
+        publishedAt:
+          typeof review.publishedAt === "string" ? review.publishedAt : null,
+      }))
+      .filter((review: CustomerSentiment) => review.text.length > 0);
   } finally {
     clearTimeout(timeout);
   }
 }
 
 async function appleLookup(term: string, countryCode: string): Promise<any[]> {
-  const country = APPLE_COUNTRY[countryCode] ?? 'us';
+  const country = APPLE_COUNTRY[countryCode] ?? "us";
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=${country}&entity=software&limit=15&_ts=${Date.now()}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
-    if (!response.ok) throw new Error(`Apple App Store returned ${response.status}`);
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok)
+      throw new Error(`Apple App Store returned ${response.status}`);
     const data = await response.json();
     return data.results ?? [];
   } finally {
@@ -374,42 +608,84 @@ async function appleLookup(term: string, countryCode: string): Promise<any[]> {
 }
 
 // Brand-seeded Google Play peers, resolved server-side to avoid browser CORS.
-export async function fetchCompetitorRatings(countryCode: string, region: string, brand: string): Promise<LiveCompetitor[]> {
+export async function fetchCompetitorRatings(
+  countryCode: string,
+  region: string,
+  brand: string,
+): Promise<LiveCompetitor[]> {
   const apiUrl = getApiUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
   try {
-    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/competitor-ratings?brand=${encodeURIComponent(brand)}&country=${encodeURIComponent(countryCode)}&region=${encodeURIComponent(region)}&_ts=${Date.now()}`, { headers: { Accept: 'application/json' }, cache: 'no-store', signal: controller.signal });
+    const response = await fetch(
+      `${apiUrl.replace(/\/$/, "")}/api/competitor-ratings?brand=${encodeURIComponent(brand)}&country=${encodeURIComponent(countryCode)}&region=${encodeURIComponent(region)}&_ts=${Date.now()}`,
+      {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    if (!Array.isArray(data?.competitors)) throw new Error('Invalid competitor discovery response');
+    if (!Array.isArray(data?.competitors))
+      throw new Error("Invalid competitor discovery response");
     const items = data.competitors;
-    return items.map((item: any) => ({
-      name: String(item.name ?? ''),
-      rating: typeof item.rating === 'number' && Number.isFinite(item.rating) ? item.rating : null,
-      reviewCount: typeof item.reviewCount === 'number' ? item.reviewCount : null,
-      source: item.source === 'Google Play' ? 'Google Play' as const :
-        item.source === 'Apple App Store + Google Play' ? 'Apple App Store + Google Play' as const : 'Apple App Store' as const,
-      status: item.status === 'live' ? 'live' as const : 'unavailable' as const,
-      updatedAt: typeof data.collectedAt === 'string' ? data.collectedAt : null,
-    })).filter((item: LiveCompetitor) => item.name.length > 0);
+    return items
+      .map((item: any) => ({
+        name: String(item.name ?? ""),
+        rating:
+          typeof item.rating === "number" && Number.isFinite(item.rating)
+            ? item.rating
+            : null,
+        reviewCount:
+          typeof item.reviewCount === "number" ? item.reviewCount : null,
+        source:
+          item.source === "Google Play"
+            ? ("Google Play" as const)
+            : item.source === "Apple App Store + Google Play"
+              ? ("Apple App Store + Google Play" as const)
+              : ("Apple App Store" as const),
+        status:
+          item.status === "live" ? ("live" as const) : ("unavailable" as const),
+        updatedAt:
+          typeof data.collectedAt === "string" ? data.collectedAt : null,
+      }))
+      .filter((item: LiveCompetitor) => item.name.length > 0);
   } finally {
     clearTimeout(timeout);
   }
 }
 
-const appleRatingCache = new Map<string, { expiresAt: number; value: { rating: number | null; reviewCount: number } }>();
+const appleRatingCache = new Map<
+  string,
+  { expiresAt: number; value: { rating: number | null; reviewCount: number } }
+>();
 
-export async function fetchAppleStoreRating(countryCode: string, brandName = 'Western Union', forceRefresh = false): Promise<{ rating: number | null; reviewCount: number }> {
+export async function fetchAppleStoreRating(
+  countryCode: string,
+  brandName = "Western Union",
+  forceRefresh = false,
+): Promise<{ rating: number | null; reviewCount: number }> {
   const cacheKey = `${countryCode.toUpperCase()}:${brandName}`;
   const cached = appleRatingCache.get(cacheKey);
-  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.value;
+  if (!forceRefresh && cached && cached.expiresAt > Date.now())
+    return cached.value;
 
   try {
-    const platformData = await fetchPlatformRatings(countryCode, brandName, forceRefresh);
+    const platformData = await fetchPlatformRatings(
+      countryCode,
+      brandName,
+      forceRefresh,
+    );
     if (platformData.apple.rating !== null) {
-      const value = { rating: platformData.apple.rating, reviewCount: platformData.apple.reviewCount };
-      appleRatingCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, value });
+      const value = {
+        rating: platformData.apple.rating,
+        reviewCount: platformData.apple.reviewCount,
+      };
+      appleRatingCache.set(cacheKey, {
+        expiresAt: Date.now() + 5 * 60 * 1000,
+        value,
+      });
       return value;
     }
   } catch {
@@ -424,56 +700,90 @@ export async function fetchAppleStoreRating(countryCode: string, brandName = 'We
     }
     const brandLower = brandName.toLowerCase();
     const matches = results.filter((item) =>
-      `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes(brandLower),
+      `${item.trackName ?? ""} ${item.sellerName ?? ""}`
+        .toLowerCase()
+        .includes(brandLower),
     );
-    const match = matches.find((item) => String(item.trackName ?? '').toLowerCase().startsWith(brandLower))
-      ?? matches[0];
+    const match =
+      matches.find((item) =>
+        String(item.trackName ?? "")
+          .toLowerCase()
+          .startsWith(brandLower),
+      ) ?? matches[0];
     // Only return a rating when the matched app actually belongs to the selected brand.
     const value = match?.averageUserRating
-      ? { rating: Number(Number(match.averageUserRating).toFixed(2)), reviewCount: Number(match.userRatingCount ?? 0) }
+      ? {
+          rating: Number(Number(match.averageUserRating).toFixed(2)),
+          reviewCount: Number(match.userRatingCount ?? 0),
+        }
       : { rating: null as number | null, reviewCount: 0 };
-    appleRatingCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, value });
+    appleRatingCache.set(cacheKey, {
+      expiresAt: Date.now() + 5 * 60 * 1000,
+      value,
+    });
     return value;
   } catch {
     return { rating: null, reviewCount: 0 };
   }
 }
 
-export async function fetchAppleReviews(countryCode: string, brandName = 'Western Union', months = 1, refreshNonce = 0): Promise<CustomerSentiment[]> {
+export async function fetchAppleReviews(
+  countryCode: string,
+  brandName = "Western Union",
+  months = 1,
+  refreshNonce = 0,
+): Promise<CustomerSentiment[]> {
   try {
-    const results = await appleLookup(COMPETITOR_TERMS[brandName] ?? brandName, countryCode);
+    const results = await appleLookup(
+      COMPETITOR_TERMS[brandName] ?? brandName,
+      countryCode,
+    );
     const brandLower = brandName.toLowerCase();
-    const match = results.find((item) => `${item.trackName ?? ''} ${item.sellerName ?? ''}`.toLowerCase().includes(brandLower));
+    const match = results.find((item) =>
+      `${item.trackName ?? ""} ${item.sellerName ?? ""}`
+        .toLowerCase()
+        .includes(brandLower),
+    );
     if (!match?.trackId) return [];
 
-    const country = APPLE_COUNTRY[countryCode] ?? 'us';
-    const response = await fetch(`https://itunes.apple.com/${country}/rss/customerreviews/id=${match.trackId}/sortBy=mostRecent/json?_ts=${refreshNonce}_${Date.now()}`, { cache: 'no-store' });
+    const country = APPLE_COUNTRY[countryCode] ?? "us";
+    const response = await fetch(
+      `https://itunes.apple.com/${country}/rss/customerreviews/id=${match.trackId}/sortBy=mostRecent/json?_ts=${refreshNonce}_${Date.now()}`,
+      { cache: "no-store" },
+    );
     if (!response.ok) return [];
     const data = await response.json();
     const entries = data.feed?.entry ?? [];
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - months);
-    return entries.slice(0, 100).filter((entry: any) => {
-      if (!entry['im:rating'] || !entry.content) return false;
-      const updated = new Date(entry.updated?.label ?? 0);
-      return Number.isNaN(updated.getTime()) || updated >= cutoff;
-    }).map((entry: any) => {
-      const rating = Number(entry['im:rating']?.label ?? 3);
-      const text = String(entry.content?.label ?? '').replace(/\s+/g, ' ').trim();
-      const lower = text.toLowerCase();
-      const sentiment: CustomerSentiment['sentiment'] = rating >= 4
-        ? 'positive'
-        : rating <= 2 || /delay|slow|problem|scam|charge|fee|failed|support/i.test(lower)
-          ? 'negative'
-          : 'neutral';
-      return {
-        source: 'Apple App Store',
-        author: String(entry.author?.name?.label ?? 'Verified customer'),
-        rating,
-        text: text.length > 180 ? `${text.slice(0, 177)}…` : text,
-        sentiment,
-      };
-    });
+    return entries
+      .slice(0, 100)
+      .filter((entry: any) => {
+        if (!entry["im:rating"] || !entry.content) return false;
+        const updated = new Date(entry.updated?.label ?? 0);
+        return Number.isNaN(updated.getTime()) || updated >= cutoff;
+      })
+      .map((entry: any) => {
+        const rating = Number(entry["im:rating"]?.label ?? 3);
+        const text = String(entry.content?.label ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
+        const lower = text.toLowerCase();
+        const sentiment: CustomerSentiment["sentiment"] =
+          rating >= 4
+            ? "positive"
+            : rating <= 2 ||
+                /delay|slow|problem|scam|charge|fee|failed|support/i.test(lower)
+              ? "negative"
+              : "neutral";
+        return {
+          source: "Apple App Store",
+          author: String(entry.author?.name?.label ?? "Verified customer"),
+          rating,
+          text: text.length > 180 ? `${text.slice(0, 177)}…` : text,
+          sentiment,
+        };
+      });
   } catch {
     return [];
   }

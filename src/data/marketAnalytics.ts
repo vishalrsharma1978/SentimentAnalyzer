@@ -1,52 +1,98 @@
 export type Market = { code: string; name: string; region: string };
 export type StoreRating = { rating: number | null; reviewCount: number };
 export type ChannelComponent = { label: string; score: number };
-export type ChannelScore = { rating: number | null; sampleSize: number; basis: string; components: ChannelComponent[] };
-export type MarketRating = { apple: StoreRating; google: StoreRating; brand?: ChannelScore | null; web?: ChannelScore | null };
+export type ChannelScore = {
+  rating: number | null;
+  sampleSize: number;
+  basis: string;
+  components: ChannelComponent[];
+};
+export type MarketRating = {
+  apple: StoreRating;
+  google: StoreRating;
+  brand?: ChannelScore | null;
+  web?: ChannelScore | null;
+};
 export type MarketRatings = Record<string, MarketRating | undefined>;
-export type Channel = 'brand' | 'web' | 'mobile' | 'ios' | 'android';
+export type Channel = "brand" | "web" | "mobile" | "ios" | "android";
 export const channelLabels: Record<Channel, string> = {
-  brand: 'Brand', web: 'Website', mobile: 'Mobile app', ios: 'iOS', android: 'Android',
+  brand: "Brand",
+  web: "Website",
+  mobile: "Mobile app",
+  ios: "iOS",
+  android: "Android",
 };
 export const channelColors: Record<Channel, string> = {
-  brand: '#B7791F', web: '#0891B2', mobile: '#635BFF', ios: '#635BFF', android: '#059669',
+  brand: "#B7791F",
+  web: "#0891B2",
+  mobile: "#635BFF",
+  ios: "#635BFF",
+  android: "#059669",
 };
 
 export function validRating(value: number | null | undefined): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 1 && value <= 5;
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 1 &&
+    value <= 5
+  );
 }
 
 export function aggregateRating(data: MarketRating | undefined): number | null {
   const ratings = [data?.apple.rating, data?.google.rating].filter(validRating);
-  return ratings.length ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null;
+  return ratings.length
+    ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+    : null;
 }
 
 export function storeRatingBasis(data: MarketRating | undefined): string {
   const apple = validRating(data?.apple.rating);
   const google = validRating(data?.google.rating);
-  if (apple && google) return 'Equal average of Apple App Store and Google Play ratings';
-  if (apple) return 'Single source: Apple App Store';
-  if (google) return 'Single source: Google Play';
-  return 'No store rating available';
+  if (apple && google)
+    return "Equal average of Apple App Store and Google Play ratings";
+  if (apple) return "Single source: Apple App Store";
+  if (google) return "Single source: Google Play";
+  return "No store rating available";
 }
 
-export function channelRating(data: MarketRating | undefined, channel: Channel): number | null {
-  if (channel === 'mobile' || channel === 'brand') return aggregateRating(data);
-  const value = channel === 'ios' ? data?.apple.rating
-    : channel === 'android' ? data?.google.rating
-      : data?.web?.rating;
+export function channelRating(
+  data: MarketRating | undefined,
+  channel: Channel,
+): number | null {
+  if (channel === "mobile" || channel === "brand") return aggregateRating(data);
+  const value =
+    channel === "ios"
+      ? data?.apple.rating
+      : channel === "android"
+        ? data?.google.rating
+        : data?.web?.rating;
   return validRating(value) ? value : null;
 }
 
-export function channelScore(data: MarketRating | undefined, channel: Channel): ChannelScore | null {
-  if (channel === 'brand') return { rating: aggregateRating(data), sampleSize: 0, basis: storeRatingBasis(data), components: [] };
-  if (channel === 'web') return data?.web ?? null;
+export function channelScore(
+  data: MarketRating | undefined,
+  channel: Channel,
+): ChannelScore | null {
+  if (channel === "brand")
+    return {
+      rating: aggregateRating(data),
+      sampleSize: 0,
+      basis: storeRatingBasis(data),
+      components: [],
+    };
+  if (channel === "web") return data?.web ?? null;
   return null;
 }
 
-export function rankMarkets(markets: Market[], ratings: MarketRatings, region = 'Global', channel: Channel = 'mobile') {
+export function rankMarkets(
+  markets: Market[],
+  ratings: MarketRatings,
+  region = "Global",
+  channel: Channel = "mobile",
+) {
   const scored = markets
-    .filter((market) => region === 'Global' || market.region === region)
+    .filter((market) => region === "Global" || market.region === region)
     .flatMap((market) => {
       const score = channelRating(ratings[market.code], channel);
       return score === null ? [] : [{ ...market, score }];
@@ -59,6 +105,58 @@ export function rankMarkets(markets: Market[], ratings: MarketRatings, region = 
   }));
 }
 
+export type RankedMarket = ReturnType<typeof rankMarkets>[number];
+export type LadderTier = {
+  key: "strong" | "fair" | "weak";
+  label: string;
+  markets: RankedMarket[];
+};
+
+/** Rating bands match the heatmap colours: >= 4 strong, >= 3 fair, below 3 weak. */
+export function ladderTiers(ranked: RankedMarket[]): LadderTier[] {
+  const bands: LadderTier[] = [
+    {
+      key: "strong",
+      label: "4.0 and above",
+      markets: ranked.filter((market) => market.score >= 4),
+    },
+    {
+      key: "fair",
+      label: "3.0 – 3.99",
+      markets: ranked.filter((market) => market.score >= 3 && market.score < 4),
+    },
+    {
+      key: "weak",
+      label: "Below 3.0",
+      markets: ranked.filter((market) => market.score < 3),
+    },
+  ];
+  return bands.filter((band) => band.markets.length > 0);
+}
+
+/**
+ * Short ladder for long country lists: the top and bottom `edge` markets plus the selected one.
+ * Short lists are returned whole. `hidden` is how many middle markets are collapsed.
+ */
+export function condenseLadder(
+  ranked: RankedMarket[],
+  selectedCode: string | null,
+  edge = 3,
+) {
+  if (ranked.length <= edge * 2 + 2) return { shown: ranked, hidden: 0 };
+  const keep = new Set<number>();
+  ranked.forEach((market, index) => {
+    if (
+      index < edge ||
+      index >= ranked.length - edge ||
+      market.code === selectedCode
+    )
+      keep.add(index);
+  });
+  const shown = ranked.filter((_, index) => keep.has(index));
+  return { shown, hidden: ranked.length - shown.length };
+}
+
 export type SunburstSegment = {
   id: string;
   countryCode: string;
@@ -69,50 +167,106 @@ export type SunburstSegment = {
   end: number;
 };
 
-export function sunburstSegments(markets: Market[], focus: string | null): SunburstSegment[] {
-  const channels: Channel[] = ['brand', 'web', 'ios', 'android'];
+export function sunburstSegments(
+  markets: Market[],
+  focus: string | null,
+): SunburstSegment[] {
+  const channels: Channel[] = ["brand", "web", "ios", "android"];
   if (focus) {
     if (!markets.some((market) => market.code === focus)) return [];
-    const parents: Channel[] = ['brand', 'web', 'mobile'];
+    const parents: Channel[] = ["brand", "web", "mobile"];
     return parents.flatMap((channel, index) => {
       const start = index * 120;
       const parent: SunburstSegment = {
-        id: `${focus}-${channel}`, countryCode: focus, label: channelLabels[channel], channel, depth: 0, start, end: start + 120,
+        id: `${focus}-${channel}`,
+        countryCode: focus,
+        label: channelLabels[channel],
+        channel,
+        depth: 0,
+        start,
+        end: start + 120,
       };
-      const children: Channel[] = channel === 'mobile' ? ['ios', 'android'] : [channel];
-      return [parent, ...children.map((child, childIndex): SunburstSegment => ({
-        id: `${focus}-${channel}-${child}`, countryCode: focus, label: channelLabels[child], channel: child,
-        depth: 1, start: start + childIndex * 120 / children.length, end: start + (childIndex + 1) * 120 / children.length,
-      }))];
+      const children: Channel[] =
+        channel === "mobile" ? ["ios", "android"] : [channel];
+      return [
+        parent,
+        ...children.map(
+          (child, childIndex): SunburstSegment => ({
+            id: `${focus}-${channel}-${child}`,
+            countryCode: focus,
+            label: channelLabels[child],
+            channel: child,
+            depth: 1,
+            start: start + (childIndex * 120) / children.length,
+            end: start + ((childIndex + 1) * 120) / children.length,
+          }),
+        ),
+      ];
     });
   }
   return markets.flatMap((market, index) => {
     const size = 360 / markets.length;
     const start = index * size;
     const parent: SunburstSegment = {
-      id: market.code, countryCode: market.code, label: market.code, channel: null, depth: 0, start, end: start + size,
+      id: market.code,
+      countryCode: market.code,
+      label: market.code,
+      channel: null,
+      depth: 0,
+      start,
+      end: start + size,
     };
-    return [parent, ...channels.map((channel, childIndex): SunburstSegment => ({
-      id: `${market.code}-${channel}`, countryCode: market.code, label: channelLabels[channel], channel, depth: 1,
-      start: start + childIndex * size / channels.length, end: start + (childIndex + 1) * size / channels.length,
-    }))];
+    return [
+      parent,
+      ...channels.map(
+        (channel, childIndex): SunburstSegment => ({
+          id: `${market.code}-${channel}`,
+          countryCode: market.code,
+          label: channelLabels[channel],
+          channel,
+          depth: 1,
+          start: start + (childIndex * size) / channels.length,
+          end: start + ((childIndex + 1) * size) / channels.length,
+        }),
+      ),
+    ];
   });
 }
 
 export function polarPoint(radius: number, degrees: number) {
-  const radians = (degrees - 90) * Math.PI / 180;
-  return { x: 200 + radius * Math.cos(radians), y: 200 + radius * Math.sin(radians) };
+  const radians = ((degrees - 90) * Math.PI) / 180;
+  return {
+    x: 200 + radius * Math.cos(radians),
+    y: 200 + radius * Math.sin(radians),
+  };
 }
 
-export function hitTestSunburst(segments: SunburstSegment[], x: number, y: number) {
+export function hitTestSunburst(
+  segments: SunburstSegment[],
+  x: number,
+  y: number,
+) {
   const radius = Math.hypot(x - 200, y - 200);
-  const depth = radius >= 85 && radius <= 138 ? 0 : radius >= 141 && radius <= 188 ? 1 : null;
-  const angle = (Math.atan2(y - 200, x - 200) * 180 / Math.PI + 450) % 360;
-  return segments.find((segment) => segment.depth === depth && angle >= segment.start && angle < segment.end);
+  const depth =
+    radius >= 85 && radius <= 138
+      ? 0
+      : radius >= 141 && radius <= 188
+        ? 1
+        : null;
+  const angle = ((Math.atan2(y - 200, x - 200) * 180) / Math.PI + 450) % 360;
+  return segments.find(
+    (segment) =>
+      segment.depth === depth && angle >= segment.start && angle < segment.end,
+  );
 }
 
-export function ringPath(inner: number, outer: number, start: number, end: number): string {
-  if (end <= start) return '';
+export function ringPath(
+  inner: number,
+  outer: number,
+  start: number,
+  end: number,
+): string {
+  if (end <= start) return "";
   // Leave a tiny seam to avoid coincident endpoints on a full SVG circle.
   const sweep = Math.min(end - start, 359.999);
   const finish = start + sweep;
