@@ -26,6 +26,38 @@ export type CompetitorSharePrice = {
   status: "live" | "not-listed" | "unavailable";
 };
 
+/** A live quote for sending `sendAmount` through one corridor; nothing here is estimated. */
+export type TransferFee = {
+  provider: string;
+  fee: number;
+  feeCurrency: string;
+  exchangeRate: number;
+  midMarketRate: number | null;
+  /** Fee plus exchange-rate margin as a % of the amount sent; null when no mid-market rate was available. */
+  totalCostPercent: number | null;
+  receivedAmount: number;
+  sendAmount: number;
+  sendCurrency: string;
+  receiveCurrency: string;
+  from: string;
+  to: string;
+  collectedAt: string | null;
+  source: string;
+};
+
+export type TransferFeeCorridor = {
+  from: string;
+  fromCurrency: string;
+  to: string;
+  toCurrency: string;
+};
+
+export type TransferFees = {
+  corridor: TransferFeeCorridor;
+  /** Keyed by the competitor name; competitors without a quote are absent. */
+  fees: Record<string, TransferFee>;
+};
+
 export type CustomerSentiment = {
   source: string;
   author: string;

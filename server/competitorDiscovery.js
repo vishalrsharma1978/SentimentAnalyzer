@@ -156,42 +156,52 @@ async function discoverCompetitors({
   );
   let attempts = 0;
   let failures = 0;
-  for (const { term, weight } of searches) {
-    attempts += 1;
-    try {
-      const results = await gplay.search({
-        ...options,
-        term,
-        num: SEARCH_SIZE,
-        fullDetail: true,
-      });
-      (Array.isArray(results) ? results : []).forEach((app, rank) => {
-        const mentionsTerm = normalize(`${app.title} ${app.summary}`).includes(
+  attempts += searches.length;
+  // Keyword searches and named-peer lookups are independent; run them all at once.
+  const [keywordSearches, peerLookups] = await Promise.all([
+    Promise.allSettled(
+      searches.map(({ term }) =>
+        gplay.search({
+          ...options,
           term,
+          num: SEARCH_SIZE,
+          fullDetail: true,
+        }),
+      ),
+    ),
+    Promise.allSettled(
+      business.peers.map(async (name) => {
+        const hits = await gplay.search({ ...options, term: name, num: 3 });
+        const match = (Array.isArray(hits) ? hits : []).find((hit) =>
+          namesMatch(name, hit.title),
         );
-        add(
-          app,
-          weight * (1 - rank / SEARCH_SIZE) + (mentionsTerm ? weight / 4 : 0),
-        );
-      });
-    } catch (error) {
+        return match ? gplay.app({ ...options, appId: match.appId }) : null;
+      }),
+    ),
+  ]);
+  // Apply results in the original search order so scoring stays deterministic.
+  for (const [index, outcome] of keywordSearches.entries()) {
+    const { term, weight } = searches[index];
+    if (outcome.status === "fulfilled") {
+      (Array.isArray(outcome.value) ? outcome.value : []).forEach(
+        (app, rank) => {
+          const mentionsTerm = normalize(
+            `${app.title} ${app.summary}`,
+          ).includes(term);
+          add(
+            app,
+            weight * (1 - rank / SEARCH_SIZE) + (mentionsTerm ? weight / 4 : 0),
+          );
+        },
+      );
+    } else {
       failures += 1;
       log.error(
         `Peer keyword search failed for "${term}" (${country}):`,
-        error.message,
+        outcome.reason.message,
       );
     }
   }
-
-  const peerLookups = await Promise.allSettled(
-    business.peers.map(async (name) => {
-      const hits = await gplay.search({ ...options, term: name, num: 3 });
-      const match = (Array.isArray(hits) ? hits : []).find((hit) =>
-        namesMatch(name, hit.title),
-      );
-      return match ? gplay.app({ ...options, appId: match.appId }) : null;
-    }),
-  );
   attempts += peerLookups.length;
   for (const [index, lookup] of peerLookups.entries()) {
     if (lookup.status === "fulfilled")

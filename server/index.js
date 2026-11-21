@@ -31,6 +31,7 @@ const {
 const { wikidataProfile } = require("./wikidataProfile");
 const { fallbackQuote } = require("./quoteFallback");
 const { withStoreRatings } = require("./peerStoreRatings");
+const { collectTransferFees } = require("./transferFees");
 const { appleChartRank, playChartRank } = require("./storeChartRank");
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -529,7 +530,30 @@ async function verifyPlayAppBelongsToBrand(
   }
 }
 
-async function findAppleBrandApp(brand, country, appName = "", strict = false) {
+// Recently prepared brands reuse the App Store lookup instead of repeating the network call. Both
+// the ratings and the reviews collectors need it, so concurrent callers also share one request.
+const APPLE_APP_CACHE_TTL_MS = 10 * 60 * 1000;
+const appleAppCache = new Map();
+
+function findAppleBrandApp(brand, country, appName = "", strict = false) {
+  const key = `${brand.toLowerCase()}|${country.toUpperCase()}|${String(appName).toLowerCase()}|${Boolean(strict)}`;
+  const hit = appleAppCache.get(key);
+  if (hit && Date.now() - hit.at < APPLE_APP_CACHE_TTL_MS) return hit.promise;
+  const promise = lookupAppleBrandApp(brand, country, appName, strict);
+  appleAppCache.set(key, { at: Date.now(), promise });
+  // A failed lookup is not remembered, so the next attempt retries it.
+  promise.catch(() => {
+    if (appleAppCache.get(key)?.promise === promise) appleAppCache.delete(key);
+  });
+  return promise;
+}
+
+async function lookupAppleBrandApp(
+  brand,
+  country,
+  appName = "",
+  strict = false,
+) {
   const countryCode = country.toLowerCase();
   if (brand.trim().toLowerCase() === "western union") {
     const ids = westernUnionStoreIds(country);
@@ -573,12 +597,38 @@ async function findAppleBrandApp(brand, country, appName = "", strict = false) {
   );
 }
 
-async function collectGooglePlayReviews(
-  brand,
-  country,
-  months = 1,
-  options = {},
-) {
+// Review pulls are the slowest part of model preparation. A brand prepared a moment ago reuses its
+// reviews; concurrent identical pulls share one request, and failures are never remembered.
+const REVIEW_PULL_TTL_MS = 5 * 60 * 1000;
+const reviewPullCache = new Map();
+
+function memoizeReviewPull(key, load) {
+  const hit = reviewPullCache.get(key);
+  if (hit && Date.now() - hit.at < REVIEW_PULL_TTL_MS) return hit.promise;
+  const promise = load();
+  reviewPullCache.set(key, { at: Date.now(), promise });
+  promise.catch(() => {
+    if (reviewPullCache.get(key)?.promise === promise)
+      reviewPullCache.delete(key);
+  });
+  return promise;
+}
+
+function collectGooglePlayReviews(brand, country, months = 1, options = {}) {
+  return memoizeReviewPull(
+    `google|${brand.toLowerCase()}|${country.toUpperCase()}|${months}|${String(options.appName || "").toLowerCase()}|${Boolean(options.strict)}`,
+    () => pullGooglePlayReviews(brand, country, months, options),
+  );
+}
+
+function collectAppleReviews(brand, country, options = {}) {
+  return memoizeReviewPull(
+    `apple|${brand.toLowerCase()}|${country.toUpperCase()}|${String(options.appName || "").toLowerCase()}|${Boolean(options.strict)}`,
+    () => pullAppleReviews(brand, country, options),
+  );
+}
+
+async function pullGooglePlayReviews(brand, country, months = 1, options = {}) {
   const appId = await resolvePlayAppId(
     brand,
     country,
@@ -615,7 +665,7 @@ async function collectGooglePlayReviews(
   }
 }
 
-async function collectAppleReviews(brand, country, options = {}) {
+async function pullAppleReviews(brand, country, options = {}) {
   const countryCode = country.toLowerCase();
   try {
     const match = await findAppleBrandApp(
@@ -1515,6 +1565,8 @@ registerModelRoute(app, {
       ? playTopChartRank(config.brand, config.country, config.appName, true)
       : appleTopChartRank(config.brand, config.country, config.appName, true),
   quotes: (names) => Promise.all(names.map(getCompetitorSharePrice)),
+  transferFees: (country, names) =>
+    collectTransferFees(country, names, { log: console }),
   web: (config) => computeRuntimeWebChannel(config.website, config.country),
   log: console,
 });

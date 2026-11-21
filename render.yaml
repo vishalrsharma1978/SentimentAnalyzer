@@ -9,8 +9,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: LIBRETRANSLATE_URL
-        sync: false
       # Optional: Google PageSpeed Insights API key. When set, the Website
       # rating blends live site checks 50/50 with Google Lighthouse (mobile).
       - key: GOOGLE_PAGESPEED_API_KEY

@@ -116,6 +116,28 @@ function summarize(reviews, ratings, competitors, brand) {
   };
 }
 
+// Transfer fees only exist for money-transfer providers in a covered corridor. Not having one is a
+// finding, not a collection failure, so this never marks the model "limited" and never throws.
+async function collectTransferFees(collectors, country, names) {
+  if (!collectors.transferFees) return null;
+  try {
+    const result = await collectors.transferFees(country, names);
+    if (!result) return null;
+    return {
+      corridor: result.corridor,
+      fees: Object.fromEntries(
+        Object.entries(result.fees).filter(([, fee]) => fee),
+      ),
+    };
+  } catch (error) {
+    collectors.log.error(
+      `Runtime model transfer fees failed (${country}):`,
+      error.message,
+    );
+    return null;
+  }
+}
+
 async function evaluateMarket(config, collectors) {
   const availability = [];
   // `byDesign` marks sources this model intentionally does not use (for example global Reddit content
@@ -374,11 +396,11 @@ async function evaluateMarket(config, collectors) {
   const quoteNames = [
     ...new Set([config.brand, ...competitors.map((item) => item.name)]),
   ];
-  const quotes = await attempt(
-    "Share prices",
-    () => collectors.quotes(quoteNames),
-    [],
-  );
+  // Share prices and transfer fees are independent lookups; run them together.
+  const [quotes, transferFees] = await Promise.all([
+    attempt("Share prices", () => collectors.quotes(quoteNames), []),
+    collectTransferFees(collectors, config.country, quoteNames),
+  ]);
   // A competitor with no public listing legitimately has no share price. That is a finding, not a
   // collection failure, so it must not mark the whole model "limited" (which stops the preparation
   // popup from closing on its own). Only an unconfirmed quote for an apparently listed company counts.
@@ -414,19 +436,53 @@ async function evaluateMarket(config, collectors) {
     competitorBasis: `${discovery?.basis || "No verified peers."} Each rating is the equal average of the App Store and Google Play ratings found for that app in ${config.country}; an app listed in only one store uses that store alone.`,
     chart,
     quotes,
+    transferFees,
     statistics,
     availability,
   };
 }
 
+// Identical requests (refresh, retry, second tab) reuse a recent result, and concurrent identical
+// requests share one evaluation. Only complete ("ready") results are kept, so a limited or failed
+// collection is always retried.
+const MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
+const MODEL_CACHE_MAX = 100;
+
 function registerModelRoute(app, collectors) {
   let activeRequests = 0;
+  const results = new Map();
+  const inFlight = new Map();
+  const cached = (key) => {
+    const hit = results.get(key);
+    if (!hit) return null;
+    if (Date.now() - hit.at >= MODEL_CACHE_TTL_MS) {
+      results.delete(key);
+      return null;
+    }
+    return hit.value;
+  };
   app.post("/api/models/evaluate", async (request, response) => {
     let config;
     try {
       config = parseModelRequest(request.body);
     } catch (error) {
       response.status(400).json({ error: error.message });
+      return;
+    }
+    const key = JSON.stringify(config);
+    const hit = cached(key);
+    if (hit) {
+      response.json(hit);
+      return;
+    }
+    if (inFlight.has(key)) {
+      try {
+        response.json(await inFlight.get(key));
+      } catch {
+        response
+          .status(502)
+          .json({ error: "Model evaluation failed. Retry model creation." });
+      }
       return;
     }
     if (activeRequests >= 4) {
@@ -436,14 +492,24 @@ function registerModelRoute(app, collectors) {
       return;
     }
     activeRequests += 1;
+    const pending = evaluateMarket(config, collectors);
+    inFlight.set(key, pending);
+    pending.catch(() => {});
     try {
-      response.json(await evaluateMarket(config, collectors));
+      const value = await pending;
+      if (value.status === "ready") {
+        if (results.size >= MODEL_CACHE_MAX)
+          results.delete(results.keys().next().value);
+        results.set(key, { at: Date.now(), value });
+      }
+      response.json(value);
     } catch (error) {
       collectors.log.error("Runtime model evaluation failed:", error.message);
       response
         .status(502)
         .json({ error: "Model evaluation failed. Retry model creation." });
     } finally {
+      inFlight.delete(key);
       activeRequests -= 1;
     }
   });

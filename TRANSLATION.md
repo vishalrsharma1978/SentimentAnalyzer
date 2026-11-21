@@ -1,36 +1,29 @@
-# Local comment translation
+# Comment translation
 
-The review collector sends comment text to a self-hosted LibreTranslate instance. LibreTranslate is open source and does not require an API key when self-hosted. Translation requests stay on the local machine in the default configuration.
-
-## Start the translator
-
-Install Docker Desktop, then start the service from the project root:
-
-```powershell
-docker compose up -d libretranslate
-```
-
-The first start downloads the translation models and may take several minutes. The service is bound to `127.0.0.1:5000` and is not exposed to the local network.
-
-## Connect the review collector
-
-Set `LIBRETRANSLATE_URL=http://127.0.0.1:5000` in the server `.env` file. This is the default when the variable is omitted. Start or restart the review collector:
+The review collector translates non-English customer comments into English with the
+[`google-translate-api-x`](https://www.npmjs.com/package/google-translate-api-x) package. It calls
+Google Translate's public web endpoint, so **no API key, account or extra service is needed**. It is
+installed with the rest of the dependencies:
 
 ```powershell
-npm run review-server
+npm install
+npm run start:server
 ```
 
-Check that LibreTranslate is ready:
-
-```powershell
-Invoke-RestMethod http://localhost:5000/languages
-```
-
-Then test translation through the app backend:
+## Check it
 
 ```powershell
 $body = @{ text = "Hola, la transferencia llegó tarde" } | ConvertTo-Json -Compress
 Invoke-RestMethod http://localhost:3001/api/translate -Method Post -ContentType "application/json" -Body $body
 ```
 
-The response contains the English translation and the detected source language. Other deployments can set `LIBRETRANSLATE_URL` to their private LibreTranslate host. Do not send customer comments to an untrusted public translation instance.
+The response contains `translatedText` (English) and `detectedSourceLanguage` (for example `es`).
+
+## Limits to know about
+
+- The package uses an **unofficial** endpoint. Google can rate-limit or change it without notice; when
+  that happens the app shows "Translation is temporarily unavailable" and the original comment stays visible.
+- The server protects the endpoint with a per-client limit (10 per minute), a global limit (100 per
+  minute), a 5,000 character cap per comment, a 24 hour cache and a 20 second timeout.
+- Comment text is sent to Google. Use the official Cloud Translation API with a key if you need
+  contractual guarantees for production or sensitive data.

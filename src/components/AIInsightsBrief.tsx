@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -10,6 +10,14 @@ import {
 } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import type { CustomerSentiment, LiveCompetitor } from "../data/liveData";
+import {
+  actionDetail,
+  pickQuotes,
+  prioritySignalDetail,
+  ratingGapDetail,
+  sentimentDetail,
+} from "../data/insightDetails";
+import type { InsightDetail } from "../data/insightDetails";
 import { categorizeSentimentReviews } from "../data/sentimentCategories";
 import type { SentimentCategory } from "../data/sentimentCategories";
 import { SafeView } from "./SafeView";
@@ -241,24 +249,87 @@ function openSource(url: string) {
   });
 }
 
+// The evidence behind an insight: what the number means, the breakdown, example comments and a next
+// step. Shown under a card when it is opened.
+function DetailPanel({
+  detail,
+  testID,
+}: {
+  detail: InsightDetail;
+  testID: string;
+}) {
+  return (
+    <SafeView style={styles.detailPanel} testID={testID}>
+      <Text style={styles.detailExplanation}>{detail.explanation}</Text>
+      {detail.rows.map((row) => (
+        <SafeView key={`${row.label}-${row.value}`} style={styles.detailRow}>
+          <Text style={styles.detailRowLabel}>{row.label}</Text>
+          <Text style={styles.detailRowValue}>{row.value}</Text>
+        </SafeView>
+      ))}
+      {detail.quotes.length > 0 && (
+        <Text style={styles.detailSubheading}>WHAT CUSTOMERS SAID</Text>
+      )}
+      {detail.quotes.map((quote, index) => (
+        <SafeView key={`quote-${index}`} style={styles.quote}>
+          <Text style={styles.quoteText}>“{quote.text}”</Text>
+          <Text style={styles.quoteMeta}>
+            {quote.source} · {quote.rating}★
+            {quote.date ? ` · ${quote.date}` : ""}
+          </Text>
+        </SafeView>
+      ))}
+      {detail.nextStep && (
+        <SafeView style={styles.nextStep}>
+          <Text style={styles.nextStepLabel}>SUGGESTED NEXT STEP</Text>
+          <Text style={styles.nextStepText}>{detail.nextStep}</Text>
+        </SafeView>
+      )}
+    </SafeView>
+  );
+}
+
 function Metric({
   label,
   value,
   note,
   tone,
+  open,
+  onToggle,
+  testID,
 }: {
   label: string;
   value: string;
   note: string;
   tone: string;
+  open: boolean;
+  onToggle: () => void;
+  testID: string;
 }) {
   return (
-    <SafeView style={styles.metric}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      accessibilityLabel={`${label}: ${value}. ${open ? "Hide" : "Show"} details`}
+      onPress={onToggle}
+      style={[styles.metric, open && styles.metricOpen]}
+      testID={testID}
+    >
       <SafeView style={[styles.metricAccent, { backgroundColor: tone }]} />
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricNote}>{note}</Text>
-    </SafeView>
+      <SafeView style={styles.metricHint}>
+        <Text style={styles.metricHintText}>
+          {open ? "Hide details" : "View details"}
+        </Text>
+        <Ionicons
+          name={open ? "chevron-up" : "chevron-down"}
+          size={11}
+          color="#175CD3"
+        />
+      </SafeView>
+    </Pressable>
   );
 }
 
@@ -274,6 +345,10 @@ export function AIInsightsBrief({
   onOpenSources,
 }: AIInsightsBriefProps) {
   const { width: windowWidth } = useWindowDimensions();
+  // One card or action row is open at a time, so the page stays readable.
+  const [openCard, setOpenCard] = useState<string | null>(null);
+  const toggleCard = (id: string) =>
+    setOpenCard((current) => (current === id ? null : id));
   const trendChartWidth = Math.max(360, Math.min(740, windowWidth - 80));
   const categories = categorizeSentimentReviews(reviews);
   const negative = reviews.filter(
@@ -374,6 +449,9 @@ export function AIInsightsBrief({
           value={negativeRate === null ? "—" : `${negativeRate}%`}
           note={`${negative} of ${reviews.length} collected comments`}
           tone="#B42318"
+          open={openCard === "negative"}
+          onToggle={() => toggleCard("negative")}
+          testID="insight-card-negative"
         />
         <Metric
           label="Positive feedback"
@@ -384,6 +462,9 @@ export function AIInsightsBrief({
           }
           note={`${positive} positive comments in this sample`}
           tone="#027A48"
+          open={openCard === "positive"}
+          onToggle={() => toggleCard("positive")}
+          testID="insight-card-positive"
         />
         <Metric
           label="Highest-priority signal"
@@ -394,6 +475,9 @@ export function AIInsightsBrief({
               : "No categorized negative comments"
           }
           tone="#60A5FA"
+          open={openCard === "priority"}
+          onToggle={() => toggleCard("priority")}
+          testID="insight-card-priority"
         />
         <Metric
           label="App rating gap"
@@ -408,8 +492,35 @@ export function AIInsightsBrief({
               : `vs ${leadingCompetitor?.name} · ${leadingCompetitor?.rating?.toFixed(1)} / 5`
           }
           tone="#B54708"
+          open={openCard === "gap"}
+          onToggle={() => toggleCard("gap")}
+          testID="insight-card-gap"
         />
       </SafeView>
+      {openCard === "negative" && (
+        <DetailPanel
+          detail={sentimentDetail(reviews, "negative", categories)}
+          testID="insight-detail-negative"
+        />
+      )}
+      {openCard === "positive" && (
+        <DetailPanel
+          detail={sentimentDetail(reviews, "positive", categories)}
+          testID="insight-detail-positive"
+        />
+      )}
+      {openCard === "priority" && (
+        <DetailPanel
+          detail={prioritySignalDetail(topPriority, negative)}
+          testID="insight-detail-priority"
+        />
+      )}
+      {openCard === "gap" && (
+        <DetailPanel
+          detail={ratingGapDetail(brand, brandRating, competitors)}
+          testID="insight-detail-gap"
+        />
+      )}
 
       <SafeView style={styles.panel}>
         <SafeView style={styles.panelHeader}>
@@ -664,16 +775,55 @@ export function AIInsightsBrief({
                     </Text>
                   </SafeView>
                   <Text style={styles.actionDetail}>{action.detail}</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => onSelectCategory(category)}
-                    style={styles.evidenceLink}
-                  >
-                    <Text style={styles.evidenceLinkText}>
-                      Review matching comments
-                    </Text>
-                    <Ionicons name="arrow-forward" size={12} color="#B42318" />
-                  </Pressable>
+                  <SafeView style={styles.actionLinks}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        expanded: openCard === `action-${category.id}`,
+                      }}
+                      onPress={() => toggleCard(`action-${category.id}`)}
+                      style={styles.evidenceLink}
+                      testID={`insight-action-${category.id}`}
+                    >
+                      <Text style={styles.detailLinkText}>
+                        {openCard === `action-${category.id}`
+                          ? "Hide breakdown"
+                          : "View breakdown"}
+                      </Text>
+                      <Ionicons
+                        name={
+                          openCard === `action-${category.id}`
+                            ? "chevron-up"
+                            : "chevron-down"
+                        }
+                        size={11}
+                        color="#175CD3"
+                      />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onSelectCategory(category)}
+                      style={styles.evidenceLink}
+                    >
+                      <Text style={styles.evidenceLinkText}>
+                        Review matching comments
+                      </Text>
+                      <Ionicons
+                        name="arrow-forward"
+                        size={12}
+                        color="#B42318"
+                      />
+                    </Pressable>
+                  </SafeView>
+                  {openCard === `action-${category.id}` && (
+                    <DetailPanel
+                      detail={{
+                        ...actionDetail(category, negative),
+                        nextStep: action.detail,
+                      }}
+                      testID={`insight-detail-action-${category.id}`}
+                    />
+                  )}
                 </SafeView>
               </SafeView>
             );
@@ -713,61 +863,93 @@ export function AIInsightsBrief({
           const positivePercent = total
             ? Math.round((category.positive / total) * 100)
             : 0;
+          const capabilityId = `capability-${category.id}`;
+          const capabilityOpen = openCard === capabilityId;
           return (
-            <Pressable
-              accessibilityRole="button"
-              key={category.id}
-              onPress={() => onSelectCategory(category)}
-              style={styles.capabilityRow}
-            >
-              <SafeView style={styles.capabilityCopy}>
-                <Text style={styles.capabilityTitle}>{category.label}</Text>
-                <Text style={styles.capabilityDetail}>
-                  {category.negative} negative / {total} matching comments
-                </Text>
-                <SafeView style={styles.capabilityMeter}>
-                  <SafeView style={styles.capabilityMeterTrack}>
-                    <SafeView
+            <Fragment key={category.id}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: capabilityOpen }}
+                onPress={() => toggleCard(capabilityId)}
+                style={styles.capabilityRow}
+                testID={`insight-${capabilityId}`}
+              >
+                <SafeView style={styles.capabilityCopy}>
+                  <Text style={styles.capabilityTitle}>{category.label}</Text>
+                  <Text style={styles.capabilityDetail}>
+                    {category.negative} negative / {total} matching comments
+                  </Text>
+                  <SafeView style={styles.capabilityMeter}>
+                    <SafeView style={styles.capabilityMeterTrack}>
+                      <SafeView
+                        style={[
+                          styles.capabilityMeterFill,
+                          { width: `${negativePercent}%` },
+                          negativePercent === 0 &&
+                            styles.capabilityMeterFillGood,
+                        ]}
+                      />
+                    </SafeView>
+                    <Text
                       style={[
-                        styles.capabilityMeterFill,
-                        { width: `${negativePercent}%` },
-                        negativePercent === 0 && styles.capabilityMeterFillGood,
+                        styles.capabilityMeterValue,
+                        negativePercent > 0 &&
+                          styles.capabilityMeterValueAttention,
                       ]}
-                    />
+                    >
+                      {negativePercent}% negative
+                    </Text>
                   </SafeView>
-                  <Text
-                    style={[
-                      styles.capabilityMeterValue,
-                      negativePercent > 0 &&
-                        styles.capabilityMeterValueAttention,
-                    ]}
-                  >
-                    {negativePercent}% negative
+                  <Text style={styles.capabilitySubDetail}>
+                    {positivePercent}% positive · {category.neutral} neutral
                   </Text>
                 </SafeView>
-                <Text style={styles.capabilitySubDetail}>
-                  {positivePercent}% positive · {category.neutral} neutral
-                </Text>
-              </SafeView>
-              <SafeView
-                style={[
-                  styles.statusPill,
-                  category.negative > 0 && styles.statusPillAttention,
-                ]}
-              >
-                <Text
+                <SafeView
                   style={[
-                    styles.statusText,
-                    category.negative > 0 && styles.statusTextAttention,
+                    styles.statusPill,
+                    category.negative > 0 && styles.statusPillAttention,
                   ]}
                 >
-                  {category.negative > 0
-                    ? "Review signal"
-                    : "No negative signal"}
-                </Text>
-              </SafeView>
-              <Text style={styles.unverified}>Peer data n/a</Text>
-            </Pressable>
+                  <Text
+                    style={[
+                      styles.statusText,
+                      category.negative > 0 && styles.statusTextAttention,
+                    ]}
+                  >
+                    {category.negative > 0
+                      ? "Review signal"
+                      : "No negative signal"}
+                  </Text>
+                </SafeView>
+                <Text style={styles.unverified}>Peer data n/a</Text>
+              </Pressable>
+              {capabilityOpen && (
+                <SafeView>
+                  <DetailPanel
+                    detail={{
+                      explanation: `${category.reviews.length} comments mention ${category.label.toLowerCase()}: ${category.negative} negative, ${category.neutral} neutral and ${category.positive} positive. Customer comments can point to an area to investigate; they do not prove a feature is missing.`,
+                      rows: [],
+                      quotes: pickQuotes(
+                        category.reviews,
+                        category.negative > 0 ? "negative" : "positive",
+                      ),
+                      nextStep: null,
+                    }}
+                    testID={`insight-detail-${capabilityId}`}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => onSelectCategory(category)}
+                    style={styles.evidenceLink}
+                  >
+                    <Text style={styles.evidenceLinkText}>
+                      Review matching comments
+                    </Text>
+                    <Ionicons name="arrow-forward" size={12} color="#B42318" />
+                  </Pressable>
+                </SafeView>
+              )}
+            </Fragment>
           );
         })}
         {!capabilityCategories.length && (
@@ -1067,6 +1249,73 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 15,
     color: "#475467",
+  },
+  actionLinks: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: 16,
+  },
+  detailLinkText: { fontSize: 9, fontWeight: "900", color: "#175CD3" },
+  metricOpen: { borderColor: "#84CAFF", backgroundColor: "#F5FAFF" },
+  metricHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 8,
+  },
+  metricHintText: { fontSize: 8, fontWeight: "900", color: "#175CD3" },
+  detailPanel: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#B2DDFF",
+    backgroundColor: "#F5FAFF",
+  },
+  detailExplanation: { fontSize: 10, lineHeight: 16, color: "#344054" },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#E0EAF5",
+  },
+  detailRowLabel: { flex: 1, fontSize: 9, color: "#475467" },
+  detailRowValue: { fontSize: 9, fontWeight: "900", color: "#101828" },
+  detailSubheading: {
+    marginTop: 10,
+    marginBottom: 4,
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+    color: "#667085",
+  },
+  quote: {
+    marginTop: 6,
+    paddingLeft: 9,
+    borderLeftWidth: 3,
+    borderLeftColor: "#84CAFF",
+  },
+  quoteText: { fontSize: 10, lineHeight: 15, color: "#344054" },
+  quoteMeta: { marginTop: 2, fontSize: 8, color: "#667085" },
+  nextStep: {
+    marginTop: 10,
+    padding: 9,
+    borderRadius: 8,
+    backgroundColor: "#EFF8FF",
+  },
+  nextStepLabel: {
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+    color: "#175CD3",
+  },
+  nextStepText: {
+    marginTop: 3,
+    fontSize: 10,
+    lineHeight: 15,
+    color: "#1849A9",
   },
   evidenceLink: {
     alignSelf: "flex-start",

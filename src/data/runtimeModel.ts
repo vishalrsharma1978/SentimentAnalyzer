@@ -4,6 +4,7 @@ import type {
   LiveCompetitor,
   PlatformRatings,
   StoreChartRanks,
+  TransferFees,
 } from "./liveData";
 import type { ChannelScore, MarketRating } from "./marketAnalytics";
 
@@ -30,6 +31,8 @@ export type RuntimeMarket = {
   competitorBasis: string;
   chart: StoreChartRanks;
   quotes: CompetitorSharePrice[];
+  /** Live transfer fees for money-transfer competitors; null when the corridor is not covered. */
+  transferFees: TransferFees | null;
   availability: ModelAvailability[];
 };
 export type RuntimeModel = {
@@ -219,6 +222,67 @@ export function parseRuntimeMarket(
       status: item.status as CompetitorSharePrice["status"],
     };
   });
+  const parseTransferFees = (raw: unknown): TransferFees | null => {
+    if (raw === undefined || raw === null) return null;
+    if (!isRecord(raw) || !isRecord(raw.corridor) || !isRecord(raw.fees))
+      return invalid();
+    const text = (item: Record<string, unknown>, key: string) =>
+      typeof item[key] === "string" ? (item[key] as string) : invalid();
+    const positive = (item: Record<string, unknown>, key: string) =>
+      typeof item[key] === "number" &&
+      Number.isFinite(item[key]) &&
+      (item[key] as number) > 0
+        ? (item[key] as number)
+        : invalid();
+    const fees: TransferFees["fees"] = {};
+    for (const [name, entry] of Object.entries(raw.fees)) {
+      if (!isRecord(entry)) return invalid();
+      if (
+        typeof entry.fee !== "number" ||
+        !Number.isFinite(entry.fee) ||
+        entry.fee < 0
+      )
+        return invalid();
+      const total = entry.totalCostPercent;
+      const mid = entry.midMarketRate;
+      if (
+        !(
+          total === null ||
+          (typeof total === "number" && Number.isFinite(total))
+        )
+      )
+        return invalid();
+      if (!(mid === null || (typeof mid === "number" && mid > 0)))
+        return invalid();
+      fees[name] = {
+        provider: text(entry, "provider"),
+        fee: entry.fee,
+        feeCurrency: text(entry, "feeCurrency"),
+        exchangeRate: positive(entry, "exchangeRate"),
+        midMarketRate: mid,
+        totalCostPercent: total,
+        receivedAmount: positive(entry, "receivedAmount"),
+        sendAmount: positive(entry, "sendAmount"),
+        sendCurrency: text(entry, "sendCurrency"),
+        receiveCurrency: text(entry, "receiveCurrency"),
+        from: text(entry, "from"),
+        to: text(entry, "to"),
+        collectedAt:
+          typeof entry.collectedAt === "string" ? entry.collectedAt : null,
+        source: text(entry, "source"),
+      };
+    }
+    return {
+      corridor: {
+        from: text(raw.corridor, "from"),
+        fromCurrency: text(raw.corridor, "fromCurrency"),
+        to: text(raw.corridor, "to"),
+        toCurrency: text(raw.corridor, "toCurrency"),
+      },
+      fees,
+    };
+  };
+  const transferFees = parseTransferFees(value.transferFees);
   const availability = value.availability.map((item): ModelAvailability => {
     if (
       !isRecord(item) ||
@@ -242,6 +306,7 @@ export function parseRuntimeMarket(
     competitors,
     competitorBasis: value.competitorBasis,
     quotes,
+    transferFees,
     availability,
     chart: {
       apple: chart(value.chart.apple),

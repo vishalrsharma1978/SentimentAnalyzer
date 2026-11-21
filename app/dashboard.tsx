@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentRef } from "react";
 import {
   Animated,
@@ -33,6 +33,10 @@ import { SentimentMindMap } from "../src/components/SentimentMindMap";
 import { CustomerReviewFeed } from "../src/components/CustomerReviewFeed";
 import { SentimentIssueFunnel } from "../src/components/SentimentIssueFunnel";
 import { AIInsightsBrief } from "../src/components/AIInsightsBrief";
+import { ReportView } from "../src/components/ReportView";
+import { buildReport, reportKinds } from "../src/data/reportData";
+import type { Report, ReportKind } from "../src/data/reportData";
+import { reportToHtml } from "../src/data/reportHtml";
 import { countries } from "../src/data/demoData";
 import {
   fetchChannelRatings,
@@ -57,6 +61,8 @@ import {
   getCorridorForCountry,
   getFeeDelta,
 } from "../src/data/corridorData";
+import { feeCellFor, hasAnyFee } from "../src/data/transferFeeView";
+import type { CuratedLookup } from "../src/data/transferFeeView";
 import { categorizeSentimentReviews } from "../src/data/sentimentCategories";
 import type {
   SentimentCategory,
@@ -346,6 +352,8 @@ type PlatformRating = {
   sourceCount: number;
 };
 
+const EMPTY_REVIEWS: CustomerSentiment[] = [];
+
 function getReviewIdentity(review: CustomerSentiment) {
   return `${review.source}\u0000${review.author}\u0000${review.text}`;
 }
@@ -591,6 +599,11 @@ export default function Dashboard() {
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     setSection(section);
   };
+  const [alertDetail, setAlertDetail] = useState<
+    "positive" | "negative" | null
+  >(null);
+  const [reportKind, setReportKind] = useState<ReportKind | null>(null);
+  const [reportCopied, setReportCopied] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState("Global");
   const [countrySelection, setSelectedCountry] = useState<SunburstMarket>(
     selectedMarkets[0],
@@ -706,9 +719,38 @@ export default function Dashboard() {
     reportPreparation,
   );
   const modelMarket = runtime.model?.markets[selectedCountry.code];
-  const customerReviews = runtimeEnabled
-    ? (modelMarket?.reviews ?? [])
-    : legacyReviews;
+  const modelReviews = modelMarket?.reviews;
+  const customerReviews = useMemo(
+    () => (runtimeEnabled ? (modelReviews ?? EMPTY_REVIEWS) : legacyReviews),
+    [runtimeEnabled, modelReviews, legacyReviews],
+  );
+  const alertStats = useMemo(() => {
+    const build = (sentiment: "positive" | "negative") => {
+      const reviews = customerReviews.filter(
+        (review) => review.sentiment === sentiment,
+      );
+      const bySource: Record<string, number> = {};
+      let ratingSum = 0;
+      for (const review of reviews) {
+        bySource[review.source] = (bySource[review.source] ?? 0) + 1;
+        ratingSum += review.rating || 0;
+      }
+      return {
+        length: reviews.length,
+        reviews,
+        bySource,
+        avgRating: reviews.length ? ratingSum / reviews.length : 0,
+      };
+    };
+    return { negative: build("negative"), positive: build("positive") };
+  }, [customerReviews]);
+  const reviewInsights = useMemo(
+    () => ({
+      sentimentWords: getSentimentWords(customerReviews),
+      issueCategories: categorizeSentimentReviews(customerReviews),
+    }),
+    [customerReviews],
+  );
   const liveCompetitors = runtimeEnabled
     ? (modelMarket?.competitors ?? [])
     : legacyCompetitors;
@@ -1290,17 +1332,10 @@ export default function Dashboard() {
   );
 
   const renderReviews = () => {
-    const positiveCount = customerReviews.filter(
-      (review) => review.sentiment === "positive",
-    ).length;
-    const neutralCount = customerReviews.filter(
-      (review) => review.sentiment === "neutral",
-    ).length;
-    const negativeCount = customerReviews.filter(
-      (review) => review.sentiment === "negative",
-    ).length;
-    const sentimentWords = getSentimentWords(customerReviews);
-    const issueCategories = categorizeSentimentReviews(customerReviews);
+    const positiveCount = alertStats.positive.length;
+    const negativeCount = alertStats.negative.length;
+    const neutralCount = customerReviews.length - positiveCount - negativeCount;
+    const { sentimentWords, issueCategories } = reviewInsights;
     const selectedIssueCategory =
       issueCategories.find((category) => category.id === issueCategoryId) ??
       null;
@@ -1843,6 +1878,28 @@ export default function Dashboard() {
         getBrandDailyVolume(selectedBrand) ||
         getBrandCorridorFee(selectedCountry.code, selectedBrand),
       );
+    // Live transfer fees come with the model; the curated World Bank ranges fill the gaps. The
+    // column shows whenever any competitor in this market has a fee to compare.
+    const curatedFee: CuratedLookup = (countryCode, name) => {
+      const range = getBrandCorridorFee(countryCode, name);
+      const corridor = getCorridorForCountry(countryCode);
+      return range && corridor
+        ? {
+            ...range,
+            corridor: `${corridor.fromCode}→${corridor.toCode}`,
+            amount: corridor.benchmarkAmount,
+          }
+        : null;
+    };
+    const liveTransferFees = runtimeEnabled
+      ? (modelMarket?.transferFees ?? null)
+      : null;
+    const showFeeColumn = hasAnyFee(
+      liveCompetitors.map((item) => item.name),
+      selectedCountry.code,
+      liveTransferFees,
+      curatedFee,
+    );
     const topCorridor = isRemittanceBrand
       ? getCorridorForCountry(selectedCountry.code)
       : null;
@@ -1970,7 +2027,10 @@ export default function Dashboard() {
             <SafeView
               style={[
                 styles.competitorTable,
-                !isRemittanceBrand && styles.competitorTableCompact,
+                !isRemittanceBrand &&
+                  (showFeeColumn
+                    ? styles.competitorTableWithFees
+                    : styles.competitorTableCompact),
               ]}
             >
               <SafeView
@@ -2011,7 +2071,7 @@ export default function Dashboard() {
                 >
                   Share price
                 </Text>
-                {isRemittanceBrand && (
+                {showFeeColumn && (
                   <Text
                     style={[
                       styles.competitorTableHeading,
@@ -2057,6 +2117,12 @@ export default function Dashboard() {
                   item.name,
                 );
                 const dailyVolume = getBrandDailyVolume(item.name);
+                const feeCell = feeCellFor(
+                  item.name,
+                  selectedCountry.code,
+                  liveTransferFees,
+                  curatedFee,
+                );
                 return (
                   <SafeView
                     key={item.name}
@@ -2153,45 +2219,64 @@ export default function Dashboard() {
                             : "Quote feed unavailable"}
                       </Text>
                     </SafeView>
-                    {isRemittanceBrand && (
+                    {showFeeColumn && (
                       <SafeView
                         style={[
                           styles.competitorMetricCell,
                           styles.competitorFeeColumn,
                         ]}
                       >
-                        {corridorFee && topCorridor ? (
+                        {feeCell.kind === "live" ? (
                           <>
                             <Text style={styles.competitorMetricValue}>
-                              {formatFeeRange(corridorFee)}
+                              {feeCell.total
+                                ? `${feeCell.fee} · ${feeCell.total}`
+                                : feeCell.fee}
                             </Text>
                             <Text
                               numberOfLines={1}
                               style={styles.competitorMetricNote}
                             >
-                              {`${topCorridor.fromCode}→${topCorridor.toCode} · ${topCorridor.benchmarkAmount}`}
+                              {feeCell.rate}
                             </Text>
-                            {corridorAverage &&
-                              (() => {
-                                const delta = getFeeDelta(
-                                  corridorFee,
-                                  corridorAverage.average,
-                                );
-                                return (
-                                  <Text
-                                    numberOfLines={1}
-                                    style={[
-                                      styles.competitorMetricNote,
-                                      delta.direction === "below" &&
-                                        styles.feeDeltaBelow,
-                                      delta.direction === "above" &&
-                                        styles.feeDeltaAbove,
-                                    ]}
-                                  >
-                                    {delta.text}
-                                  </Text>
-                                );
-                              })()}
+                            <Text
+                              numberOfLines={1}
+                              style={styles.competitorMetricNote}
+                            >
+                              {feeCell.received}
+                            </Text>
+                            <Text
+                              numberOfLines={1}
+                              style={styles.competitorMetricNote}
+                            >
+                              {`${feeCell.corridor} · ${feeCell.amount} · Live`}
+                            </Text>
+                            {feeCell.deltaText && (
+                              <Text
+                                numberOfLines={1}
+                                style={[
+                                  styles.competitorMetricNote,
+                                  feeCell.tone === "below" &&
+                                    styles.feeDeltaBelow,
+                                  feeCell.tone === "above" &&
+                                    styles.feeDeltaAbove,
+                                ]}
+                              >
+                                {feeCell.deltaText}
+                              </Text>
+                            )}
+                          </>
+                        ) : feeCell.kind === "range" ? (
+                          <>
+                            <Text style={styles.competitorMetricValue}>
+                              {feeCell.range}
+                            </Text>
+                            <Text
+                              numberOfLines={1}
+                              style={styles.competitorMetricNote}
+                            >
+                              {`${feeCell.corridor} · ${feeCell.amount} · ${feeCell.source}`}
+                            </Text>
                           </>
                         ) : (
                           <>
@@ -2199,7 +2284,7 @@ export default function Dashboard() {
                               Not covered
                             </Text>
                             <Text style={styles.competitorMetricNote}>
-                              No corridor fee data
+                              No fee data for this provider
                             </Text>
                           </>
                         )}
@@ -2444,76 +2529,163 @@ export default function Dashboard() {
     );
   };
 
-  const renderReports = () =>
-    runtimeEnabled ? (
-      <SafeView style={[styles.card, styles.fullCard]}>
-        <Text style={styles.cardTitle}>Executive reports</Text>
-        <Text style={styles.cardSub}>
-          Report export is not available for runtime models. No sample reports
-          are presented as generated results.
-        </Text>
-      </SafeView>
-    ) : (
-      <>
+  // Builds the report from the data already on screen, so every number is live and nothing is
+  // estimated. It is rebuilt on each render, so "Refresh data" and a new review window update it.
+  const buildCurrentReport = (kind: ReportKind): Report =>
+    buildReport({
+      categorize: categorizeSentimentReviews,
+      kind,
+      brand: brandName,
+      countryName: selectedCountry.name,
+      countryCode: selectedCountry.code,
+      months: durationMonths,
+      brandRating: comparisonRating,
+      competitors: liveCompetitors,
+      reviews: customerReviews,
+      quotes: competitorSharePrices,
+      transferFees: runtimeEnabled ? (modelMarket?.transferFees ?? null) : null,
+      markets: selectedMarkets,
+      marketRatings,
+    });
+
+  const reportAsText = (report: Report) =>
+    [
+      report.title,
+      report.subtitle,
+      ...report.kpis.map(
+        (kpi) =>
+          `${kpi.label}: ${kpi.value}${kpi.delta ? ` (${kpi.delta})` : ""}`,
+      ),
+      ...report.callouts.map((item) => `• ${item.headline}: ${item.detail}`),
+      ...report.gaps.map((gap) => `Not included: ${gap}`),
+    ].join("\n");
+
+  const copyReport = (report: Report) => {
+    const clipboard =
+      typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+    if (!clipboard) return;
+    void clipboard.writeText(reportAsText(report)).then(() => {
+      setReportCopied(true);
+      setTimeout(() => setReportCopied(false), 2000);
+    });
+  };
+
+  const canPrint =
+    typeof window !== "undefined" && typeof window.open === "function";
+
+  // Prints a standalone copy of the report so the saved PDF holds only the report, not the dashboard.
+  const printReport = (report: Report) => {
+    const popup = window.open("", "_blank", "width=900,height=1000");
+    if (!popup) return;
+    popup.document.open();
+    popup.document.write(reportToHtml(report));
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => popup.print(), 300);
+  };
+
+  const renderReports = () => {
+    // A source that failed is listed under "Not included" in the report, so only an empty market
+    // (nothing collected at all) or a collection still in progress holds the buttons back.
+    const hasAnyData =
+      customerReviews.length > 0 ||
+      liveCompetitors.length > 0 ||
+      brandRating !== null;
+    const liveReady = !liveLoading && hasAnyData;
+    if (reportKind) {
+      const report = buildCurrentReport(reportKind);
+      return (
         <SafeView style={[styles.card, styles.fullCard]}>
-          <SafeView style={styles.cardHeader}>
-            <SafeView>
-              <Text style={styles.cardTitle}>Executive reports</Text>
-              <Text style={styles.cardSub}>
-                Board-ready exports and recurring digests
-              </Text>
+          <ReportView
+            report={report}
+            onBack={() => setReportKind(null)}
+            onRefresh={() => setDataRefreshNonce((current) => current + 1)}
+            onPrint={canPrint ? () => printReport(report) : null}
+            onCopy={() => copyReport(report)}
+            copied={reportCopied}
+          />
+        </SafeView>
+      );
+    }
+    return (
+      <SafeView style={[styles.card, styles.fullCard]}>
+        <SafeView style={styles.cardHeader}>
+          <SafeView>
+            <Text style={styles.cardTitle}>Executive reports</Text>
+            <Text style={styles.cardSub}>
+              Choose a report. Each one is built from live ratings, customer
+              comments, share prices and transfer fees for{" "}
+              {selectedCountry.name}.
+            </Text>
+          </SafeView>
+          <SafeView style={styles.liveBadge}>
+            <SafeView style={styles.liveDot} />
+            <Text style={styles.liveBadgeText}>
+              {liveLoading ? "COLLECTING" : "LIVE DATA"}
+            </Text>
+          </SafeView>
+        </SafeView>
+        {!liveLoading && !hasAnyData && (
+          <Text style={styles.cardSub}>
+            No live data could be collected for this market, so a report would
+            be empty. Refresh the data and try again.
+          </Text>
+        )}
+        {!liveLoading && hasAnyData && liveError && (
+          <Text style={styles.cardSub}>
+            Some sources were unavailable. Reports are still built from what was
+            collected and list anything missing under &quot;Not included&quot;.
+          </Text>
+        )}
+        {reportKinds.map((kind, index) => (
+          <SafeView key={kind.id} style={styles.reportRow}>
+            <SafeView style={styles.reportIcon}>
+              <Ionicons
+                name={
+                  index === 0
+                    ? "document-text-outline"
+                    : index === 1
+                      ? "stats-chart-outline"
+                      : "chatbubbles-outline"
+                }
+                size={18}
+                color={colors.primary}
+              />
             </SafeView>
-            <Pressable style={styles.primaryButton}>
-              <Ionicons name="download-outline" size={15} color="#fff" />
-              <Text style={styles.primaryButtonText}>Generate report</Text>
+            <SafeView style={styles.reportCopy}>
+              <Text style={styles.reportTitle}>{kind.title}</Text>
+              <Text style={styles.reportMeta}>{kind.summary}</Text>
+              <Text style={styles.reportMeta}>{kind.audience}</Text>
+            </SafeView>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Generate ${kind.title}`}
+              disabled={!liveReady}
+              onPress={() => setReportKind(kind.id)}
+              style={[styles.primaryButton, !liveReady && { opacity: 0.45 }]}
+              testID={`generate-report-${kind.id}`}
+            >
+              <Ionicons name="sparkles-outline" size={15} color="#fff" />
+              <Text style={styles.primaryButtonText}>Generate</Text>
             </Pressable>
           </SafeView>
-          {[
-            ["Global Sentiment Brief", "Updated 12 minutes ago", "PDF"],
-            ["Competitive Market Review", "Updated yesterday", "PPTX"],
-            ["Customer Voice Summary", "Updated weekly", "XLSX"],
-          ].map((item, index) => (
-            <SafeView key={item[0]} style={styles.reportRow}>
-              <SafeView style={styles.reportIcon}>
-                <Ionicons
-                  name={
-                    index === 0
-                      ? "document-text-outline"
-                      : index === 1
-                        ? "stats-chart-outline"
-                        : "grid-outline"
-                  }
-                  size={18}
-                  color={colors.primary}
-                />
-              </SafeView>
-              <SafeView style={styles.reportCopy}>
-                <Text style={styles.reportTitle}>{item[0]}</Text>
-                <Text style={styles.reportMeta}>{item[1]}</Text>
-              </SafeView>
-              <SafeView style={styles.formatBadge}>
-                <Text style={styles.formatText}>{item[2]}</Text>
-              </SafeView>
-              <Pressable style={styles.reportAction}>
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={18}
-                  color={colors.faint}
-                />
-              </Pressable>
-            </SafeView>
-          ))}
-        </SafeView>
-      </>
+        ))}
+      </SafeView>
     );
+  };
 
   const renderAlerts = () => {
-    const negative = customerReviews.filter(
-      (review) => review.sentiment === "negative",
-    ).length;
-    const positive = customerReviews.filter(
-      (review) => review.sentiment === "positive",
-    ).length;
+    const negative = alertStats.negative.length;
+    const positive = alertStats.positive.length;
+    const openAlert = (sentiment: "positive" | "negative") =>
+      setAlertDetail(sentiment);
+    const detailSentiment = alertDetail;
+    const detailStats = detailSentiment ? alertStats[detailSentiment] : null;
+    const detailReviews = detailStats?.reviews ?? [];
+    const detailBySource = detailStats?.bySource ?? {};
+    const detailAvgRating = detailStats?.avgRating ?? 0;
+    const detailColor =
+      detailSentiment === "negative" ? colors.red : colors.green;
     const alertsData =
       negative > 0
         ? [
@@ -2552,21 +2724,195 @@ export default function Dashboard() {
             </Text>
           </SafeView>
         </SafeView>
-        {alertsData.map((item) => (
-          <SafeView key={item[1]} style={styles.alertRow}>
-            <SafeView
-              style={[styles.alertIcon, { backgroundColor: `${item[4]}14` }]}
+        {alertsData.map((item) => {
+          const sentiment: "positive" | "negative" | null =
+            item[0] === "Negative feedback"
+              ? "negative"
+              : item[0] === "Positive feedback"
+                ? "positive"
+                : null;
+          return (
+            <Pressable
+              key={item[1]}
+              accessibilityRole="button"
+              accessibilityLabel={`${item[1]}. View details`}
+              disabled={!sentiment}
+              onPress={() => sentiment && openAlert(sentiment)}
+              style={({ hovered, pressed }: any) => [
+                styles.alertRow,
+                (hovered || pressed) && sentiment
+                  ? { backgroundColor: colors.primarySoft }
+                  : null,
+              ]}
             >
-              <Ionicons name={item[3] as any} size={18} color={item[4]} />
-            </SafeView>
-            <SafeView style={styles.alertCopy}>
-              <Text style={styles.alertTitle}>{item[1]}</Text>
-              <Text style={styles.alertMeta}>
-                {item[0]} · {item[2]}
-              </Text>
-            </SafeView>
-          </SafeView>
-        ))}
+              <SafeView
+                style={[styles.alertIcon, { backgroundColor: `${item[4]}14` }]}
+              >
+                <Ionicons name={item[3] as any} size={18} color={item[4]} />
+              </SafeView>
+              <SafeView style={styles.alertCopy}>
+                <Text style={styles.alertTitle}>{item[1]}</Text>
+                <Text style={styles.alertMeta}>
+                  {item[0]} · {item[2]}
+                </Text>
+              </SafeView>
+              {sentiment ? (
+                <SafeView
+                  style={{ flexDirection: "row", alignItems: "center" }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: colors.primary,
+                      fontFamily: fonts.black,
+                      marginRight: 4,
+                    }}
+                  >
+                    View details
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </SafeView>
+              ) : null}
+            </Pressable>
+          );
+        })}
+        <Modal
+          visible={detailSentiment !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setAlertDetail(null)}
+        >
+          <Pressable
+            onPress={() => setAlertDetail(null)}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(16,24,40,0.38)",
+              padding: 20,
+            }}
+          >
+            <Pressable
+              style={{
+                width: 520,
+                maxWidth: "100%",
+                maxHeight: "86%",
+                borderRadius: 16,
+                backgroundColor: colors.card,
+                padding: 22,
+                borderWidth: 1,
+                borderColor: colors.line,
+              }}
+            >
+              <SafeView
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <SafeView style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>
+                    {detailSentiment === "negative"
+                      ? "Negative feedback alert"
+                      : "Positive feedback alert"}
+                  </Text>
+                  <Text style={styles.cardSub}>
+                    {detailReviews.length} records · avg rating{" "}
+                    {detailAvgRating.toFixed(1)} · {brandName}
+                  </Text>
+                </SafeView>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close alert details"
+                  onPress={() => setAlertDetail(null)}
+                >
+                  <Ionicons name="close" size={20} color={colors.navy} />
+                </Pressable>
+              </SafeView>
+              <SafeView style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                {Object.entries(detailBySource).map(([source, count]) => (
+                  <SafeView
+                    key={source}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      marginRight: 6,
+                      marginBottom: 6,
+                      backgroundColor: `${detailColor}14`,
+                    }}
+                  >
+                    <Text style={{ fontSize: 10, color: detailColor }}>
+                      {source} · {count}
+                    </Text>
+                  </SafeView>
+                ))}
+              </SafeView>
+              <ScrollView style={{ marginTop: 8 }}>
+                {detailReviews.slice(0, 20).map((review, index) => (
+                  <SafeView
+                    key={`${getReviewIdentity(review)}-${index}`}
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: colors.line,
+                      paddingVertical: 10,
+                    }}
+                  >
+                    <Text style={styles.alertTitle}>
+                      {review.author} · {review.rating}★
+                    </Text>
+                    <Text style={styles.alertMeta}>
+                      {review.source}
+                      {review.publishedAt
+                        ? ` · ${new Date(review.publishedAt).toLocaleDateString()}`
+                        : ""}
+                    </Text>
+                    <Text
+                      numberOfLines={4}
+                      style={{ fontSize: 11, color: colors.navy, marginTop: 6 }}
+                    >
+                      {review.text}
+                    </Text>
+                  </SafeView>
+                ))}
+              </ScrollView>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (detailSentiment) {
+                    setIssueCategoryId(null);
+                    setIssueCategoryLabel(null);
+                    setIssueReviewIdentities([]);
+                    setTargetReview(null);
+                    setThemeFilter(null);
+                    setSentimentFilter(detailSentiment);
+                    setShowAllReviews(false);
+                    setActiveSection("Overview");
+                    setTimeout(
+                      () =>
+                        mainScrollRef.current?.scrollTo({
+                          y: reviewFeedOffset.current,
+                          animated: true,
+                        }),
+                      120,
+                    );
+                  }
+                  setAlertDetail(null);
+                }}
+                style={[styles.primaryButton, { marginTop: 14 }]}
+              >
+                <Text style={styles.primaryButtonText}>
+                  View all in review feed
+                </Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </SafeView>
     );
   };
@@ -3820,6 +4166,8 @@ const styles = StyleSheet.create({
   feeDeltaAbove: { color: colors.red, fontFamily: fonts.bold },
   competitorTable: { width: 1029 },
   competitorTableCompact: { width: 719 },
+  // Compact table plus the transfer-fee column (live quotes list fee, total, rate and payout).
+  competitorTableWithFees: { width: 929 },
   competitorTableRow: {
     minHeight: 58,
     flexDirection: "row",
@@ -3843,7 +4191,7 @@ const styles = StyleSheet.create({
   competitorRatingColumn: { width: 140 },
   competitorReviewsColumn: { width: 90 },
   competitorShareColumn: { width: 160 },
-  competitorFeeColumn: { width: 145 },
+  competitorFeeColumn: { width: 210 },
   competitorVolumeColumn: { width: 165 },
   competitorRankColumn: { width: 115 },
   competitorStatusColumn: { width: 84 },
