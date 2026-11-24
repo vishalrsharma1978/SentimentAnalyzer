@@ -19,6 +19,7 @@ const {
 } = require("./channelRatings");
 const { westernUnionStoreIds } = require("./westernUnionApps");
 const { storeBrandRating } = require("./storeBrandRating");
+const { collectSocialReviews } = require("./socialReviews");
 const { discoverCompetitors } = require("./competitorDiscovery");
 const { discoverAppleCompetitors } = require("./appleCompetitors");
 const { registerModelRoute } = require("./runtimeModel");
@@ -724,7 +725,19 @@ const DIST_DIR = path.join(__dirname, "..", "dist");
 const hasWebBuild = fs.existsSync(path.join(DIST_DIR, "index.html"));
 
 if (hasWebBuild) {
-  app.use(express.static(DIST_DIR));
+  // Hashed bundles under _expo/static never change; keep index.html fresh.
+  app.use(
+    express.static(DIST_DIR, {
+      setHeaders: (response, filePath) => {
+        if (filePath.includes(`${path.sep}_expo${path.sep}static${path.sep}`)) {
+          response.setHeader(
+            "Cache-Control",
+            "public, max-age=31536000, immutable",
+          );
+        }
+      },
+    }),
+  );
 } else {
   app.get("/", (_request, response) => {
     response.json({
@@ -1541,6 +1554,8 @@ registerModelRoute(app, {
           ...config,
           strict: true,
         }),
+  social: (source, config) =>
+    collectSocialReviews(source, config.brand, { trustpilotDomain }),
   peers: (platform, config) =>
     platform === "google"
       ? discoverCompetitors({

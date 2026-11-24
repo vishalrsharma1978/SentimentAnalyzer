@@ -53,13 +53,11 @@ import type {
 } from "../src/data/liveData";
 import {
   formatDailyVolume,
-  formatFeeRange,
   getBenchmarkCostOnAmount,
   getBrandCorridorFee,
   getBrandDailyVolume,
   getCorridorAverageFee,
   getCorridorForCountry,
-  getFeeDelta,
 } from "../src/data/corridorData";
 import { feeCellFor, hasAnyFee } from "../src/data/transferFeeView";
 import type { CuratedLookup } from "../src/data/transferFeeView";
@@ -2112,10 +2110,6 @@ export default function Dashboard() {
                 const quote = sharePriceByName.get(item.name);
                 const rank = countryRanks.get(item.name);
                 const isSelectedBrand = item.name === selectedBrand;
-                const corridorFee = getBrandCorridorFee(
-                  selectedCountry.code,
-                  item.name,
-                );
                 const dailyVolume = getBrandDailyVolume(item.name);
                 const feeCell = feeCellFor(
                   item.name,

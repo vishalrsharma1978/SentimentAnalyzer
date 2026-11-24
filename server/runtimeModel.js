@@ -1,3 +1,4 @@
+const { SOCIAL_SOURCES } = require("./socialReviews");
 const PLATFORMS = [
   "Web",
   "Mobile · iOS",
@@ -265,19 +266,59 @@ async function evaluateMarket(config, collectors) {
   );
   const batches = await Promise.all(
     config.sources.map(async (source) => {
+      const social = SOCIAL_SOURCES.includes(source);
       const enabled =
         source === "Google Play"
           ? google
           : source === "App Store"
             ? apple
-            : false;
+            : social && Boolean(collectors.social);
+      if (enabled && social) {
+        const posts = await attempt(
+          source,
+          () => collectors.social(source, config),
+          [],
+        );
+        const dated = posts.filter((review) => {
+          const date = new Date(review.publishedAt);
+          return (
+            review.source === source &&
+            typeof review.text === "string" &&
+            review.text.trim() &&
+            validRating(review.rating) &&
+            review.publishedAt &&
+            !Number.isNaN(date.getTime()) &&
+            date >= cutoff &&
+            date <= now
+          );
+        });
+        record(
+          source,
+          dated.length > 0,
+          dated.length
+            ? `${dated.length} dated posts/reviews from ${source}; stars are derived from text polarity where the feed has no rating. Country attribution is not verified, so this feed is brand-wide.`
+            : source === "Trustpilot"
+              ? "No reviews returned. Trustpilot disallows scraping, so it needs TRUSTPILOT_API_KEY (Business API) in .env."
+              : "No credentials or public-page data returned for this source within the selected window. Add API keys or start the Scrapy service.",
+          dated.length === 0,
+        );
+        return dated.map((review) => ({
+          ...review,
+          sentiment:
+            review.rating >= 4
+              ? "positive"
+              : review.rating <= 2
+                ? "negative"
+                : "neutral",
+        }));
+      }
       if (!enabled) {
         record(
           source,
           false,
           ["Google Play", "App Store"].includes(source)
             ? "The corresponding mobile platform is not selected."
-            : ["Reddit", "Trustpilot"].includes(source)
+            : source === "Reddit"
               ? "This connector cannot verify country attribution; global content is excluded from country sentiment."
               : "A verified country-specific connector is not configured for this source.",
           true,

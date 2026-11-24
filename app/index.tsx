@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Modal,
   Pressable,
@@ -66,10 +66,8 @@ export default function Onboarding() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [recentBrands, setRecentBrands] = useState<RecentBrand[]>([]);
-  useEffect(() => {
-    setRecentBrands(loadRecentBrands());
-  }, []);
+  const [recentBrands, setRecentBrands] =
+    useState<RecentBrand[]>(loadRecentBrands);
   const availableCountries = countriesForBrand(countries, businessName);
   const suggestion = brandSetupSuggestions[businessName.trim()];
 

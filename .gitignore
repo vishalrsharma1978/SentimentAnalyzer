@@ -45,3 +45,7 @@ playwright-report/
 # generated native folders
 /ios
 /android
+ 
+# scratch/debug artifacts 
+tmp_* 
+render_probe.json

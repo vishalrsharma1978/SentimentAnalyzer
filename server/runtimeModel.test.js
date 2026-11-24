@@ -198,6 +198,40 @@ test("sources that are unavailable by design and private competitors do not down
   assert.equal(failed.status, "limited");
 });
 
+test("Trustpilot reviews feed brand-wide sentiment when the connector returns them", async () => {
+  const trustpilot = {
+    source: "Trustpilot",
+    author: "Pat",
+    text: "Slow transfer and high fees",
+    rating: 1,
+    publishedAt: new Date().toISOString(),
+    sourceId: "tp-1",
+  };
+  const result = await evaluateMarket(
+    { ...setup, sources: ["Google Play", "Trustpilot"] },
+    collectors({ social: async () => [trustpilot] }),
+  );
+  const entry = result.availability.find(
+    (item) => item.source === "Trustpilot",
+  );
+  assert.equal(entry.status, "available");
+  assert.match(entry.reason, /brand-wide/i);
+  assert.equal(result.statistics.sentiment.negative, 1);
+});
+
+test("Trustpilot without an API key reports it needs the Business API, not scraping", async () => {
+  const result = await evaluateMarket(
+    { ...setup, sources: ["Google Play", "Trustpilot"] },
+    collectors({ social: async () => [] }),
+  );
+  const entry = result.availability.find(
+    (item) => item.source === "Trustpilot",
+  );
+  assert.equal(entry.status, "unavailable");
+  assert.match(entry.reason, /TRUSTPILOT_API_KEY/);
+  assert.equal(result.status, "ready");
+});
+
 test("filters undated, future, out-of-window and incorrectly attributed reviews", async () => {
   const result = await evaluateMarket(
     setup,
