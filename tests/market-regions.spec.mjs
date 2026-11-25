@@ -8,7 +8,8 @@ test('region and country changes keep scope, ranking and selected detail synchro
   await expect(explorer.getByRole('button', { name: /^Country / })).toHaveCount(3);
   await expect(explorer.getByText(/Rank scope: Europe · 3 rated \/ 3 monitored/)).toBeVisible();
   await explorer.getByRole('button', { name: 'Country Germany', exact: true }).click();
-  await expect(explorer.getByText('Germany / Mobile app', { exact: true })).toBeVisible();
+  await expect(explorer.getByTestId('selected-detail-title')).toHaveText('Germany');
+  await expect(explorer.getByTestId('selected-detail-channel')).toContainText('Mobile app');
   await explorer.getByRole('button', { name: 'Chart Ranked bars', exact: true }).click();
   await expect(explorer.getByRole('button', { name: 'Explore Germany, rank 1, rating 4.80', exact: true })).toBeVisible();
   await explorer.getByRole('button', { name: 'Region Global', exact: true }).click();

@@ -42,6 +42,13 @@ const toneText = {
   risk: colors.redText,
   neutral: colors.navy,
 } as const;
+/** Light bar fills so rating charts read as soft red / amber / green. */
+const toneBar = {
+  good: colors.greenLight,
+  watch: colors.orangeLight,
+  risk: colors.redLight,
+  neutral: colors.sky,
+} as const;
 
 function KpiCard({ kpi }: { kpi: Kpi }) {
   return (
@@ -108,10 +115,10 @@ function BarChart({
         {data.map((item, index) => {
           const y = index * ROW + 2;
           const length = Math.max(2, (item.value / scale) * track);
-          const fill = item.highlight
-            ? colors.navy
-            : item.tone
-              ? toneColor[item.tone]
+          const fill = item.tone
+            ? toneBar[item.tone]
+            : item.highlight
+              ? colors.navy
               : colors.sky;
           return (
             <G key={`${item.label}-${index}`}>
@@ -142,6 +149,8 @@ function BarChart({
                 height={ROW - 10}
                 rx={4}
                 fill={fill}
+                stroke={item.highlight ? colors.navy : "none"}
+                strokeWidth={item.highlight ? 1.5 : 0}
               />
               <SvgText
                 x={LABEL_WIDTH + track + 8}

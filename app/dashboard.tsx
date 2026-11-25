@@ -32,6 +32,7 @@ import type { MarketRatings } from "../src/data/marketAnalytics";
 import { SentimentMindMap } from "../src/components/SentimentMindMap";
 import { CustomerExperience } from "../src/components/CustomerExperience";
 import { FeatureMap } from "../src/components/FeatureMap";
+import { SectionToggle } from "../src/components/SectionToggle";
 import { CustomerReviewFeed } from "../src/components/CustomerReviewFeed";
 import { SentimentIssueFunnel } from "../src/components/SentimentIssueFunnel";
 import { AIInsightsBrief } from "../src/components/AIInsightsBrief";
@@ -606,8 +607,28 @@ export default function Dashboard() {
     setCompetitiveHidden((current) =>
       setSectionHidden("competitive-intelligence", !current),
     );
+  const [reviewsHidden, setReviewsHidden] = useState(() =>
+    isSectionHidden("customer-reviews"),
+  );
+  const toggleReviews = () =>
+    setReviewsHidden((current) =>
+      setSectionHidden("customer-reviews", !current),
+    );
   const setActiveSection = (section: string) => {
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    // The Sentiment menu always opens with every section expanded, clearing
+    // any hidden state remembered from other tabs. The Markets menu opens
+    // with the review sections collapsed so the market charts lead.
+    if (section === "Sentiment") {
+      setSectionHidden("customer-reviews", false);
+      setSectionHidden("customer-voice-map", false);
+      setSectionHidden("issue-funnel", false);
+      setReviewsHidden(false);
+    } else if (section === "Markets") {
+      setSectionHidden("customer-reviews", true);
+      setSectionHidden("issue-funnel", true);
+      setReviewsHidden(true);
+    }
     setSection(section);
   };
   const [alertDetail, setAlertDetail] = useState<
@@ -1452,7 +1473,15 @@ export default function Dashboard() {
                   : "LIVE SOURCES"}
             </Text>
           </SafeView>
+          <SectionToggle
+            hidden={reviewsHidden}
+            onToggle={toggleReviews}
+            label="customer reviews section"
+            testID="reviews-toggle"
+          />
         </SafeView>
+        {!reviewsHidden && (
+        <>
         {!liveLoading && (
           <Text
             style={{
@@ -1471,6 +1500,7 @@ export default function Dashboard() {
         )}
         {customerReviews.length > 0 && (
           <SentimentMindMap
+            key={`voice-map-${activeSection}`}
             country={selectedCountry.name}
             total={customerReviews.length}
             positive={positiveCount}
@@ -1482,6 +1512,7 @@ export default function Dashboard() {
         )}
         {issueCategories.length > 0 && (
           <SentimentIssueFunnel
+            key={`issue-funnel-${activeSection}`}
             categories={issueCategories}
             selectedCategory={issueCategoryId}
             onSelect={handleIssueCategorySelect}
@@ -1768,6 +1799,8 @@ export default function Dashboard() {
             </Text>
           </SafeView>
         )}
+        </>
+        )}
       </SafeView>
     );
   };
@@ -1971,27 +2004,12 @@ export default function Dashboard() {
                 {liveError ? "SOURCE ISSUE" : "MARKET DATA"}
               </Text>
             </SafeView>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                competitiveHidden
-                  ? "Show competitive intelligence"
-                  : "Hide competitive intelligence"
-              }
-              accessibilityState={{ expanded: !competitiveHidden }}
-              onPress={toggleCompetitive}
-              style={styles.sectionToggle}
+            <SectionToggle
+              hidden={competitiveHidden}
+              onToggle={toggleCompetitive}
+              label="competitive intelligence"
               testID="competitive-toggle"
-            >
-              <Ionicons
-                name={competitiveHidden ? "eye-outline" : "eye-off-outline"}
-                size={15}
-                color={colors.primary}
-              />
-              <Text style={styles.sectionToggleText}>
-                {competitiveHidden ? "Show" : "Hide"}
-              </Text>
-            </Pressable>
+            />
           </SafeView>
           {!competitiveHidden && (
             <>

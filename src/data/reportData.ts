@@ -463,6 +463,8 @@ export function buildReport(input: ReportInput): Report {
           value: item.rating,
           display: item.rating.toFixed(1),
           highlight: item.name === brand,
+          tone:
+            item.rating >= 4 ? "good" : item.rating >= 3 ? "watch" : "risk",
         }))
       : null;
   const marketBars: BarDatum[] | null =

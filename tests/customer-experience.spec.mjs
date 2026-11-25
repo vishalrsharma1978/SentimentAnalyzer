@@ -186,6 +186,38 @@ test("the converted amount previews in the receiver currency and each provider s
   await expect(card.getByTestId("fee-breakdown")).toHaveCount(0);
 });
 
+test("the receiver country picker filters as the user types", async ({
+  page,
+}) => {
+  const { card } = await openCustomerExperience(page);
+  await card.getByLabel("Receiver country: Mexico").click();
+  const search = card.getByTestId("receiver-country-search");
+  await expect(search).toBeVisible();
+
+  await search.fill("ind");
+  await expect(
+    card.getByRole("button", { name: "Receiver country option India" }),
+  ).toBeVisible();
+  await expect(
+    card.getByRole("button", { name: "Receiver country option Germany" }),
+  ).toHaveCount(0);
+
+  // Currency codes match too.
+  await search.fill("PHP");
+  await expect(
+    card.getByRole("button", { name: "Receiver country option Philippines" }),
+  ).toBeVisible();
+
+  await search.fill("zzz");
+  await expect(card.getByText(/No country matches/)).toBeVisible();
+
+  await search.fill("india");
+  await card
+    .getByRole("button", { name: "Receiver country option India" })
+    .click();
+  await expect(card.getByLabel("Receiver country: India")).toBeVisible();
+});
+
 test("the whole section can be hidden and shown again", async ({ page }) => {
   const { card } = await openCustomerExperience(page);
   await expect(card.getByLabel("Amount to send")).toBeVisible();

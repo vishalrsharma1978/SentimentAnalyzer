@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 import {
-  aggregateRating, channelColors, channelLabels, channelRating, hitTestSunburst, polarPoint, ringPath, sunburstSegments,
+  aggregateRating, channelLabels, channelRating, hitTestSunburst, polarPoint, ringPath, sunburstSegments,
 } from '../data/marketAnalytics';
 import type { Channel, Market, MarketRatings, SunburstSegment } from '../data/marketAnalytics';
-import { colors } from '../theme';
+import { colors, ratingShade } from '../theme';
 
 type Props = {
   markets: Market[];
@@ -22,13 +22,15 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
   const [chartWidth, setChartWidth] = useState(400);
   const pressPoint = useRef<{ x: number; y: number } | null>(null);
   const score = focused ? channelRating(ratings[country.code], channel) : null;
+  // Segments share the dashboard-wide rating scheme: light green 4+, light
+  // amber 3+, light red below, grey when the source returned no rating.
+  const ratingFor = (segment: SunburstSegment) =>
+    segment.channel
+      ? channelRating(ratings[segment.countryCode], segment.channel)
+      : aggregateRating(ratings[segment.countryCode]);
   const colorFor = (segment: SunburstSegment) => {
-    if (segment.channel) {
-      return channelRating(ratings[segment.countryCode], segment.channel) === null
-        ? colors.line : channelColors[segment.channel];
-    }
-    return segment.countryCode === country.code ? colors.primaryDark
-      : aggregateRating(ratings[segment.countryCode]) === null ? colors.line : colors.primary;
+    const rating = ratingFor(segment);
+    return rating === null ? colors.line : ratingShade(rating);
   };
   return <View style={styles.container}>
     <View style={styles.breadcrumb}>
@@ -57,7 +59,9 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
       {segments.map((segment) => {
         const inner = segment.depth === 0 ? 85 : 141;
         const outer = segment.depth === 0 ? 138 : 188;
-        const highlighted = focused && segment.channel === channel;
+        const highlighted = focused
+          ? segment.channel === channel || (!segment.channel && segment.countryCode === country.code)
+          : !segment.channel && segment.countryCode === country.code;
         return <Path
           key={segment.id}
           d={ringPath(inner, outer, segment.start + 0.6, segment.end - 0.6)}
@@ -71,7 +75,7 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
       {segments.filter((segment) => segment.end - segment.start > 17).map((segment) => {
         const point = polarPoint(segment.depth === 0 ? 111 : 164, (segment.start + segment.end) / 2);
         return <SvgText key={`label-${segment.id}`} x={point.x} y={point.y + 3} textAnchor="middle"
-          fill={colorFor(segment) === colors.line ? colors.text : colors.onPrimary}
+          fill={colorFor(segment) === colors.line ? colors.muted : colors.navy}
           fontSize={segment.depth === 0 ? 11 : 9} fontWeight="700">
           {segment.label}
         </SvgText>;
@@ -91,9 +95,9 @@ export function RatingSunburst({ markets, ratings, country, focused, channel, on
     </Pressable>
     <Text style={styles.hint}>Tap a country, then a channel. Equal-size sectors show navigation, not market share.</Text>
     <View style={styles.legend}>
-      {(['brand', 'web', 'ios', 'android'] as const).map((item) => <View key={item} style={styles.legendItem}>
-        <View style={[styles.dot, { backgroundColor: channelColors[item] }]} /><Text style={styles.legendText}>{channelLabels[item]}</Text>
-      </View>)}
+      <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.greenLight }]} /><Text style={styles.legendText}>4.0+ strong</Text></View>
+      <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.orangeLight }]} /><Text style={styles.legendText}>3.0–3.99 fair</Text></View>
+      <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.redLight }]} /><Text style={styles.legendText}>Below 3.0 weak</Text></View>
       <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.line }]} /><Text style={styles.legendText}>No source</Text></View>
     </View>
   </View>;

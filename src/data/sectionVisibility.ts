@@ -1,6 +1,15 @@
 const STORAGE_KEY = "pulseboard.hiddenSections";
 
-export type SectionId = "competitive-intelligence";
+const SECTION_IDS = [
+  "competitive-intelligence",
+  "customer-experience",
+  "feature-map",
+  "customer-reviews",
+  "customer-voice-map",
+  "issue-funnel",
+] as const;
+
+export type SectionId = (typeof SECTION_IDS)[number];
 
 let memory = [] as SectionId[];
 
@@ -13,7 +22,7 @@ const storage = (): Storage | undefined => {
 };
 
 const isSectionId = (value: unknown): value is SectionId =>
-  value === "competitive-intelligence";
+  SECTION_IDS.includes(value as SectionId);
 
 export function loadHiddenSections(): SectionId[] {
   const store = storage();

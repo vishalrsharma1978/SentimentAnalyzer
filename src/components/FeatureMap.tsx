@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   FEATURE_CATEGORIES,
   FEATURES,
@@ -10,6 +10,11 @@ import {
   matchBrandKey,
 } from "../data/featureMap";
 import type { Feature, FeatureLevel } from "../data/featureMap";
+import {
+  isSectionHidden,
+  setSectionHidden,
+} from "../data/sectionVisibility";
+import { SectionToggle } from "./SectionToggle";
 import { colors, fonts } from "../theme";
 
 type Props = {
@@ -111,7 +116,8 @@ function InsightList({
 }
 
 export function FeatureMap({ brandName, competitorNames }: Props) {
-  const [expanded, setExpanded] = useState(true);
+  const [hidden, setHidden] = useState(() => isSectionHidden("feature-map"));
+  const expanded = !hidden;
 
   const { brandColumn, competitorColumns, unmapped } = useMemo(() => {
     const brandLevels = featureLevels(brandName);
@@ -175,23 +181,14 @@ export function FeatureMap({ brandName, competitorNames }: Props) {
             feature — where you lead and what to build next.
           </Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${expanded ? "Hide" : "Show"} feature map section`}
-          accessibilityState={{ expanded }}
-          onPress={() => setExpanded((current) => !current)}
-          style={styles.sectionToggle}
+        <SectionToggle
+          hidden={hidden}
+          onToggle={() =>
+            setHidden((current) => setSectionHidden("feature-map", !current))
+          }
+          label="feature map section"
           testID="feature-map-toggle"
-        >
-          <Text style={styles.sectionToggleText}>
-            {expanded ? "Hide" : "Show"}
-          </Text>
-          <Ionicons
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={16}
-            color={colors.primary}
-          />
-        </Pressable>
+        />
       </View>
 
       {expanded && columns.length === 0 && (
@@ -359,22 +356,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.muted,
     marginTop: 2,
-  },
-  sectionToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.primaryTint,
-  },
-  sectionToggleText: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.primary,
   },
   emptyText: {
     fontFamily: fonts.regular,

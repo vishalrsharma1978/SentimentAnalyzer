@@ -24,7 +24,6 @@ import {
   countryBundles,
   platformOptions,
   sentimentSources,
-  workingSentimentSources,
 } from "../src/config/brandSetup";
 import {
   forgetBrand,
@@ -49,14 +48,15 @@ export default function Onboarding() {
   const [businessName, setBusinessName] = useState("");
   const [appName, setAppName] = useState("");
   const [website, setWebsite] = useState("");
-  const [businessType, setBusinessType] = useState("Other");
+  const [businessType, setBusinessType] = useState("Money transfer");
   const [selectedPlatforms, setSelectedPlatforms] = useState([
     "Web",
     "Mobile · iOS",
     "Mobile · Android",
   ]);
   const [selectedSources, setSelectedSources] = useState([
-    ...workingSentimentSources,
+    "App Store",
+    "Google Play",
   ]);
   const [selectedCountries, setSelectedCountries] = useState(["United States"]);
   const [selectedBundles, setSelectedBundles] = useState<string[]>([]);
@@ -84,8 +84,8 @@ export default function Onboarding() {
     setWebsite(brand?.website ?? "");
     setBusinessType(
       brand
-        ? (brandSetupSuggestions[brand.name]?.businessType ?? "Other")
-        : "Other",
+        ? (brandSetupSuggestions[brand.name]?.businessType ?? "Money transfer")
+        : "Money transfer",
     );
   };
   const selectRecentBrand = (brand: RecentBrand) => {

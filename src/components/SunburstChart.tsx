@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
+import { ratingShade } from '../theme';
 import { SafeView } from './SafeView';
 
 const AnimatedLine = Animated.createAnimatedComponent(Line);
@@ -27,6 +28,8 @@ type RatingGaugeProps = {
 
 export function RatingGauge({ label, value, color, icon, compact = false, detail }: RatingGaugeProps) {
   const fraction = value !== null ? Math.max(0, Math.min(value / 5, 1)) : 0;
+  // The progress arc reads the rating: light green 4+, light amber 3+, light red below.
+  const arcColor = ratingShade(value);
   const arcLength = 207;
   const [needleProgress] = useState(() => new Animated.Value(0));
   const [cardOpacity] = useState(() => new Animated.Value(0));
@@ -83,7 +86,7 @@ export function RatingGauge({ label, value, color, icon, compact = false, detail
         <Circle cx="90" cy="116" r="79" fill="#FFFFFF" stroke="#2563EB" strokeWidth="5" />
         <Circle cx="90" cy="116" r="73" fill="none" stroke="#EEF3FB" strokeWidth="9" />
         <Path d="M 23 116 A 67 67 0 0 1 157 116" fill="none" stroke="#EEF3FB" strokeWidth="15" strokeLinecap="round" />
-        <Path d="M 23 116 A 67 67 0 0 1 157 116" fill="none" stroke={color} strokeWidth="15" strokeLinecap="round" strokeDasharray={`${arcLength * fraction} ${arcLength}`} />
+        <Path d="M 23 116 A 67 67 0 0 1 157 116" fill="none" stroke={arcColor} strokeWidth="15" strokeLinecap="round" strokeDasharray={`${arcLength * fraction} ${arcLength}`} />
         <Path d="M 144 52 A 67 67 0 0 1 157 116" fill="none" stroke="#2563EB" strokeWidth="15" strokeLinecap="round" opacity="0.85" />
         {[0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1].map((tick, index) => {
           const tickAngle = Math.PI + Math.PI * tick;

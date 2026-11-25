@@ -10,7 +10,9 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import { isSectionHidden, setSectionHidden } from '../data/sectionVisibility';
 import { SafeView } from './SafeView';
+import { SectionToggle } from './SectionToggle';
 
 export type MindMapWord = {
   word: string;
@@ -41,6 +43,9 @@ export function SentimentMindMap({
 }: SentimentMindMapProps) {
   const [pulse] = useState(() => new Animated.Value(0));
   const [stageWidth, setStageWidth] = useState(0);
+  const [hidden, setHidden] = useState(() =>
+    isSectionHidden('customer-voice-map'),
+  );
   const positiveWords = words.filter((item) => item.sentiment === 'positive').slice(0, 7);
   const negativeWords = words.filter((item) => item.sentiment === 'negative').slice(0, 5);
   const maxNodes = Math.max(positiveWords.length, negativeWords.length, 1);
@@ -190,8 +195,19 @@ export function SentimentMindMap({
           <Text style={styles.voiceCount}>{total}</Text>
           <Text style={styles.voiceLabel}>LIVE VOICES</Text>
         </SafeView>
+        <SectionToggle
+          hidden={hidden}
+          onToggle={() =>
+            setHidden((current) =>
+              setSectionHidden('customer-voice-map', !current),
+            )
+          }
+          label="customer voice map section"
+          testID="voice-map-toggle"
+        />
       </SafeView>
 
+      {!hidden && (
       <SafeView
         onLayout={(event) => {
           const nextWidth = Math.round(event.nativeEvent.layout.width);
@@ -394,12 +410,15 @@ export function SentimentMindMap({
           )}
         </View>
       </SafeView>
+      )}
 
+      {!hidden && (
       <SafeView style={styles.metricRail}>
         <SentimentMetric label="POSITIVE" value={positive} tone="positive" />
         <SentimentMetric label="NEUTRAL" value={neutral} tone="neutral" />
         <SentimentMetric label="NEGATIVE" value={negative} tone="negative" />
       </SafeView>
+      )}
     </SafeView>
   );
 }

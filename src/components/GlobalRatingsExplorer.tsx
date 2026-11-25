@@ -19,7 +19,7 @@ import {
   storeRatingBasis,
 } from "../data/marketAnalytics";
 import type { Channel, Market, MarketRatings } from "../data/marketAnalytics";
-import { colors } from "../theme";
+import { colors, ratingShade } from "../theme";
 
 type Props = {
   brand: string;
@@ -84,11 +84,10 @@ export function GlobalRatingsExplorer({
   const channelName = channelLabels[channel].toLowerCase();
 
   const tierColors = {
-    strong: colors.green,
-    fair: colors.orange,
-    weak: colors.red,
+    strong: colors.greenLight,
+    fair: colors.orangeLight,
+    weak: colors.redLight,
   } as const;
-  const rankedSelf = ranked.find((market) => market.code === country.code);
   const bestMarket = ranked[0] ?? null;
   const weakestMarket = ranked.length > 1 ? ranked[ranked.length - 1] : null;
   const spread =
@@ -115,13 +114,6 @@ export function GlobalRatingsExplorer({
           : vsAverage >= 0
             ? colors.greenText
             : colors.redText,
-    },
-    {
-      label: "Rank in scope",
-      value: rankedSelf ? `#${rankedSelf.rank}` : "—",
-      unit: rankedSelf ? `of ${ranked.length}` : "",
-      note: `${region} · by ${channelName} rating`,
-      tone: colors.navy,
     },
     {
       label: "Strongest market",
@@ -177,9 +169,9 @@ export function GlobalRatingsExplorer({
               styles.bar,
               {
                 width: `${market.score * 20}%`,
-                backgroundColor:
-                  country.code === market.code ? colors.primary : colors.sky,
+                backgroundColor: ratingShade(market.score),
               },
+              country.code === market.code && styles.barSelected,
             ]}
           />
         </View>
@@ -354,84 +346,93 @@ export function GlobalRatingsExplorer({
             </View>
           ))}
         </View>
-        <Text style={styles.fieldLabel}>REGION</Text>
-        <View style={styles.chips}>
-          {regions.map((item) => (
-            <Pressable
-              key={item}
-              accessibilityRole="button"
-              accessibilityLabel={`Region ${item}`}
-              accessibilityState={{ selected: region === item }}
-              onPress={() => {
-                setFocused(false);
-                setChannel("mobile");
-                onRegion(item);
-              }}
-              style={[styles.chip, region === item && styles.activeChip]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  region === item && styles.activeChipText,
-                ]}
-              >
-                {item}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.fieldLabel}>COUNTRY · SELECT TO DRILL DOWN</Text>
-        <View style={styles.chips}>
-          {visible.map((market) => (
-            <Pressable
-              key={market.code}
-              accessibilityRole="button"
-              accessibilityLabel={`Country ${market.name}`}
-              accessibilityState={{ selected: market.code === country.code }}
-              onPress={() => selectCountry(market)}
-              style={[
-                styles.chip,
-                market.code === country.code && styles.activeCountry,
-              ]}
-            >
-              <Text style={styles.chipText}>
-                {market.code} · {market.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <View style={styles.toolbar}>
-          <View style={styles.chips}>
-            {modes.map((item) => (
-              <Pressable
-                key={item}
-                accessibilityRole="button"
-                accessibilityLabel={`Chart ${item}`}
-                accessibilityState={{ selected: mode === item }}
-                onPress={() => setMode(item)}
-                style={[styles.chip, mode === item && styles.activeChip]}
-              >
-                <Text
+        <View style={styles.controlsRow}>
+          <View style={styles.controlGroup}>
+            <Text style={styles.fieldLabel}>REGION</Text>
+            <View style={styles.chips}>
+              {regions.map((item) => (
+                <Pressable
+                  key={item}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Region ${item}`}
+                  accessibilityState={{ selected: region === item }}
+                  onPress={() => {
+                    setFocused(false);
+                    setChannel("mobile");
+                    onRegion(item);
+                  }}
+                  style={[styles.chip, region === item && styles.activeChip]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      region === item && styles.activeChipText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <View style={[styles.controlGroup, styles.controlGroupGrow]}>
+            <Text style={styles.fieldLabel}>COUNTRY · SELECT TO DRILL DOWN</Text>
+            <View style={styles.chips}>
+              {visible.map((market) => (
+                <Pressable
+                  key={market.code}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Country ${market.name}`}
+                  accessibilityState={{
+                    selected: market.code === country.code,
+                  }}
+                  onPress={() => selectCountry(market)}
                   style={[
-                    styles.chipText,
-                    mode === item && styles.activeChipText,
+                    styles.chip,
+                    market.code === country.code && styles.activeCountry,
                   ]}
                 >
-                  {item}
+                  <Text style={styles.chipText}>
+                    {market.code} · {market.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <View style={[styles.controlGroup, styles.controlGroupEnd]}>
+            <Text style={styles.fieldLabel}>CHART · DATA</Text>
+            <View style={styles.chips}>
+              {modes.map((item) => (
+                <Pressable
+                  key={item}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Chart ${item}`}
+                  accessibilityState={{ selected: mode === item }}
+                  onPress={() => setMode(item)}
+                  style={[styles.chip, mode === item && styles.activeChip]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      mode === item && styles.activeChipText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Refresh country ratings"
+                onPress={onRetry}
+                style={styles.chip}
+              >
+                <Text style={styles.chipText}>
+                  {loading ? "Refreshing..." : "Refresh ratings"}
                 </Text>
               </Pressable>
-            ))}
+            </View>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Refresh country ratings"
-            onPress={onRetry}
-            style={styles.chip}
-          >
-            <Text style={styles.chipText}>
-              {loading ? "Refreshing..." : "Refresh ratings"}
-            </Text>
-          </Pressable>
         </View>
         <Text style={styles.method}>
           Rank scope: {region} · {ranked.length} rated / {visible.length}{" "}
@@ -471,11 +472,11 @@ export function GlobalRatingsExplorer({
 
         <View style={styles.detailHeader}>
           <View>
-            <Text style={styles.panelTitle}>
-              {country.name} / {channelLabels[channel]}
+            <Text style={styles.panelTitle} testID="selected-detail-title">
+              {country.name}
             </Text>
-            <Text style={styles.caption}>
-              Tap a card to focus the sunburst.
+            <Text style={styles.caption} testID="selected-detail-channel">
+              {channelLabels[channel]} · Tap a card to focus the sunburst.
             </Text>
           </View>
           <Text style={styles.detailScore}>
@@ -675,7 +676,9 @@ export function GlobalRatingsExplorer({
                       styles.bar,
                       {
                         width: `${component.score * 100}%`,
-                        backgroundColor: channelColors[channel],
+                        // Same rating scheme as the charts: the 0–1 component
+                        // score maps to the 0–5 scale before shading.
+                        backgroundColor: ratingShade(component.score * 5),
                       },
                     ]}
                   />
@@ -746,6 +749,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 14 },
+  // Region, country and chart controls share one wrapping row so short chip
+  // groups sit side by side instead of each taking a full-width band.
+  controlsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 24,
+    alignItems: "flex-start",
+  },
+  controlGroup: { flexShrink: 1 },
+  controlGroupGrow: { flexGrow: 1, flexShrink: 1, minWidth: 240 },
+  controlGroupEnd: { marginLeft: "auto" },
   chip: {
     paddingHorizontal: 12,
     minHeight: 44,
@@ -761,14 +775,6 @@ const styles = StyleSheet.create({
   activeCountry: {
     backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
-  },
-  toolbar: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 8,
-    alignItems: "flex-start",
-    marginTop: 4,
   },
   method: {
     fontSize: 11,
@@ -859,6 +865,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   bar: { height: 8, borderRadius: 4 },
+  barSelected: { borderWidth: 1, borderColor: colors.navy },
   heatmap: { paddingVertical: 14 },
   matrix: { minWidth: 635, marginTop: 16 },
   matrixRow: {

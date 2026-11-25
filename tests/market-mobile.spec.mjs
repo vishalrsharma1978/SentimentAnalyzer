@@ -5,13 +5,15 @@ test('phone width supports country selection and horizontally scrollable heatmap
   await page.setViewportSize({ width: 390, height: 844 });
   const explorer = await openExplorer(page);
   await clickSunburstArc(explorer, 120, 67.5);
-  await expect(explorer.getByText('United Kingdom / Mobile app', { exact: true })).toBeVisible();
+  await expect(explorer.getByTestId('selected-detail-title')).toHaveText('United Kingdom');
+  await expect(explorer.getByTestId('selected-detail-channel')).toContainText('Mobile app');
   await explorer.getByRole('button', { name: 'Region Europe', exact: true }).click();
   await explorer.getByRole('button', { name: 'Country Germany', exact: true }).click();
   await explorer.getByRole('button', { name: 'Chart Heatmap', exact: true }).click();
   await expect(explorer.getByText('Country × experience heatmap')).toBeVisible();
   await explorer.getByRole('button', { name: 'Germany iOS 4.80', exact: true }).click();
-  await expect(explorer.getByText('Germany / iOS', { exact: true })).toBeVisible();
+  await expect(explorer.getByTestId('selected-detail-title')).toHaveText('Germany');
+  await expect(explorer.getByTestId('selected-detail-channel')).toContainText('iOS');
   const bounds = await explorer.boundingBox();
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(391);

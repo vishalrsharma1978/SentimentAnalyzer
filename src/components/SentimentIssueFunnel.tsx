@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SentimentCategory, SentimentCategoryId } from '../data/sentimentCategories';
+import { isSectionHidden, setSectionHidden } from '../data/sectionVisibility';
 import { SafeView } from './SafeView';
+import { SectionToggle } from './SectionToggle';
 
 type SentimentIssueFunnelProps = {
   categories: SentimentCategory[];
@@ -29,6 +32,7 @@ export function SentimentIssueFunnel({
     categories.flatMap((category) => category.reviews),
   ).size;
   const selectedCategoryInfo = categories.find((category) => category.id === selectedCategory);
+  const [hidden, setHidden] = useState(() => isSectionHidden('issue-funnel'));
 
   return (
     <SafeView style={styles.card}>
@@ -43,8 +47,18 @@ export function SentimentIssueFunnel({
           </Text>
         </SafeView>
         <Text style={styles.total}>{totalCategorizedReviews}</Text>
+        <SectionToggle
+          hidden={hidden}
+          onToggle={() =>
+            setHidden((current) => setSectionHidden('issue-funnel', !current))
+          }
+          label="sentiment themes section"
+          testID="issue-funnel-toggle"
+        />
       </SafeView>
 
+      {!hidden && (
+      <>
       <SafeView style={styles.funnel}>
         {categories.map((category, index) => {
           const tone = categoryColors[category.id];
@@ -147,6 +161,8 @@ export function SentimentIssueFunnel({
         <LegendDot label="Negative" tone="negative" />
         <Text style={styles.multiTagNote}>Comments can match multiple themes</Text>
       </SafeView>
+      </>
+      )}
     </SafeView>
   );
 }

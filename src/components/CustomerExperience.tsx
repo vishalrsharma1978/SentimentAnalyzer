@@ -27,6 +27,11 @@ import {
   isSameCorridor,
 } from "../data/transferCorridors";
 import type { TransferCountry } from "../data/transferCorridors";
+import {
+  isSectionHidden,
+  setSectionHidden,
+} from "../data/sectionVisibility";
+import { SectionToggle } from "./SectionToggle";
 import { colors, fonts } from "../theme";
 
 type Props = {
@@ -50,6 +55,21 @@ function CountryPicker({
   testID: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const matches = (country: TransferCountry) => {
+    const wanted = query.trim().toLowerCase();
+    if (!wanted) return true;
+    return (
+      country.name.toLowerCase().includes(wanted) ||
+      country.code.toLowerCase().includes(wanted) ||
+      country.currency.toLowerCase().includes(wanted)
+    );
+  };
+  const shown = TRANSFER_COUNTRIES.filter(matches);
+  const toggle = () => {
+    setOpen((current) => !current);
+    setQuery("");
+  };
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -57,7 +77,7 @@ function CountryPicker({
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value.name}`}
         accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((current) => !current)}
+        onPress={toggle}
         style={styles.picker}
         testID={testID}
       >
@@ -73,8 +93,36 @@ function CountryPicker({
         />
       </Pressable>
       {open && (
-        <ScrollView style={styles.menu} nestedScrollEnabled>
-          {TRANSFER_COUNTRIES.map((country) => {
+        <View style={styles.menu}>
+          <View style={styles.menuSearch}>
+            <Ionicons name="search" size={14} color={colors.muted} />
+            <TextInput
+              accessibilityLabel={`Search ${label.toLowerCase()}`}
+              placeholder="Type a country, code or currency"
+              placeholderTextColor={colors.faint}
+              value={query}
+              onChangeText={setQuery}
+              autoFocus
+              style={styles.menuSearchInput}
+              testID={`${testID}-search`}
+            />
+            {query.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Clear ${label.toLowerCase()} search`}
+                onPress={() => setQuery("")}
+              >
+                <Ionicons name="close-circle" size={14} color={colors.muted} />
+              </Pressable>
+            )}
+          </View>
+          <ScrollView style={styles.menuList} nestedScrollEnabled>
+            {shown.length === 0 && (
+              <Text style={styles.menuEmpty}>
+                No country matches “{query.trim()}”.
+              </Text>
+            )}
+            {shown.map((country) => {
             const disabled = country.code === disabledCode;
             return (
               <Pressable
@@ -85,6 +133,7 @@ function CountryPicker({
                 onPress={() => {
                   onChange(country);
                   setOpen(false);
+                  setQuery("");
                 }}
                 style={[
                   styles.menuItem,
@@ -97,8 +146,9 @@ function CountryPicker({
                 <Text style={styles.menuCurrency}>{country.currency}</Text>
               </Pressable>
             );
-          })}
-        </ScrollView>
+            })}
+          </ScrollView>
+        </View>
       )}
     </View>
   );
@@ -404,7 +454,10 @@ export function CustomerExperience({ senderCode }: Props) {
   const best = result?.providers[0] ?? null;
   const payOutLabel =
     PAY_OUT_OPTIONS.find((option) => option.id === payOut)?.label ?? "";
-  const [expanded, setExpanded] = useState(true);
+  const [hidden, setHidden] = useState(() =>
+    isSectionHidden("customer-experience"),
+  );
+  const expanded = !hidden;
 
   return (
     <View style={styles.card} testID="customer-experience">
@@ -419,23 +472,16 @@ export function CustomerExperience({ senderCode }: Props) {
             across providers on live quotes.
           </Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${expanded ? "Hide" : "Show"} customer experience section`}
-          accessibilityState={{ expanded }}
-          onPress={() => setExpanded((current) => !current)}
-          style={styles.sectionToggle}
+        <SectionToggle
+          hidden={hidden}
+          onToggle={() =>
+            setHidden((current) =>
+              setSectionHidden("customer-experience", !current),
+            )
+          }
+          label="customer experience section"
           testID="customer-experience-toggle"
-        >
-          <Text style={styles.sectionToggleText}>
-            {expanded ? "Hide" : "Show"}
-          </Text>
-          <Ionicons
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={16}
-            color={colors.primary}
-          />
-        </Pressable>
+        />
       </View>
 
       {expanded && (
@@ -735,22 +781,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerCopy: { flex: 1 },
-  sectionToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.primaryTint,
-  },
-  sectionToggleText: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.primary,
-  },
   title: { fontFamily: fonts.black, fontSize: 18, color: colors.navy },
   subtitle: {
     fontFamily: fonts.regular,
@@ -794,12 +824,36 @@ const styles = StyleSheet.create({
   },
   pickerCurrency: { fontFamily: fonts.bold, fontSize: 11, color: colors.muted },
   menu: {
-    maxHeight: 220,
+    maxHeight: 260,
     marginTop: 4,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.card,
+    overflow: "hidden",
+  },
+  menuSearch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    backgroundColor: colors.primaryTint,
+  },
+  menuSearchInput: {
+    flex: 1,
+    minHeight: 40,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.navy,
+  },
+  menuList: { maxHeight: 214 },
+  menuEmpty: {
+    padding: 12,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.muted,
   },
   menuItem: {
     minHeight: 40,

@@ -30,14 +30,27 @@ export const colors = {
   green: "#12B76A",
   greenSoft: "#ECFDF3",
   greenText: "#027A48",
+  greenLight: "#75E0A7",
   orange: "#F79009",
   orangeSoft: "#FFFAEB",
   orangeText: "#B54708",
+  orangeLight: "#FEC84B",
   red: "#F04438",
   redSoft: "#FEF3F2",
   redText: "#B42318",
+  redLight: "#FDA29B",
   purple: "#7F56D9",
 };
+
+/** Light red/green/amber fill for charts that encode a 0–5 rating. */
+export const ratingShade = (score: number | null | undefined): string =>
+  typeof score !== "number" || !Number.isFinite(score)
+    ? colors.lineSoft
+    : score >= 4
+      ? colors.greenLight
+      : score >= 3
+        ? colors.orangeLight
+        : colors.redLight;
 
 // Weight-specific Lato families loaded via expo-font (see app/_layout.tsx).
 // When using one of these, omit fontWeight — the family already carries it.

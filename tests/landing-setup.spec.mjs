@@ -15,6 +15,16 @@ test("landing is brand-neutral and optional controls stay collapsed", async ({
     page.getByRole("button", { name: "Industry", exact: true }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "More options", exact: true }).click();
+  // Defaults: Money transfer industry, 3 platforms, App Store + Google Play.
+  await expect(
+    page.getByRole("button", { name: "Industry", exact: true }),
+  ).toContainText("Money transfer");
+  await expect(
+    page.getByRole("button", { name: "Platforms", exact: true }),
+  ).toContainText("3 selected");
+  await expect(
+    page.getByRole("button", { name: "Sentiment sources", exact: true }),
+  ).toContainText("2 selected");
   await page.getByRole("button", { name: "Industry", exact: true }).click();
   await page.getByRole("radio", { name: "Retail", exact: true }).click();
   await expect(
@@ -143,16 +153,8 @@ test("optional app name and source validation preserve the setup contract", asyn
   await page
     .getByRole("button", { name: "Sentiment sources", exact: true })
     .click();
-  for (const source of [
-    "App Store",
-    "Google Play",
-    "Reddit",
-    "Trustpilot",
-    "Facebook",
-    "LinkedIn",
-    "X / Twitter",
-    "Reviews.io",
-  ]) {
+  // Only App Store and Google Play are selected by default; clear both.
+  for (const source of ["App Store", "Google Play"]) {
     await page.getByRole("checkbox", { name: source, exact: true }).click();
   }
   await page.getByRole("button", { name: "Done", exact: true }).click();
