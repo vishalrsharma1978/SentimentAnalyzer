@@ -108,6 +108,22 @@ test("the rating gap card compares the brand with each rated peer", async ({
   await expect(detail.getByText("Wise", { exact: true })).toBeVisible();
 });
 
+test("the feature coverage card opens the curated capability comparison", async ({
+  page,
+}) => {
+  await openInsights(page);
+  const card = page.getByTestId("insight-card-features");
+  // Western Union covers 80% of the curated feature set.
+  await expect(card).toContainText("80%");
+  await card.click();
+  const detail = page.getByTestId("insight-detail-features");
+  await expect(detail).toContainText("Wise coverage");
+  await expect(detail).toContainText("Remitly coverage");
+  await expect(detail).toContainText("Gaps to close");
+  await expect(detail).toContainText("Mid-market FX rate");
+  await expect(detail).toContainText("Prioritise mid-market fx rate");
+});
+
 test("an improvement action expands its own breakdown without leaving the page", async ({
   page,
 }) => {

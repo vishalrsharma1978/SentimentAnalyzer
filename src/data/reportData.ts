@@ -6,9 +6,17 @@ import type {
 } from "./liveData";
 import type { MarketRatings } from "./marketAnalytics";
 import type { SentimentCategory } from "./sentimentCategories";
+import {
+  FEATURES,
+  buildFeatureInsights,
+  coverageScore,
+  featureLevels,
+  matchBrandKey,
+} from "./featureMap.ts";
+import type { FeatureLevel } from "./featureMap.ts";
 
-// The report builder keeps its rating helpers local and takes the theme categoriser as an argument,
-// so this module has no runtime imports and loads unchanged in plain Node tests.
+// The report builder keeps its rating helpers local and takes the theme categoriser as an argument;
+// its only runtime import is the pure curated feature map, so it loads unchanged in plain Node tests.
 const validRating = (value: number | null | undefined): value is number =>
   typeof value === "number" &&
   Number.isFinite(value) &&
@@ -301,6 +309,32 @@ export function buildReport(input: ReportInput): Report {
     .sort((left, right) => right.negative - left.negative);
   const topIssue = issues[0] ?? null;
 
+  // Feature map (curated capabilities, not live data)
+  const brandFeatureLevels = featureLevels(brand);
+  const mappedPeers: {
+    name: string;
+    levels: Record<string, FeatureLevel>;
+  }[] = [];
+  const seenFeatureKeys = new Set(
+    brandFeatureLevels ? [matchBrandKey(brand) as string] : [],
+  );
+  for (const competitor of competitors) {
+    if (competitor.name === brand) continue;
+    const key = matchBrandKey(competitor.name);
+    const levels = featureLevels(competitor.name);
+    if (!key || !levels || seenFeatureKeys.has(key)) continue;
+    seenFeatureKeys.add(key);
+    mappedPeers.push({ name: key, levels });
+    if (mappedPeers.length === 5) break;
+  }
+  const featureInsights =
+    brandFeatureLevels && mappedPeers.length
+      ? buildFeatureInsights(
+          brandFeatureLevels,
+          mappedPeers.map((peer) => peer.levels),
+        )
+      : null;
+
   // KPIs
   if (validRating(brandRating))
     kpis.push({
@@ -350,6 +384,40 @@ export function buildReport(input: ReportInput): Report {
       delta: `average ${marketAverage.toFixed(1)} / 5`,
       tone: "neutral",
     });
+  if (kind !== "customer") {
+    if (brandFeatureLevels && mappedPeers.length) {
+      const brandCoverage = coverageScore(brandFeatureLevels);
+      const peerCoverage = average(
+        mappedPeers.map((peer) => coverageScore(peer.levels)),
+      );
+      const coverageGap =
+        peerCoverage === null ? null : brandCoverage - peerCoverage;
+      kpis.push({
+        label: "Feature coverage",
+        value: `${Math.round(brandCoverage * 100)}%`,
+        delta:
+          peerCoverage === null
+            ? `${FEATURES.length}-feature capability set`
+            : `peer average ${Math.round(peerCoverage * 100)}%`,
+        tone:
+          coverageGap === null
+            ? "neutral"
+            : coverageGap >= 0
+              ? "good"
+              : coverageGap >= -0.1
+                ? "watch"
+                : "risk",
+      });
+    } else if (!brandFeatureLevels) {
+      gaps.push(
+        `${brand} is not in the curated feature map, so no capability comparison is included.`,
+      );
+    } else {
+      gaps.push(
+        "None of the rated competitors are in the curated feature map, so no capability comparison is included.",
+      );
+    }
+  }
 
   // Callouts
   if (position > 0 && ranked.length > 1) {
@@ -459,6 +527,22 @@ export function buildReport(input: ReportInput): Report {
     });
   }
 
+  // Feature callouts: one edge, one gap, so the brief states both sides.
+  if (kind !== "customer" && featureInsights) {
+    if (featureInsights.leads.length)
+      callouts.push({
+        tone: "good",
+        headline: `Feature edge: ${featureInsights.leads[0].label}`,
+        detail: `${brand} fully offers ${featureInsights.leads.map((feature) => feature.label.toLowerCase()).join(", ")} — most mapped competitors do not.`,
+      });
+    if (featureInsights.gaps.length)
+      callouts.push({
+        tone: "risk",
+        headline: `Feature gap: ${featureInsights.gaps[0].label}`,
+        detail: `Most mapped competitors fully offer ${featureInsights.gaps.map((feature) => feature.label.toLowerCase()).join(", ")}; ${brand} does not yet.`,
+      });
+  }
+
   // Tables
   const tables: Report["tables"] = [];
   if (kind !== "customer" && ranked.length > 1)
@@ -514,6 +598,28 @@ export function buildReport(input: ReportInput): Report {
           ],
         })),
       });
+    if (brandFeatureLevels && mappedPeers.length) {
+      const mark = (level: FeatureLevel | undefined) =>
+        level === 2 ? "Yes" : level === 1 ? "Partial" : "No";
+      tables.push({
+        title: "Feature map · curated capabilities",
+        headers: [
+          "Feature",
+          shortName(matchBrandKey(brand) ?? brand),
+          ...mappedPeers.map((peer) => shortName(peer.name)),
+        ],
+        rows: FEATURES.map((feature) => ({
+          highlight:
+            featureInsights?.gaps.some((gap) => gap.id === feature.id) ??
+            false,
+          cells: [
+            feature.label,
+            mark(brandFeatureLevels[feature.id]),
+            ...mappedPeers.map((peer) => mark(peer.levels[feature.id])),
+          ],
+        })),
+      });
+    }
   }
   if (kind !== "customer" && ladder.length > 1)
     tables.push({

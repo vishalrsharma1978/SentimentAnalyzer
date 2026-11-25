@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { RatingSunburst } from "./RatingSunburst";
+import { detectDeviceMentions } from "../data/deviceMentions";
+import {
+  FAILURE_MIN_REVIEWS,
+  FAILURE_NEGATIVE_SHARE,
+  summarizePlatformDevices,
+} from "../data/platformDevices";
+import type { PlatformKey } from "../data/platformDevices";
 import {
   channelColors,
   channelLabels,
@@ -25,6 +32,13 @@ type Props = {
   onRegion: (region: string) => void;
   onCountry: (market: Market) => void;
   onRetry: () => void;
+  /** Reviews already collected for the selected country; used for the device tables. */
+  reviews?: {
+    source: string;
+    text: string;
+    sentiment: "positive" | "neutral" | "negative";
+    rating: number;
+  }[];
 };
 const modes = ["Sunburst", "Heatmap", "Ranked bars"] as const;
 const channels: Channel[] = ["brand", "web", "mobile", "ios", "android"];
@@ -41,6 +55,7 @@ export function GlobalRatingsExplorer({
   onRegion,
   onCountry,
   onRetry,
+  reviews = [],
 }: Props) {
   const [mode, setMode] = useState<(typeof modes)[number]>("Sunburst");
   const [focused, setFocused] = useState(false);
@@ -73,6 +88,63 @@ export function GlobalRatingsExplorer({
     fair: colors.orange,
     weak: colors.red,
   } as const;
+  const rankedSelf = ranked.find((market) => market.code === country.code);
+  const bestMarket = ranked[0] ?? null;
+  const weakestMarket = ranked.length > 1 ? ranked[ranked.length - 1] : null;
+  const spread =
+    bestMarket && weakestMarket ? bestMarket.score - weakestMarket.score : null;
+  const regionAverage = ranked.length
+    ? ranked.reduce((sum, market) => sum + market.score, 0) / ranked.length
+    : null;
+  const vsAverage =
+    selectedScore !== null && regionAverage !== null
+      ? selectedScore - regionAverage
+      : null;
+  const stats = [
+    {
+      label: `${country.name} · ${channelLabels[channel]}`,
+      value: scoreText(selectedScore),
+      unit: "/ 5",
+      note:
+        vsAverage === null
+          ? "No rating yet"
+          : `${vsAverage >= 0 ? "+" : ""}${vsAverage.toFixed(2)} vs ${region === "Global" ? "global" : region} average`,
+      tone:
+        vsAverage === null
+          ? colors.muted
+          : vsAverage >= 0
+            ? colors.greenText
+            : colors.redText,
+    },
+    {
+      label: "Rank in scope",
+      value: rankedSelf ? `#${rankedSelf.rank}` : "—",
+      unit: rankedSelf ? `of ${ranked.length}` : "",
+      note: `${region} · by ${channelName} rating`,
+      tone: colors.navy,
+    },
+    {
+      label: "Strongest market",
+      value: bestMarket ? bestMarket.code : "—",
+      unit: bestMarket ? bestMarket.score.toFixed(2) : "",
+      note: bestMarket ? bestMarket.name : "No ratings yet",
+      tone: colors.greenText,
+    },
+    {
+      label: "Weakest market",
+      value: weakestMarket ? weakestMarket.code : "—",
+      unit: weakestMarket ? weakestMarket.score.toFixed(2) : "",
+      note: weakestMarket
+        ? `${weakestMarket.name}${spread !== null ? ` · ${spread.toFixed(2)} spread` : ""}`
+        : "Needs two rated markets",
+      tone: colors.redText,
+    },
+  ];
+  const devicePlatform: PlatformKey | null =
+    focused && (channel === "ios" || channel === "android") ? channel : null;
+  const deviceSummary = devicePlatform
+    ? summarizePlatformDevices(reviews, devicePlatform, detectDeviceMentions)
+    : null;
   const tiers = ladderTiers(ranked);
   const condensed = condenseLadder(ranked, country.code);
   const compact = !showAllRanks && condensed.hidden > 0;
@@ -261,6 +333,27 @@ export function GlobalRatingsExplorer({
   return (
     <View style={styles.shell} testID="global-ratings-explorer">
       <View style={styles.body}>
+        <View style={styles.statStrip} testID="market-stats">
+          {stats.map((stat) => (
+            <View
+              key={stat.label}
+              style={styles.stat}
+              accessibilityLabel={`${stat.label} ${stat.value} ${stat.unit}`}
+            >
+              <Text style={styles.statLabel}>{stat.label}</Text>
+              <Text style={styles.statValue}>
+                {stat.value}
+                <Text style={styles.statUnit}> {stat.unit}</Text>
+              </Text>
+              <Text
+                style={[styles.statNote, { color: stat.tone }]}
+                numberOfLines={2}
+              >
+                {stat.note}
+              </Text>
+            </View>
+          ))}
+        </View>
         <Text style={styles.fieldLabel}>REGION</Text>
         <View style={styles.chips}>
           {regions.map((item) => (
@@ -445,6 +538,124 @@ export function GlobalRatingsExplorer({
               );
             })}
         </View>
+        {deviceSummary && (
+          <View style={styles.deviceTable} testID="device-table">
+            <Text style={styles.panelTitle}>
+              {channelLabels[channel]} devices and operating systems ·{" "}
+              {country.name}
+            </Text>
+            <Text style={styles.caption}>
+              Only what reviewers wrote in their {deviceSummary.source} reviews.
+              {` ${deviceSummary.namingDevice} of ${deviceSummary.totalReviews} reviews name a device or OS.`}
+            </Text>
+            {deviceSummary.failingRows.length > 0 && (
+              <View
+                accessibilityRole="alert"
+                style={styles.failureCallout}
+                testID="device-failure-callout"
+              >
+                <Text style={styles.failureTitle}>
+                  Failing on {deviceSummary.failingRows.length}{" "}
+                  {deviceSummary.failingRows.length === 1
+                    ? "device or OS"
+                    : "devices and operating systems"}
+                </Text>
+                <Text style={styles.failureText}>
+                  {deviceSummary.failingRows
+                    .map(
+                      (row) =>
+                        `${row.label} (${row.negative} of ${row.reviews} reviews negative)`,
+                    )
+                    .join(" · ")}
+                </Text>
+              </View>
+            )}
+            {deviceSummary.rows.length === 0 ? (
+              <Text style={styles.empty} testID="device-table-empty">
+                {deviceSummary.totalReviews === 0
+                  ? `No ${deviceSummary.source} reviews collected for ${country.name} yet.`
+                  : `None of the ${deviceSummary.totalReviews} ${deviceSummary.source} reviews for ${country.name} name a device or operating system.`}
+              </Text>
+            ) : (
+              <View style={styles.deviceGrid}>
+                <View style={styles.deviceRow}>
+                  <Text style={[styles.deviceHead, styles.deviceName]}>
+                    Device / OS
+                  </Text>
+                  <Text style={[styles.deviceHead, styles.deviceKind]}>
+                    Type
+                  </Text>
+                  <Text style={[styles.deviceHead, styles.deviceNum]}>
+                    Reviews
+                  </Text>
+                  <Text style={[styles.deviceHead, styles.deviceNum]}>
+                    Negative
+                  </Text>
+                  <Text style={[styles.deviceHead, styles.deviceNum]}>
+                    Avg ★
+                  </Text>
+                  <Text style={[styles.deviceHead, styles.deviceStatus]}>
+                    Status
+                  </Text>
+                </View>
+                {deviceSummary.rows.map((row) => (
+                  <View
+                    key={row.label}
+                    style={[
+                      styles.deviceRow,
+                      row.failing && styles.deviceRowFailing,
+                    ]}
+                    accessibilityLabel={`${row.label}, ${row.reviews} reviews, ${row.negative} negative${row.failing ? ", failing" : ""}`}
+                  >
+                    <Text
+                      style={[
+                        styles.deviceCell,
+                        styles.deviceName,
+                        row.failing && styles.deviceFailingText,
+                      ]}
+                    >
+                      {row.label}
+                    </Text>
+                    <Text style={[styles.deviceCell, styles.deviceKind]}>
+                      {row.kind === "os" ? "OS" : "Device"}
+                    </Text>
+                    <Text style={[styles.deviceCell, styles.deviceNum]}>
+                      {row.reviews}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.deviceCell,
+                        styles.deviceNum,
+                        row.negative > 0 && styles.deviceFailingText,
+                      ]}
+                    >
+                      {row.negative} ({Math.round(row.negativeShare * 100)}%)
+                    </Text>
+                    <Text style={[styles.deviceCell, styles.deviceNum]}>
+                      {row.avgRating.toFixed(1)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.deviceCell,
+                        styles.deviceStatus,
+                        row.failing
+                          ? styles.deviceFailingText
+                          : styles.deviceOkText,
+                      ]}
+                    >
+                      {row.failing ? "Failing" : "OK"}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            <Text style={styles.caption}>
+              Failing = at least {Math.round(FAILURE_NEGATIVE_SHARE * 100)}% of
+              reviews naming it are negative, from {FAILURE_MIN_REVIEWS}+
+              reviews.
+            </Text>
+          </View>
+        )}
         {selectedDetail && !(channel === "web" && selectedScore === null) && (
           <View style={styles.breakdown} testID="channel-breakdown">
             <Text style={styles.panelTitle}>
@@ -497,6 +708,36 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   body: { padding: 16 },
+  statStrip: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 18,
+  },
+  stat: {
+    flex: 1,
+    minWidth: 150,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: colors.primaryTint,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    color: colors.muted,
+    textTransform: "uppercase",
+  },
+  statValue: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: colors.navy,
+    marginTop: 4,
+  },
+  statUnit: { fontSize: 12, fontWeight: "600", color: colors.muted },
+  statNote: { fontSize: 11, lineHeight: 16, marginTop: 2, fontWeight: "600" },
   fieldLabel: {
     fontSize: 10,
     color: colors.muted,
@@ -690,6 +931,54 @@ const styles = StyleSheet.create({
     color: colors.navy,
     marginTop: 8,
   },
+  deviceTable: {
+    marginTop: 18,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: colors.primaryTint,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  failureCallout: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: colors.redSoft,
+    borderWidth: 1,
+    borderColor: colors.red,
+  },
+  failureTitle: { fontSize: 13, fontWeight: "800", color: colors.redText },
+  failureText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.redText,
+    marginTop: 4,
+  },
+  deviceGrid: { marginTop: 12 },
+  deviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 40,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineSoft,
+  },
+  deviceRowFailing: { backgroundColor: colors.redSoft, borderRadius: 8 },
+  deviceHead: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    color: colors.muted,
+    textTransform: "uppercase",
+  },
+  deviceCell: { fontSize: 12, fontWeight: "600", color: colors.text },
+  deviceName: { flex: 2, minWidth: 110 },
+  deviceKind: { flex: 1, minWidth: 54 },
+  deviceNum: { flex: 1, minWidth: 54, textAlign: "right" },
+  deviceStatus: { flex: 1, minWidth: 60, textAlign: "right" },
+  deviceFailingText: { color: colors.redText, fontWeight: "800" },
+  deviceOkText: { color: colors.greenText, fontWeight: "800" },
   breakdown: {
     marginTop: 18,
     padding: 16,

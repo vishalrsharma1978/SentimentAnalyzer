@@ -314,3 +314,42 @@ test("marketLadderRows skips unrated markets and sorts best first", () => {
     ["DE", "US", "GB"],
   );
 });
+
+test("competitive reports compare curated feature coverage and call out edges and gaps", () => {
+  const report = buildReport({ ...base, kind: "competitive" });
+  const coverage = report.kpis.find((kpi) => kpi.label === "Feature coverage");
+  assert.ok(coverage, "feature coverage KPI present");
+  assert.match(coverage.value, /^\d+%$/);
+  assert.match(coverage.delta, /peer average \d+%/);
+  const featureTable = report.tables.find(
+    (table) => table.title === "Feature map · curated capabilities",
+  );
+  assert.ok(featureTable, "feature table present");
+  assert.deepEqual(featureTable.headers.slice(0, 2), [
+    "Feature",
+    "Western Union",
+  ]);
+  assert.ok(featureTable.headers.includes("Wise"));
+  const cashPickup = featureTable.rows.find(
+    (row) => row.cells[0] === "Cash pickup",
+  );
+  assert.equal(cashPickup.cells[1], "Yes");
+  assert.ok(
+    report.callouts.some((callout) =>
+      callout.headline.startsWith("Feature edge:"),
+    ),
+  );
+  assert.ok(
+    report.callouts.some((callout) =>
+      callout.headline.startsWith("Feature gap:"),
+    ),
+  );
+});
+
+test("customer reports include no feature comparison", () => {
+  const report = buildReport({ ...base, kind: "customer" });
+  assert.ok(!report.kpis.some((kpi) => kpi.label === "Feature coverage"));
+  assert.ok(
+    !report.tables.some((table) => table.title.startsWith("Feature map")),
+  );
+});

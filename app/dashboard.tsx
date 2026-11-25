@@ -30,6 +30,8 @@ import {
 import { buildBrandSummary, rankCompetitors } from "../src/data/brandSummary";
 import type { MarketRatings } from "../src/data/marketAnalytics";
 import { SentimentMindMap } from "../src/components/SentimentMindMap";
+import { CustomerExperience } from "../src/components/CustomerExperience";
+import { FeatureMap } from "../src/components/FeatureMap";
 import { CustomerReviewFeed } from "../src/components/CustomerReviewFeed";
 import { SentimentIssueFunnel } from "../src/components/SentimentIssueFunnel";
 import { AIInsightsBrief } from "../src/components/AIInsightsBrief";
@@ -38,6 +40,10 @@ import { buildReport, reportKinds } from "../src/data/reportData";
 import type { Report, ReportKind } from "../src/data/reportData";
 import { reportToHtml } from "../src/data/reportHtml";
 import { countries } from "../src/data/demoData";
+import {
+  isSectionHidden,
+  setSectionHidden,
+} from "../src/data/sectionVisibility";
 import {
   fetchChannelRatings,
   fetchCompetitorRatings,
@@ -593,6 +599,13 @@ export default function Dashboard() {
   const reviewFeedOffset = useRef(0);
   const feedbackListOffset = useRef(0);
   const [activeSection, setSection] = useState("Overview");
+  const [competitiveHidden, setCompetitiveHidden] = useState(() =>
+    isSectionHidden("competitive-intelligence"),
+  );
+  const toggleCompetitive = () =>
+    setCompetitiveHidden((current) =>
+      setSectionHidden("competitive-intelligence", !current),
+    );
   const setActiveSection = (section: string) => {
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     setSection(section);
@@ -1239,6 +1252,7 @@ export default function Dashboard() {
         if (country) handleCountryChange(country);
       }}
       onRetry={() => setDataRefreshNonce((current) => current + 1)}
+      reviews={customerReviews}
     />
   );
 
@@ -1844,7 +1858,6 @@ export default function Dashboard() {
 
   const renderMarkets = () => (
     <>
-      {renderHeadline("Markets")}
       {renderGlobalRatings()}
       {renderReviews()}
     </>
@@ -1958,413 +1971,447 @@ export default function Dashboard() {
                 {liveError ? "SOURCE ISSUE" : "MARKET DATA"}
               </Text>
             </SafeView>
-          </SafeView>
-          <Text style={styles.competitorDataNote}>
-            {runtimeEnabled
-              ? `${modelMarket?.competitorBasis ?? "Peer evidence unavailable."} Suggested apps are not verified business competitors or a market-wide ranking. Share prices may be delayed.`
-              : `Suggested peers are live Google Play apps from businesses in ${brandName}'s category in ${selectedCountry.name}, not verified business competitors. Peer ratings are Google Play scores; the selected brand uses available store ratings.${isRemittanceBrand ? " Fees and volumes apply only where disclosed." : ""} Share prices may be delayed.`}
-          </Text>
-          {topCorridor && corridorAverage && (
-            <SafeView style={styles.corridorBenchmark}>
-              <SafeView style={styles.corridorBenchmarkCell}>
-                <Text style={styles.corridorBenchmarkLabel}>TOP CORRIDOR</Text>
-                <Text
-                  style={styles.corridorBenchmarkValue}
-                >{`${topCorridor.fromName} → ${topCorridor.toName}`}</Text>
-                <Text
-                  style={styles.corridorBenchmarkMeta}
-                >{`${topCorridor.direction === "inbound" ? "Inbound to" : "Outbound from"} ${selectedCountry.name} · ${topCorridor.benchmarkAmount} benchmark`}</Text>
-              </SafeView>
-              <SafeView style={styles.corridorBenchmarkCell}>
-                <Text style={styles.corridorBenchmarkLabel}>
-                  AVG TRANSACTION FEE
-                </Text>
-                <Text
-                  style={styles.corridorBenchmarkValue}
-                >{`${corridorAverage.average.toFixed(1)}%`}</Text>
-                <Text
-                  style={styles.corridorBenchmarkMeta}
-                >{`${corridorAverageCost ?? ""} · ${corridorAverage.coveredBrands} brands covered`}</Text>
-              </SafeView>
-              <SafeView style={styles.corridorBenchmarkCell}>
-                <Text style={styles.corridorBenchmarkLabel}>
-                  DAILY VOLUME DISCLOSURE
-                </Text>
-                <Text
-                  style={styles.corridorBenchmarkValue}
-                >{`${volumeDisclosedCount} of ${liveCompetitors.length || "—"}`}</Text>
-                <Text style={styles.corridorBenchmarkMeta}>
-                  Brands reporting global avg. transactions/day
-                </Text>
-              </SafeView>
-            </SafeView>
-          )}
-          <SafeView style={styles.selectedBrandSummary}>
-            <SafeView style={styles.selectedBrandSummaryMark}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                competitiveHidden
+                  ? "Show competitive intelligence"
+                  : "Hide competitive intelligence"
+              }
+              accessibilityState={{ expanded: !competitiveHidden }}
+              onPress={toggleCompetitive}
+              style={styles.sectionToggle}
+              testID="competitive-toggle"
+            >
               <Ionicons
-                name="ribbon-outline"
-                size={16}
+                name={competitiveHidden ? "eye-outline" : "eye-off-outline"}
+                size={15}
                 color={colors.primary}
               />
-            </SafeView>
-            <SafeView style={styles.selectedBrandSummaryCopy}>
-              <Text style={styles.selectedBrandSummaryLabel}>
-                YOUR BRAND · {selectedBrand}
+              <Text style={styles.sectionToggleText}>
+                {competitiveHidden ? "Show" : "Hide"}
               </Text>
-              <Text style={styles.selectedBrandSummaryRank}>
-                {selectedBrandRank
-                  ? `Ranked #${selectedBrandRank} of ${rankedCompetitors.length} in ${selectedCountry.name} · ${selectedCountry.region}`
-                  : `Country rank unavailable for ${selectedCountry.name} · ${selectedCountry.region}`}
-              </Text>
-            </SafeView>
-            <Text style={styles.selectedBrandSummaryValue}>
-              {selectedBrandRank ? `#${selectedBrandRank}` : "—"}
-            </Text>
+            </Pressable>
           </SafeView>
-          <ScrollView horizontal showsHorizontalScrollIndicator>
-            <SafeView
-              style={[
-                styles.competitorTable,
-                !isRemittanceBrand &&
-                  (showFeeColumn
-                    ? styles.competitorTableWithFees
-                    : styles.competitorTableCompact),
-              ]}
-            >
-              <SafeView
-                style={[
-                  styles.competitorTableRow,
-                  styles.competitorTableHeader,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.competitorTableHeading,
-                    styles.competitorNameColumn,
-                  ]}
-                >
-                  Competitor
-                </Text>
-                <Text
-                  style={[
-                    styles.competitorTableHeading,
-                    styles.competitorRatingColumn,
-                  ]}
-                >
-                  App rating
-                </Text>
-                <Text
-                  style={[
-                    styles.competitorTableHeading,
-                    styles.competitorReviewsColumn,
-                  ]}
-                >
-                  Reviews
-                </Text>
-                <Text
-                  style={[
-                    styles.competitorTableHeading,
-                    styles.competitorShareColumn,
-                  ]}
-                >
-                  Share price
-                </Text>
-                {showFeeColumn && (
-                  <Text
-                    style={[
-                      styles.competitorTableHeading,
-                      styles.competitorFeeColumn,
-                    ]}
-                  >
-                    Transfer fees
+          {!competitiveHidden && (
+            <>
+              <Text style={styles.competitorDataNote}>
+                {runtimeEnabled
+                  ? `${modelMarket?.competitorBasis ?? "Peer evidence unavailable."} Suggested apps are not verified business competitors or a market-wide ranking. Share prices may be delayed.`
+                  : `Suggested peers are live Google Play apps from businesses in ${brandName}'s category in ${selectedCountry.name}, not verified business competitors. Peer ratings are Google Play scores; the selected brand uses available store ratings.${isRemittanceBrand ? " Fees and volumes apply only where disclosed." : ""} Share prices may be delayed.`}
+              </Text>
+              {topCorridor && corridorAverage && (
+                <SafeView style={styles.corridorBenchmark}>
+                  <SafeView style={styles.corridorBenchmarkCell}>
+                    <Text style={styles.corridorBenchmarkLabel}>
+                      TOP CORRIDOR
+                    </Text>
+                    <Text
+                      style={styles.corridorBenchmarkValue}
+                    >{`${topCorridor.fromName} → ${topCorridor.toName}`}</Text>
+                    <Text
+                      style={styles.corridorBenchmarkMeta}
+                    >{`${topCorridor.direction === "inbound" ? "Inbound to" : "Outbound from"} ${selectedCountry.name} · ${topCorridor.benchmarkAmount} benchmark`}</Text>
+                  </SafeView>
+                  <SafeView style={styles.corridorBenchmarkCell}>
+                    <Text style={styles.corridorBenchmarkLabel}>
+                      AVG TRANSACTION FEE
+                    </Text>
+                    <Text
+                      style={styles.corridorBenchmarkValue}
+                    >{`${corridorAverage.average.toFixed(1)}%`}</Text>
+                    <Text
+                      style={styles.corridorBenchmarkMeta}
+                    >{`${corridorAverageCost ?? ""} · ${corridorAverage.coveredBrands} brands covered`}</Text>
+                  </SafeView>
+                  <SafeView style={styles.corridorBenchmarkCell}>
+                    <Text style={styles.corridorBenchmarkLabel}>
+                      DAILY VOLUME DISCLOSURE
+                    </Text>
+                    <Text
+                      style={styles.corridorBenchmarkValue}
+                    >{`${volumeDisclosedCount} of ${liveCompetitors.length || "—"}`}</Text>
+                    <Text style={styles.corridorBenchmarkMeta}>
+                      Brands reporting global avg. transactions/day
+                    </Text>
+                  </SafeView>
+                </SafeView>
+              )}
+              <SafeView style={styles.selectedBrandSummary}>
+                <SafeView style={styles.selectedBrandSummaryMark}>
+                  <Ionicons
+                    name="ribbon-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </SafeView>
+                <SafeView style={styles.selectedBrandSummaryCopy}>
+                  <Text style={styles.selectedBrandSummaryLabel}>
+                    YOUR BRAND · {selectedBrand}
                   </Text>
-                )}
-                {isRemittanceBrand && (
-                  <Text
-                    style={[
-                      styles.competitorTableHeading,
-                      styles.competitorVolumeColumn,
-                    ]}
-                  >
-                    Avg. transactions/day
+                  <Text style={styles.selectedBrandSummaryRank}>
+                    {selectedBrandRank
+                      ? `Ranked #${selectedBrandRank} of ${rankedCompetitors.length} in ${selectedCountry.name} · ${selectedCountry.region}`
+                      : `Country rank unavailable for ${selectedCountry.name} · ${selectedCountry.region}`}
                   </Text>
-                )}
-                <Text
-                  style={[
-                    styles.competitorTableHeading,
-                    styles.competitorRankColumn,
-                  ]}
-                >
-                  Country rank
-                </Text>
-                <Text
-                  style={[
-                    styles.competitorTableHeading,
-                    styles.competitorStatusColumn,
-                  ]}
-                >
-                  Status
+                </SafeView>
+                <Text style={styles.selectedBrandSummaryValue}>
+                  {selectedBrandRank ? `#${selectedBrandRank}` : "—"}
                 </Text>
               </SafeView>
-              {sortedCompetitors.map((item) => {
-                const quote = sharePriceByName.get(item.name);
-                const rank = countryRanks.get(item.name);
-                const isSelectedBrand = item.name === selectedBrand;
-                const dailyVolume = getBrandDailyVolume(item.name);
-                const feeCell = feeCellFor(
-                  item.name,
-                  selectedCountry.code,
-                  liveTransferFees,
-                  curatedFee,
-                );
-                return (
+              <ScrollView horizontal showsHorizontalScrollIndicator>
+                <SafeView
+                  style={[
+                    styles.competitorTable,
+                    !isRemittanceBrand &&
+                      (showFeeColumn
+                        ? styles.competitorTableWithFees
+                        : styles.competitorTableCompact),
+                  ]}
+                >
                   <SafeView
-                    key={item.name}
                     style={[
                       styles.competitorTableRow,
-                      styles.competitorRow,
-                      isSelectedBrand && styles.competitorSelectedStrong,
+                      styles.competitorTableHeader,
                     ]}
                   >
-                    <SafeView
+                    <Text
                       style={[
-                        styles.competitorNameCell,
+                        styles.competitorTableHeading,
                         styles.competitorNameColumn,
                       ]}
                     >
-                      <SafeView
-                        style={[
-                          styles.appMark,
-                          isSelectedBrand && styles.appMarkPrimary,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.appMarkText,
-                            isSelectedBrand && styles.appMarkTextPrimary,
-                          ]}
-                        >
-                          {item.name[0]}
-                        </Text>
-                      </SafeView>
-                      <SafeView style={styles.competitorName}>
-                        <Text numberOfLines={1} style={styles.appName}>
-                          {item.name}
-                        </Text>
-                        <Text numberOfLines={1} style={styles.sourceMeta}>
-                          {isSelectedBrand
-                            ? "Your selected brand"
-                            : item.status === "live"
-                              ? `Stores · ${selectedCountry.code}`
-                              : "No store result"}
-                        </Text>
-                      </SafeView>
-                    </SafeView>
-                    <SafeView style={styles.competitorRatingColumn}>
-                      <Text style={styles.competitorMetricValue}>
-                        {isSelectedBrand && comparisonRating !== null
-                          ? `${comparisonRating.toFixed(1)} / 5`
-                          : item.rating !== null
-                            ? `${item.rating.toFixed(1)} / 5`
-                            : "—"}
-                      </Text>
-                      {runtimeEnabled && (
-                        <Text
-                          numberOfLines={1}
-                          style={styles.competitorMetricNote}
-                        >
-                          {`iOS ${item.apple ? item.apple.rating.toFixed(1) : "—"} · Android ${item.google ? item.google.rating.toFixed(1) : "—"}`}
-                        </Text>
-                      )}
-                    </SafeView>
+                      Competitor
+                    </Text>
                     <Text
                       style={[
-                        styles.competitorMetricValue,
+                        styles.competitorTableHeading,
+                        styles.competitorRatingColumn,
+                      ]}
+                    >
+                      App rating
+                    </Text>
+                    <Text
+                      style={[
+                        styles.competitorTableHeading,
                         styles.competitorReviewsColumn,
                       ]}
                     >
-                      {item.reviewCount !== null
-                        ? item.reviewCount.toLocaleString()
-                        : "—"}
+                      Reviews
                     </Text>
-                    <SafeView
+                    <Text
                       style={[
-                        styles.competitorMetricCell,
+                        styles.competitorTableHeading,
                         styles.competitorShareColumn,
                       ]}
                     >
-                      <Text style={styles.competitorMetricValue}>
-                        {sharePricesLoading
-                          ? "Loading…"
-                          : quote?.status === "not-listed"
-                            ? "Not listed"
-                            : quote?.status === "live"
-                              ? formatSharePrice(quote)
-                              : "Unavailable"}
-                      </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={styles.competitorMetricNote}
-                      >
-                        {quote?.status === "live"
-                          ? `${quote.symbol} · ${formatQuoteTime(quote.quoteTime)}`
-                          : quote?.status === "not-listed"
-                            ? "No separate public listing"
-                            : "Quote feed unavailable"}
-                      </Text>
-                    </SafeView>
+                      Share price
+                    </Text>
                     {showFeeColumn && (
-                      <SafeView
+                      <Text
                         style={[
-                          styles.competitorMetricCell,
+                          styles.competitorTableHeading,
                           styles.competitorFeeColumn,
                         ]}
                       >
-                        {feeCell.kind === "live" ? (
-                          <>
-                            <Text style={styles.competitorMetricValue}>
-                              {feeCell.total
-                                ? `${feeCell.fee} · ${feeCell.total}`
-                                : feeCell.fee}
-                            </Text>
-                            <Text
-                              numberOfLines={1}
-                              style={styles.competitorMetricNote}
-                            >
-                              {feeCell.rate}
-                            </Text>
-                            <Text
-                              numberOfLines={1}
-                              style={styles.competitorMetricNote}
-                            >
-                              {feeCell.received}
-                            </Text>
-                            <Text
-                              numberOfLines={1}
-                              style={styles.competitorMetricNote}
-                            >
-                              {`${feeCell.corridor} · ${feeCell.amount} · Live`}
-                            </Text>
-                            {feeCell.deltaText && (
-                              <Text
-                                numberOfLines={1}
-                                style={[
-                                  styles.competitorMetricNote,
-                                  feeCell.tone === "below" &&
-                                    styles.feeDeltaBelow,
-                                  feeCell.tone === "above" &&
-                                    styles.feeDeltaAbove,
-                                ]}
-                              >
-                                {feeCell.deltaText}
-                              </Text>
-                            )}
-                          </>
-                        ) : feeCell.kind === "range" ? (
-                          <>
-                            <Text style={styles.competitorMetricValue}>
-                              {feeCell.range}
-                            </Text>
-                            <Text
-                              numberOfLines={1}
-                              style={styles.competitorMetricNote}
-                            >
-                              {`${feeCell.corridor} · ${feeCell.amount} · ${feeCell.source}`}
-                            </Text>
-                          </>
-                        ) : (
-                          <>
-                            <Text style={styles.competitorMetricMuted}>
-                              Not covered
-                            </Text>
-                            <Text style={styles.competitorMetricNote}>
-                              No fee data for this provider
-                            </Text>
-                          </>
-                        )}
-                      </SafeView>
+                        Transfer fees
+                      </Text>
                     )}
                     {isRemittanceBrand && (
-                      <SafeView
+                      <Text
                         style={[
-                          styles.competitorMetricCell,
+                          styles.competitorTableHeading,
                           styles.competitorVolumeColumn,
                         ]}
                       >
-                        {dailyVolume ? (
-                          <>
+                        Avg. transactions/day
+                      </Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.competitorTableHeading,
+                        styles.competitorRankColumn,
+                      ]}
+                    >
+                      Country rank
+                    </Text>
+                    <Text
+                      style={[
+                        styles.competitorTableHeading,
+                        styles.competitorStatusColumn,
+                      ]}
+                    >
+                      Status
+                    </Text>
+                  </SafeView>
+                  {sortedCompetitors.map((item) => {
+                    const quote = sharePriceByName.get(item.name);
+                    const rank = countryRanks.get(item.name);
+                    const isSelectedBrand = item.name === selectedBrand;
+                    const dailyVolume = getBrandDailyVolume(item.name);
+                    const feeCell = feeCellFor(
+                      item.name,
+                      selectedCountry.code,
+                      liveTransferFees,
+                      curatedFee,
+                    );
+                    return (
+                      <SafeView
+                        key={item.name}
+                        style={[
+                          styles.competitorTableRow,
+                          styles.competitorRow,
+                          isSelectedBrand && styles.competitorSelectedStrong,
+                        ]}
+                      >
+                        <SafeView
+                          style={[
+                            styles.competitorNameCell,
+                            styles.competitorNameColumn,
+                          ]}
+                        >
+                          <SafeView
+                            style={[
+                              styles.appMark,
+                              isSelectedBrand && styles.appMarkPrimary,
+                            ]}
+                          >
                             <Text
-                              style={styles.competitorMetricValue}
-                            >{`~${formatDailyVolume(dailyVolume.avgPerDay)}`}</Text>
+                              style={[
+                                styles.appMarkText,
+                                isSelectedBrand && styles.appMarkTextPrimary,
+                              ]}
+                            >
+                              {item.name[0]}
+                            </Text>
+                          </SafeView>
+                          <SafeView style={styles.competitorName}>
+                            <Text numberOfLines={1} style={styles.appName}>
+                              {item.name}
+                            </Text>
+                            <Text numberOfLines={1} style={styles.sourceMeta}>
+                              {isSelectedBrand
+                                ? "Your selected brand"
+                                : item.status === "live"
+                                  ? `Stores · ${selectedCountry.code}`
+                                  : "No store result"}
+                            </Text>
+                          </SafeView>
+                        </SafeView>
+                        <SafeView style={styles.competitorRatingColumn}>
+                          <Text style={styles.competitorMetricValue}>
+                            {isSelectedBrand && comparisonRating !== null
+                              ? `${comparisonRating.toFixed(1)} / 5`
+                              : item.rating !== null
+                                ? `${item.rating.toFixed(1)} / 5`
+                                : "—"}
+                          </Text>
+                          {runtimeEnabled && (
                             <Text
                               numberOfLines={1}
                               style={styles.competitorMetricNote}
                             >
-                              {`Global · ${dailyVolume.basis}`}
+                              {`iOS ${item.apple ? item.apple.rating.toFixed(1) : "—"} · Android ${item.google ? item.google.rating.toFixed(1) : "—"}`}
                             </Text>
-                          </>
-                        ) : (
-                          <>
-                            <Text style={styles.competitorMetricMuted}>
-                              Not reported
-                            </Text>
-                            <Text style={styles.competitorMetricNote}>
-                              No public disclosure
-                            </Text>
-                          </>
+                          )}
+                        </SafeView>
+                        <Text
+                          style={[
+                            styles.competitorMetricValue,
+                            styles.competitorReviewsColumn,
+                          ]}
+                        >
+                          {item.reviewCount !== null
+                            ? item.reviewCount.toLocaleString()
+                            : "—"}
+                        </Text>
+                        <SafeView
+                          style={[
+                            styles.competitorMetricCell,
+                            styles.competitorShareColumn,
+                          ]}
+                        >
+                          <Text style={styles.competitorMetricValue}>
+                            {sharePricesLoading
+                              ? "Loading…"
+                              : quote?.status === "not-listed"
+                                ? "Not listed"
+                                : quote?.status === "live"
+                                  ? formatSharePrice(quote)
+                                  : "Unavailable"}
+                          </Text>
+                          <Text
+                            numberOfLines={1}
+                            style={styles.competitorMetricNote}
+                          >
+                            {quote?.status === "live"
+                              ? `${quote.symbol} · ${formatQuoteTime(quote.quoteTime)}`
+                              : quote?.status === "not-listed"
+                                ? "No separate public listing"
+                                : "Quote feed unavailable"}
+                          </Text>
+                        </SafeView>
+                        {showFeeColumn && (
+                          <SafeView
+                            style={[
+                              styles.competitorMetricCell,
+                              styles.competitorFeeColumn,
+                            ]}
+                          >
+                            {feeCell.kind === "live" ? (
+                              <>
+                                <Text style={styles.competitorMetricValue}>
+                                  {feeCell.total
+                                    ? `${feeCell.fee} · ${feeCell.total}`
+                                    : feeCell.fee}
+                                </Text>
+                                <Text
+                                  numberOfLines={1}
+                                  style={styles.competitorMetricNote}
+                                >
+                                  {feeCell.rate}
+                                </Text>
+                                <Text
+                                  numberOfLines={1}
+                                  style={styles.competitorMetricNote}
+                                >
+                                  {feeCell.received}
+                                </Text>
+                                <Text
+                                  numberOfLines={1}
+                                  style={styles.competitorMetricNote}
+                                >
+                                  {`${feeCell.corridor} · ${feeCell.amount} · Live`}
+                                </Text>
+                                {feeCell.deltaText && (
+                                  <Text
+                                    numberOfLines={1}
+                                    style={[
+                                      styles.competitorMetricNote,
+                                      feeCell.tone === "below" &&
+                                        styles.feeDeltaBelow,
+                                      feeCell.tone === "above" &&
+                                        styles.feeDeltaAbove,
+                                    ]}
+                                  >
+                                    {feeCell.deltaText}
+                                  </Text>
+                                )}
+                              </>
+                            ) : feeCell.kind === "range" ? (
+                              <>
+                                <Text style={styles.competitorMetricValue}>
+                                  {feeCell.range}
+                                </Text>
+                                <Text
+                                  numberOfLines={1}
+                                  style={styles.competitorMetricNote}
+                                >
+                                  {`${feeCell.corridor} · ${feeCell.amount} · ${feeCell.source}`}
+                                </Text>
+                              </>
+                            ) : (
+                              <>
+                                <Text style={styles.competitorMetricMuted}>
+                                  Not covered
+                                </Text>
+                                <Text style={styles.competitorMetricNote}>
+                                  No fee data for this provider
+                                </Text>
+                              </>
+                            )}
+                          </SafeView>
                         )}
+                        {isRemittanceBrand && (
+                          <SafeView
+                            style={[
+                              styles.competitorMetricCell,
+                              styles.competitorVolumeColumn,
+                            ]}
+                          >
+                            {dailyVolume ? (
+                              <>
+                                <Text
+                                  style={styles.competitorMetricValue}
+                                >{`~${formatDailyVolume(dailyVolume.avgPerDay)}`}</Text>
+                                <Text
+                                  numberOfLines={1}
+                                  style={styles.competitorMetricNote}
+                                >
+                                  {`Global · ${dailyVolume.basis}`}
+                                </Text>
+                              </>
+                            ) : (
+                              <>
+                                <Text style={styles.competitorMetricMuted}>
+                                  Not reported
+                                </Text>
+                                <Text style={styles.competitorMetricNote}>
+                                  No public disclosure
+                                </Text>
+                              </>
+                            )}
+                          </SafeView>
+                        )}
+                        <SafeView
+                          style={[
+                            styles.competitorMetricCell,
+                            styles.competitorRankColumn,
+                            isSelectedBrand && styles.selectedBrandRankCell,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.competitorRankValue,
+                              isSelectedBrand && styles.selectedBrandRankValue,
+                            ]}
+                          >
+                            {rank ? `#${rank}` : "—"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.competitorMetricNote,
+                              isSelectedBrand && styles.selectedBrandRankNote,
+                            ]}
+                          >
+                            {isSelectedBrand ? "YOUR BRAND" : "By store rating"}
+                          </Text>
+                        </SafeView>
+                        <Text
+                          style={[
+                            styles.competitorStatus,
+                            styles.competitorStatusColumn,
+                            item.status === "live"
+                              ? styles.verified
+                              : styles.unavailable,
+                          ]}
+                        >
+                          {item.status === "live" ? "Live" : "Unavailable"}
+                        </Text>
                       </SafeView>
-                    )}
-                    <SafeView
-                      style={[
-                        styles.competitorMetricCell,
-                        styles.competitorRankColumn,
-                        isSelectedBrand && styles.selectedBrandRankCell,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.competitorRankValue,
-                          isSelectedBrand && styles.selectedBrandRankValue,
-                        ]}
-                      >
-                        {rank ? `#${rank}` : "—"}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.competitorMetricNote,
-                          isSelectedBrand && styles.selectedBrandRankNote,
-                        ]}
-                      >
-                        {isSelectedBrand ? "YOUR BRAND" : "By store rating"}
-                      </Text>
-                    </SafeView>
-                    <Text
-                      style={[
-                        styles.competitorStatus,
-                        styles.competitorStatusColumn,
-                        item.status === "live"
-                          ? styles.verified
-                          : styles.unavailable,
-                      ]}
-                    >
-                      {item.status === "live" ? "Live" : "Unavailable"}
+                    );
+                  })}
+                  {!liveCompetitors.length && (
+                    <Text style={styles.competitorEmpty}>
+                      {liveLoading
+                        ? "Loading competitor data…"
+                        : competitorError
+                          ? "Live peer discovery is temporarily unavailable. Refresh ratings to retry."
+                          : `No live category peers found for ${brandName} in ${selectedCountry.name}. No preset competitors are substituted.`}
                     </Text>
-                  </SafeView>
-                );
-              })}
-              {!liveCompetitors.length && (
-                <Text style={styles.competitorEmpty}>
-                  {liveLoading
-                    ? "Loading competitor data…"
-                    : competitorError
-                      ? "Live peer discovery is temporarily unavailable. Refresh ratings to retry."
-                      : `No live category peers found for ${brandName} in ${selectedCountry.name}. No preset competitors are substituted.`}
-                </Text>
-              )}
-            </SafeView>
-          </ScrollView>
+                  )}
+                </SafeView>
+              </ScrollView>
+            </>
+          )}
         </SafeView>
+        <CustomerExperience senderCode={selectedCountry.code} />
+        <FeatureMap
+          brandName={selectedBrand}
+          competitorNames={rankedCompetitors
+            .filter((item) => item.name !== selectedBrand)
+            .map((item) => item.name)}
+        />
         {renderReviews()}
       </>
     );
@@ -3901,6 +3948,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+  },
+  sectionToggle: {
+    minHeight: 32,
+    paddingHorizontal: 10,
+    marginLeft: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.primaryTint,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sectionToggleText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: colors.primary,
   },
   liveBadgeText: {
     fontSize: 8,

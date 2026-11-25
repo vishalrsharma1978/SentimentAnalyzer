@@ -1,4 +1,4 @@
-import { parseRuntimeMarket } from "./runtimeModel";
+import { parseRuntimeMarket, safeWebUrl } from "./runtimeModel";
 import type { ModelConfiguration, RuntimeMarket } from "./runtimeModel";
 
 export type LiveCompetitor = {
@@ -65,6 +65,56 @@ export type CustomerSentiment = {
   text: string;
   sentiment: "positive" | "neutral" | "negative";
   publishedAt?: string | null;
+  /** Public details the store feed exposes about the review; the stores do not expose reviewer email or phone. */
+  appVersion?: string | null;
+  reviewUrl?: string | null;
+  profileUrl?: string | null;
+};
+
+export type TransferPayIn = "BANK_TRANSFER" | "DEBIT" | "CREDIT";
+
+export type TransferOption = {
+  provider: string;
+  kind: "Bank" | "Money transfer";
+  logo: string | null;
+  sendAmount: number;
+  fee: number;
+  exchangeRate: number;
+  midMarketRate: number | null;
+  receivedAmount: number;
+  totalCost: number | null;
+  totalCostPercent: number | null;
+  delivery: { hours: number; label: string } | null;
+  collectedAt: string | null;
+  rating: number;
+  ratingBasis: string;
+  lessThanBest: number;
+  rank: number;
+  best: boolean;
+};
+
+export type TransferComparison = {
+  request: {
+    fromCountry: string;
+    toCountry: string;
+    fromCurrency: string;
+    toCurrency: string;
+    payIn: TransferPayIn;
+    payInLabel: string;
+    amount: number;
+  };
+  midMarketRate: number | null;
+  providers: TransferOption[];
+  source: string;
+  fetchedAt: string;
+};
+
+export type FxRate = {
+  from: string;
+  to: string;
+  rate: number;
+  source: string;
+  fetchedAt: string;
 };
 
 export type ReviewTranslation = {
@@ -163,6 +213,88 @@ async function requestRuntimeMarket(
   } finally {
     clearTimeout(timer);
     signal.removeEventListener("abort", abort);
+  }
+}
+
+export async function fetchTransferComparison(request: {
+  fromCountry: string;
+  toCountry: string;
+  fromCurrency: string;
+  toCurrency: string;
+  payIn: TransferPayIn;
+  amount: number;
+}): Promise<TransferComparison> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const params = new URLSearchParams({
+      fromCountry: request.fromCountry,
+      toCountry: request.toCountry,
+      fromCurrency: request.fromCurrency,
+      toCurrency: request.toCurrency,
+      payIn: request.payIn,
+      amount: String(request.amount),
+    });
+    const response = await fetch(
+      `${getApiUrl().replace(/\/$/, "")}/api/transfer-compare?${params}`,
+      {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message =
+        isRecord(data) && typeof data.error === "string"
+          ? data.error
+          : `Comparison service returned HTTP ${response.status}.`;
+      throw new Error(message);
+    }
+    if (!isRecord(data) || !Array.isArray(data.providers)) {
+      throw new Error("Comparison service returned an unexpected response.");
+    }
+    return data as unknown as TransferComparison;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function fetchFxRate(
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<FxRate> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
+  const timeout = setTimeout(abort, 15000);
+  try {
+    const params = new URLSearchParams({ from, to });
+    const response = await fetch(
+      `${getApiUrl().replace(/\/$/, "")}/api/fx-rate?${params}`,
+      {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(
+        isRecord(data) && typeof data.error === "string"
+          ? data.error
+          : `Rate service returned HTTP ${response.status}.`,
+      );
+    }
+    if (!isRecord(data) || typeof data.rate !== "number" || !(data.rate > 0)) {
+      throw new Error("Rate service returned an unexpected response.");
+    }
+    return data as unknown as FxRate;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", abort);
   }
 }
 
@@ -613,6 +745,12 @@ export async function fetchReviewCollector(
             : "neutral",
         publishedAt:
           typeof review.publishedAt === "string" ? review.publishedAt : null,
+        appVersion:
+          typeof review.appVersion === "string" && review.appVersion
+            ? review.appVersion
+            : null,
+        reviewUrl: safeWebUrl(review.reviewUrl),
+        profileUrl: safeWebUrl(review.profileUrl),
       }))
       .filter((review: CustomerSentiment) => review.text.length > 0);
   } finally {

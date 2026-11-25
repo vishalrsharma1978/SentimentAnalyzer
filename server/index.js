@@ -655,6 +655,7 @@ async function pullGooglePlayReviews(brand, country, months = 1, options = {}) {
           .trim(),
         sentiment: classifySentiment(review.text, review.score),
         appVersion: review.version || null,
+        reviewUrl: review.url || null,
         publishedAt: review.date ? new Date(review.date).toISOString() : null,
         sourceId: String(review.id || ""),
       }))
@@ -664,6 +665,13 @@ async function pullGooglePlayReviews(brand, country, months = 1, options = {}) {
     if (options.strict) throw error;
     return [];
   }
+}
+
+// The Apple RSS feed links each review to its store page; only keep real web links.
+function appleReviewLink(entry) {
+  const links = Array.isArray(entry.link) ? entry.link : [entry.link];
+  const href = links.map((link) => link?.attributes?.href).find(Boolean);
+  return typeof href === "string" && /^https?:\/\//.test(href) ? href : null;
 }
 
 async function pullAppleReviews(brand, country, options = {}) {
@@ -709,6 +717,8 @@ async function pullAppleReviews(brand, country, options = {}) {
           text,
           sentiment: classifySentiment(text, rating),
           appVersion: String(entry["im:version"]?.label || ""),
+          reviewUrl: appleReviewLink(entry),
+          profileUrl: String(entry.author?.uri?.label || "") || null,
           publishedAt: entry.updated?.label || null,
           sourceId: String(entry.id?.label || ""),
         };
@@ -751,6 +761,243 @@ if (hasWebBuild) {
 }
 
 app.get("/health", (_request, response) => response.json({ status: "ok" }));
+
+// ---- Customer experience: live provider comparison for one money transfer ----
+const COMPARE_PAY_IN = {
+  BANK_TRANSFER: "Bank transfer",
+  DEBIT: "Debit card",
+  CREDIT: "Credit card",
+};
+const COMPARE_CACHE_TTL_MS = 5 * 60 * 1000;
+const COMPARE_MAX_QUOTE_AGE_MS = 6 * 60 * 60 * 1000;
+const compareCache = new Map();
+const FX_RATE_CACHE_TTL_MS = 60 * 1000;
+const fxRateCache = new Map();
+
+function compareDurationHours(iso) {
+  const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(
+    String(iso || ""),
+  );
+  if (!m) return null;
+  const [, d = 0, h = 0, mi = 0, s = 0] = m;
+  const total = Number(d) * 24 + Number(h) + Number(mi) / 60 + Number(s) / 3600;
+  return total > 0 ? total : null;
+}
+function compareDeliveryLabel(h) {
+  if (h < 0.1) return "Within seconds";
+  if (h < 1) return `About ${Math.round(h * 60)} min`;
+  if (h < 24) return `About ${Math.round(h)} h`;
+  const days = Math.round(h / 24);
+  return `About ${days} ${days === 1 ? "day" : "days"}`;
+}
+function compareDelivery(quote) {
+  const e = quote?.deliveryEstimation;
+  if (!e?.providerGivesEstimate) return null;
+  const h =
+    compareDurationHours(e?.duration?.max) ??
+    compareDurationHours(e?.duration?.min);
+  return h === null ? null : { hours: h, label: compareDeliveryLabel(h) };
+}
+function compareUsableQuote(provider) {
+  return (provider?.quotes ?? [])
+    .filter((q) => {
+      const t = Date.parse(q?.dateCollected);
+      return (
+        Number.isFinite(q?.fee) &&
+        q.fee >= 0 &&
+        Number.isFinite(q?.rate) &&
+        q.rate > 0 &&
+        Number.isFinite(q?.receivedAmount) &&
+        q.receivedAmount > 0 &&
+        Number.isFinite(t) &&
+        Date.now() - t <= COMPARE_MAX_QUOTE_AGE_MS
+      );
+    })
+    .sort((a, b) => b.receivedAmount - a.receivedAmount)[0];
+}
+function compareRank(options) {
+  if (!options.length) return options;
+  const amounts = options.map((o) => o.receivedAmount);
+  const best = Math.max(...amounts),
+    worst = Math.min(...amounts);
+  return options
+    .map((o) => {
+      const amountScore =
+        best === worst
+          ? 1
+          : 0.2 + 0.8 * ((o.receivedAmount - worst) / (best - worst));
+      let speed = null;
+      if (o.delivery) {
+        const h = o.delivery.hours;
+        speed = h <= 1 ? 1 : h >= 72 ? 0 : 1 - (h - 1) / 71;
+      }
+      const combined =
+        speed === null ? amountScore : 0.7 * amountScore + 0.3 * speed;
+      return {
+        ...o,
+        rating: Number((combined * 5).toFixed(1)),
+        ratingBasis:
+          speed === null
+            ? "Amount in hand"
+            : "Amount in hand and delivery speed",
+        lessThanBest: Number((best - o.receivedAmount).toFixed(2)),
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.rating - a.rating ||
+        b.receivedAmount - a.receivedAmount ||
+        a.provider.localeCompare(b.provider),
+    )
+    .map((o, i) => ({ ...o, rank: i + 1, best: i === 0 }));
+}
+
+// Live mid-market rate for one currency pair, used to preview the converted
+// amount before the user runs a full provider comparison.
+app.get("/api/fx-rate", async (request, response) => {
+  const from = String(request.query.from ?? "")
+    .trim()
+    .toUpperCase();
+  const to = String(request.query.to ?? "")
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to))
+    return response.status(400).json({
+      error: "from and to must be three-letter currency codes.",
+    });
+  const key = `${from}:${to}`;
+  const hit = fxRateCache.get(key);
+  if (hit && Date.now() - hit.storedAt < FX_RATE_CACHE_TTL_MS)
+    return response.json(hit.body);
+  try {
+    const r = await fetch(
+      `https://wise.com/rates/live?source=${from}&target=${to}`,
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (!r.ok) throw new Error(`Rate feed returned HTTP ${r.status}`);
+    const data = await r.json();
+    const rate = Number(data?.value);
+    if (!(rate > 0)) throw new Error("Rate feed returned no usable rate.");
+    const body = {
+      from,
+      to,
+      rate,
+      source: "Wise mid-market rate",
+      fetchedAt: new Date().toISOString(),
+    };
+    fxRateCache.set(key, { storedAt: Date.now(), body });
+    response.json(body);
+  } catch (error) {
+    console.error(`FX rate lookup failed (${from}->${to}):`, error.message);
+    response.status(502).json({
+      error: "Live exchange rate is temporarily unavailable.",
+    });
+  }
+});
+
+app.get("/api/transfer-compare", async (request, response) => {
+  const read = (k) =>
+    String(request.query[k] ?? "")
+      .trim()
+      .toUpperCase();
+  const fromCountry = read("fromCountry"),
+    toCountry = read("toCountry");
+  const fromCurrency = read("fromCurrency"),
+    toCurrency = read("toCurrency");
+  const payIn = read("payIn") || "BANK_TRANSFER";
+  const amount = Number(request.query.amount ?? 500);
+  if (!/^[A-Z]{2}$/.test(fromCountry) || !/^[A-Z]{2}$/.test(toCountry))
+    return response.status(400).json({
+      error: "fromCountry and toCountry must be two-letter ISO codes.",
+    });
+  if (!/^[A-Z]{3}$/.test(fromCurrency) || !/^[A-Z]{3}$/.test(toCurrency))
+    return response.status(400).json({
+      error: "fromCurrency and toCurrency must be three-letter currency codes.",
+    });
+  if (!COMPARE_PAY_IN[payIn])
+    return response.status(400).json({
+      error: `payIn must be one of ${Object.keys(COMPARE_PAY_IN).join(", ")}.`,
+    });
+  if (!Number.isFinite(amount) || amount < 10 || amount > 100000)
+    return response
+      .status(400)
+      .json({ error: "amount must be between 10 and 100000." });
+  const key = `${fromCountry}:${toCountry}:${fromCurrency}:${toCurrency}:${payIn}:${amount}`;
+  const hit = compareCache.get(key);
+  if (hit && Date.now() - hit.storedAt < COMPARE_CACHE_TTL_MS)
+    return response.json(hit.body);
+  try {
+    const params = new URLSearchParams({
+      sourceCurrency: fromCurrency,
+      targetCurrency: toCurrency,
+      sourceCountry: fromCountry,
+      targetCountry: toCountry,
+      sendAmount: String(amount),
+      payInMethod: payIn,
+    });
+    const getJson = async (url) => {
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!r.ok) throw new Error(`Comparison feed returned HTTP ${r.status}`);
+      return r.json();
+    };
+    const [comparison, rate] = await Promise.all([
+      getJson(`https://api.wise.com/v4/comparisons/?${params}`),
+      getJson(
+        `https://wise.com/rates/live?source=${fromCurrency}&target=${toCurrency}`,
+      ).catch(() => null),
+    ]);
+    const midRate = Number(rate?.value) > 0 ? Number(rate.value) : null;
+    const options = [];
+    for (const provider of Array.isArray(comparison?.providers)
+      ? comparison.providers
+      : []) {
+      const quote = compareUsableQuote(provider);
+      if (!quote) continue;
+      const delivered = midRate ? quote.receivedAmount / midRate : null;
+      const cost = delivered === null ? null : amount - delivered;
+      options.push({
+        provider: provider.name,
+        kind: provider.type === "bank" ? "Bank" : "Money transfer",
+        logo: provider.logos?.normal?.pngUrl ?? null,
+        sendAmount: amount,
+        fee: quote.fee,
+        exchangeRate: quote.rate,
+        midMarketRate: midRate,
+        receivedAmount: quote.receivedAmount,
+        totalCost: cost === null ? null : Number(cost.toFixed(2)),
+        totalCostPercent:
+          cost === null ? null : Number(((cost / amount) * 100).toFixed(2)),
+        delivery: compareDelivery(quote),
+        collectedAt: quote.dateCollected ?? null,
+      });
+    }
+    const body = {
+      request: {
+        fromCountry,
+        toCountry,
+        fromCurrency,
+        toCurrency,
+        payIn,
+        payInLabel: COMPARE_PAY_IN[payIn],
+        amount,
+      },
+      midMarketRate: midRate,
+      providers: compareRank(options),
+      source: "Wise price comparison",
+      fetchedAt: new Date().toISOString(),
+    };
+    compareCache.set(key, { storedAt: Date.now(), body });
+    response.json(body);
+  } catch (error) {
+    console.error(
+      `Transfer comparison failed (${fromCountry}->${toCountry}):`,
+      error.message,
+    );
+    response.status(502).json({
+      error: "Provider comparison is temporarily unavailable. Try again.",
+    });
+  }
+});
 
 app.get("/api/competitor-share-prices", async (request, response) => {
   const requestedNames = String(request.query.names || "")

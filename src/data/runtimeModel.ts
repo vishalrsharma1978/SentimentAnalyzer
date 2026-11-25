@@ -8,6 +8,12 @@ import type {
 } from "./liveData";
 import type { ChannelScore, MarketRating } from "./marketAnalytics";
 
+export function safeWebUrl(value: unknown): string | null {
+  return typeof value === "string" && /^https?:\/\//i.test(value)
+    ? value
+    : null;
+}
+
 export type ModelConfiguration = {
   brand: string;
   appName: string;
@@ -149,6 +155,12 @@ export function parseRuntimeMarket(
       rating: item.rating,
       sentiment: item.sentiment as CustomerSentiment["sentiment"],
       publishedAt: item.publishedAt,
+      appVersion:
+        typeof item.appVersion === "string" && item.appVersion
+          ? item.appVersion
+          : null,
+      reviewUrl: safeWebUrl(item.reviewUrl),
+      profileUrl: safeWebUrl(item.profileUrl),
     };
   });
   const competitors = value.competitors.map((item): LiveCompetitor => {

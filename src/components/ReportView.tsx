@@ -1,5 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, useWindowDimensions } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+} from "react-native";
 import Svg, {
   Circle,
   G,
@@ -315,41 +321,63 @@ function TrendChart({ trend, width }: { trend: MonthPoint[]; width: number }) {
 }
 
 function DataTable({ table }: { table: Report["tables"][number] }) {
+  // Column sizing: "#" stays narrow, the name column (first text column) gets
+  // the most room, and every other column keeps a readable minimum. Tables
+  // wider than the card scroll horizontally instead of crushing the text.
+  const hasRank = table.headers[0] === "#";
+  const nameIndex = hasRank ? 1 : 0;
+  const columnStyle = (index: number) => {
+    if (hasRank && index === 0) return styles.cellRank;
+    if (index === nameIndex) return styles.cellName;
+    return styles.cell;
+  };
+  const minTableWidth =
+    (hasRank ? 30 : 0) + 130 + (table.headers.length - nameIndex - 1) * 76;
   return (
     <SafeView style={styles.chart}>
       <Text style={styles.chartTitle}>{table.title}</Text>
-      <SafeView style={styles.tableHeader}>
-        {table.headers.map((header, index) => (
-          <Text
-            key={header}
-            style={[
-              styles.tableHead,
-              index === 0 ? styles.cellFirst : styles.cell,
-            ]}
-          >
-            {header}
-          </Text>
-        ))}
-      </SafeView>
-      {table.rows.map((row, rowIndex) => (
-        <SafeView
-          key={`${table.title}-${rowIndex}`}
-          style={[styles.tableRow, row.highlight && styles.tableRowHighlight]}
-        >
-          {row.cells.map((cell, index) => (
-            <Text
-              key={`${rowIndex}-${index}`}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator
+        contentContainerStyle={styles.tableScrollContent}
+      >
+        <SafeView style={[styles.tableBody, { minWidth: minTableWidth }]}>
+          <SafeView style={styles.tableHeader}>
+            {table.headers.map((header, index) => (
+              <Text
+                key={header}
+                style={[styles.tableHead, columnStyle(index)]}
+                numberOfLines={2}
+              >
+                {header}
+              </Text>
+            ))}
+          </SafeView>
+          {table.rows.map((row, rowIndex) => (
+            <SafeView
+              key={`${table.title}-${rowIndex}`}
               style={[
-                styles.tableCell,
-                index === 0 ? styles.cellFirst : styles.cell,
-                row.highlight && styles.tableCellHighlight,
+                styles.tableRow,
+                row.highlight && styles.tableRowHighlight,
               ]}
             >
-              {cell}
-            </Text>
+              {row.cells.map((cell, index) => (
+                <Text
+                  key={`${rowIndex}-${index}`}
+                  style={[
+                    styles.tableCell,
+                    columnStyle(index),
+                    row.highlight && styles.tableCellHighlight,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {cell}
+                </Text>
+              ))}
+            </SafeView>
           ))}
         </SafeView>
-      ))}
+      </ScrollView>
     </SafeView>
   );
 }
@@ -656,8 +684,11 @@ const styles = StyleSheet.create({
   tableRowHighlight: { backgroundColor: colors.primaryTint },
   tableCell: { fontSize: 11, color: colors.text },
   tableCellHighlight: { fontFamily: fonts.black, color: colors.navy },
-  cellFirst: { width: 36 },
-  cell: { flex: 1, paddingRight: 6 },
+  tableScrollContent: { flexGrow: 1 },
+  tableBody: { flexGrow: 1 },
+  cellRank: { width: 30 },
+  cellName: { flexGrow: 2, flexShrink: 1, flexBasis: 130, paddingRight: 8 },
+  cell: { flexGrow: 1, flexShrink: 1, flexBasis: 76, paddingRight: 6 },
   quote: {
     paddingLeft: 10,
     borderLeftWidth: 3,

@@ -1,5 +1,11 @@
 import type { CustomerSentiment, LiveCompetitor } from "./liveData";
 import type { SentimentCategory } from "./sentimentCategories";
+import {
+  buildFeatureInsights,
+  coverageScore,
+  featureLevels,
+  matchBrandKey,
+} from "./featureMap";
 
 /** One row of an expanded insight card. */
 export type DetailRow = { label: string; value: string };
@@ -179,6 +185,82 @@ export function ratingGapDetail(
       gap < 0
         ? `Closing the ${Math.abs(gap).toFixed(1)} point gap to ${leader.name} starts with the biggest negative theme in the improvement actions below.`
         : null,
+  };
+}
+
+/** Detail for the Feature-coverage card: how the curated capability map compares. */
+export function featureMapDetail(
+  brand: string,
+  competitors: LiveCompetitor[],
+): InsightDetail {
+  const brandLevels = featureLevels(brand);
+  if (!brandLevels)
+    return {
+      explanation: `${brand} is not in the curated feature map yet, so no capability comparison is available. The full matrix is in the Competitors tab under Feature map.`,
+      rows: [],
+      quotes: [],
+      nextStep: null,
+    };
+  const peers: { name: string; levels: NonNullable<typeof brandLevels> }[] = [];
+  const seen = new Set([matchBrandKey(brand) as string]);
+  for (const competitor of competitors) {
+    const key = matchBrandKey(competitor.name);
+    const levels = featureLevels(competitor.name);
+    if (!key || !levels || seen.has(key)) continue;
+    seen.add(key);
+    peers.push({ name: key, levels });
+    if (peers.length === 5) break;
+  }
+  const insights = buildFeatureInsights(
+    brandLevels,
+    peers.map((peer) => peer.levels),
+  );
+  const coverage = Math.round(coverageScore(brandLevels) * 100);
+  const topGap = insights.gaps[0] ?? insights.partials[0] ?? null;
+  return {
+    explanation: peers.length
+      ? `${brand} covers ${coverage}% of the curated capability set, compared feature by feature against ${peers.length} mapped competitor${peers.length === 1 ? "" : "s"}. Leads are features most mapped peers lack; gaps are features most of them fully offer. Data is curated from public product pages, not live feeds.`
+      : `${brand} covers ${coverage}% of the curated capability set, but none of the current competitors are mapped yet, so no lead or gap comparison is possible.`,
+    rows: [
+      {
+        label: `${brand} coverage`,
+        value: `${coverage}% of the feature set`,
+      },
+      ...peers.map((peer) => ({
+        label: `${peer.name} coverage`,
+        value: `${Math.round(coverageScore(peer.levels) * 100)}% of the feature set`,
+      })),
+      ...(insights.leads.length
+        ? [
+            {
+              label: "Your edge",
+              value: insights.leads.map((feature) => feature.label).join(", "),
+            },
+          ]
+        : []),
+      ...(insights.gaps.length
+        ? [
+            {
+              label: "Gaps to close",
+              value: insights.gaps.map((feature) => feature.label).join(", "),
+            },
+          ]
+        : []),
+      ...(insights.partials.length
+        ? [
+            {
+              label: "Partial today",
+              value: insights.partials
+                .map((feature) => feature.label)
+                .join(", "),
+            },
+          ]
+        : []),
+    ],
+    quotes: [],
+    nextStep: topGap
+      ? `Prioritise ${topGap.label.toLowerCase()} — most mapped competitors already offer it fully. See the Feature map in the Competitors tab for the full matrix.`
+      : null,
   };
 }
 

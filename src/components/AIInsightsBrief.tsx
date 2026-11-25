@@ -12,6 +12,7 @@ import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import type { CustomerSentiment, LiveCompetitor } from "../data/liveData";
 import {
   actionDetail,
+  featureMapDetail,
   pickQuotes,
   prioritySignalDetail,
   ratingGapDetail,
@@ -20,6 +21,7 @@ import {
 import type { InsightDetail } from "../data/insightDetails";
 import { categorizeSentimentReviews } from "../data/sentimentCategories";
 import type { SentimentCategory } from "../data/sentimentCategories";
+import { coverageScore, featureLevels } from "../data/featureMap";
 import { SafeView } from "./SafeView";
 
 type AIInsightsBriefProps = {
@@ -424,6 +426,14 @@ export function AIInsightsBrief({
     leadingCompetitor?.rating !== undefined
       ? Number((brandRating - leadingCompetitor.rating).toFixed(1))
       : null;
+  const brandFeatureLevels = featureLevels(brand);
+  const featureCoverage = brandFeatureLevels
+    ? Math.round(coverageScore(brandFeatureLevels) * 100)
+    : null;
+  const mappedCompetitorCount = competitors.filter(
+    (competitor) =>
+      competitor.name !== brand && featureLevels(competitor.name) !== null,
+  ).length;
 
   return (
     <SafeView style={styles.container}>
@@ -496,6 +506,19 @@ export function AIInsightsBrief({
           onToggle={() => toggleCard("gap")}
           testID="insight-card-gap"
         />
+        <Metric
+          label="Feature coverage"
+          value={featureCoverage === null ? "—" : `${featureCoverage}%`}
+          note={
+            featureCoverage === null
+              ? "Brand not in the curated feature map"
+              : `of the capability set · vs ${mappedCompetitorCount} mapped ${mappedCompetitorCount === 1 ? "competitor" : "competitors"}`
+          }
+          tone="#6941C6"
+          open={openCard === "features"}
+          onToggle={() => toggleCard("features")}
+          testID="insight-card-features"
+        />
       </SafeView>
       {openCard === "negative" && (
         <DetailPanel
@@ -519,6 +542,12 @@ export function AIInsightsBrief({
         <DetailPanel
           detail={ratingGapDetail(brand, brandRating, competitors)}
           testID="insight-detail-gap"
+        />
+      )}
+      {openCard === "features" && (
+        <DetailPanel
+          detail={featureMapDetail(brand, competitors)}
+          testID="insight-detail-features"
         />
       )}
 
