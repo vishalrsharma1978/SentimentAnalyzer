@@ -8,6 +8,7 @@ const https = require("node:https");
 const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const gplayModule = require("google-play-scraper");
 const gplay = gplayModule.default || gplayModule;
 const YahooFinance = require("yahoo-finance2").default;
@@ -33,6 +34,7 @@ const { wikidataProfile } = require("./wikidataProfile");
 const { fallbackQuote } = require("./quoteFallback");
 const { withStoreRatings } = require("./peerStoreRatings");
 const { collectTransferFees } = require("./transferFees");
+const { translateToEnglish } = require("./googleTranslate");
 const { appleChartRank, playChartRank } = require("./storeChartRank");
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -53,6 +55,9 @@ process.on("uncaughtException", (error) => {
   );
 });
 
+// JSON review payloads shrink about 77% with gzip (1.4 MB to 0.3 MB for six months of reviews).
+// Level 1 keeps the CPU cost to a few milliseconds; small bodies are not worth compressing.
+app.use(compression({ level: 1, threshold: 1024 }));
 app.use(cors());
 app.use(express.json());
 app.use((_request, response, next) => {
@@ -394,10 +399,17 @@ function decodeTranslationEntities(text) {
 // Apple throttles bursts of requests from the same IP; the dashboard fires
 // several endpoints at once on load, so serialize outbound Apple calls and
 // retry with backoff before giving up.
-let appleQueue = Promise.resolve();
+// Up to APPLE_MAX_IN_FLIGHT calls run at once (the 10 review pages of one app can go
+// together); anything beyond that waits its turn, so bursts stay bounded.
+const APPLE_MAX_IN_FLIGHT = 5;
+let appleInFlight = 0;
+const appleWaiting = [];
 
 async function appleFetchJson(url) {
-  const run = appleQueue.then(async () => {
+  if (appleInFlight >= APPLE_MAX_IN_FLIGHT)
+    await new Promise((resolve) => appleWaiting.push(resolve));
+  appleInFlight += 1;
+  try {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const response = await fetch(url, {
@@ -412,9 +424,10 @@ async function appleFetchJson(url) {
       await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
     }
     return null;
-  });
-  appleQueue = run.catch(() => {});
-  return run;
+  } finally {
+    appleInFlight -= 1;
+    appleWaiting.shift()?.();
+  }
 }
 
 function classifySentiment(text, rating) {
@@ -624,9 +637,42 @@ function collectGooglePlayReviews(brand, country, months = 1, options = {}) {
 
 function collectAppleReviews(brand, country, options = {}) {
   return memoizeReviewPull(
-    `apple|${brand.toLowerCase()}|${country.toUpperCase()}|${String(options.appName || "").toLowerCase()}|${Boolean(options.strict)}`,
+    `apple|${brand.toLowerCase()}|${country.toUpperCase()}|${options.months || 1}|${String(options.appName || "").toLowerCase()}|${Boolean(options.strict)}`,
     () => pullAppleReviews(brand, country, options),
   );
+}
+
+// English plus the other languages that carry reviews for the money-transfer apps checked.
+const GOOGLE_PLAY_REVIEW_LANGS = ["en", "es", "fr", "ar", "ru", "zh", "id"];
+
+// Reviews come newest first in pages; keep paging only until a page ends before the
+// window, instead of downloading thousands of old reviews that get filtered out.
+const GOOGLE_PLAY_PAGE_SIZE = 150;
+const GOOGLE_PLAY_MAX_REVIEWS = 3000;
+
+async function pullGooglePlayLanguage(appId, country, lang, months) {
+  const windowStart = Date.now() - months * 31 * 24 * 60 * 60 * 1000;
+  const collected = [];
+  let token;
+  do {
+    const page = await gplay.reviews({
+      appId,
+      country: country.toLowerCase(),
+      lang,
+      sort: gplay.sort.NEWEST,
+      num: GOOGLE_PLAY_PAGE_SIZE,
+      paginate: true,
+      nextPaginationToken: token,
+      requestOptions: { timeout: 12000 },
+    });
+    const data = page.data || [];
+    collected.push(...data);
+    token = page.nextPaginationToken;
+    const oldest = Date.parse(data[data.length - 1]?.date);
+    if (!data.length || (Number.isFinite(oldest) && oldest < windowStart))
+      break;
+  } while (token && collected.length < GOOGLE_PLAY_MAX_REVIEWS);
+  return collected;
 }
 
 async function pullGooglePlayReviews(brand, country, months = 1, options = {}) {
@@ -638,14 +684,22 @@ async function pullGooglePlayReviews(brand, country, months = 1, options = {}) {
   );
   if (!appId) return [];
   try {
-    const result = await gplay.reviews({
-      appId,
-      country: country.toLowerCase(),
-      sort: gplay.sort.NEWEST,
-      num: Math.min(500 * months, 3000),
-      requestOptions: { timeout: 12000 },
-    });
-    return (result.data || [])
+    // Google Play returns reviews per language, so the default (English) pull misses
+    // every review written in another language. Pull each language and merge by id.
+    const pulls = await Promise.allSettled(
+      GOOGLE_PLAY_REVIEW_LANGS.map((lang) =>
+        pullGooglePlayLanguage(appId, country, lang, months),
+      ),
+    );
+    // English is the baseline: if it fails, surface the error as before.
+    if (pulls[0].status === "rejected") throw pulls[0].reason;
+    const byId = new Map();
+    for (const pull of pulls) {
+      if (pull.status !== "fulfilled") continue;
+      for (const review of pull.value)
+        if (!byId.has(review.id)) byId.set(review.id, review);
+    }
+    return [...byId.values()]
       .map((review) => ({
         source: "Google Play",
         author: review.userName || "Verified customer",
@@ -674,8 +728,12 @@ function appleReviewLink(entry) {
   return typeof href === "string" && /^https?:\/\//.test(href) ? href : null;
 }
 
+// Apple's customer-review RSS feed serves 50 reviews per page and at most 10 pages.
+const APPLE_REVIEW_MAX_PAGES = 10;
+
 async function pullAppleReviews(brand, country, options = {}) {
   const countryCode = country.toLowerCase();
+  const windowMs = (options.months || 1) * 31 * 24 * 60 * 60 * 1000;
   try {
     const match = await findAppleBrandApp(
       brand,
@@ -684,27 +742,49 @@ async function pullAppleReviews(brand, country, options = {}) {
       options.strict,
     );
     if (!match?.trackId) return [];
-    // The page=1 RSS path is measurably more reliable, and Apple sometimes
-    // answers 200 with an empty feed under throttling — retry on empty.
-    let entries = [];
-    for (let attempt = 0; attempt < 4 && entries.length === 0; attempt++) {
-      const data = await appleFetchJson(
-        `https://itunes.apple.com/rss/customerreviews/page=1/id=${match.trackId}/sortby=mostrecent/json?l=en&cc=${countryCode}&_ts=${Date.now()}`,
-      );
-      if (data) {
-        entries = Array.isArray(data.feed?.entry)
+    // Apple sometimes answers 200 with an empty feed under throttling, so a page
+    // is retried on empty before it counts as the end of the feed.
+    const readPage = async (page, attempts) => {
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        const data = await appleFetchJson(
+          `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${match.trackId}/sortby=mostrecent/json?l=en&cc=${countryCode}&_ts=${Date.now()}`,
+        );
+        const found = Array.isArray(data?.feed?.entry)
           ? data.feed.entry
-          : data.feed?.entry
+          : data?.feed?.entry
             ? [data.feed.entry]
             : [];
-      }
-      if (entries.length === 0)
+        if (found.length > 0) return found;
         await new Promise((resolve) =>
           setTimeout(resolve, 700 * (attempt + 1)),
         );
+      }
+      return [];
+    };
+    // Page 1 first (with retries) so an empty feed ends the pull; the remaining
+    // pages are independent, so they are requested together instead of one by one.
+    const firstPage = await readPage(1, 4);
+    if (firstPage.length === 0) return [];
+    const laterPages = await Promise.all(
+      Array.from({ length: APPLE_REVIEW_MAX_PAGES - 1 }, (_, index) =>
+        readPage(index + 2, 2),
+      ),
+    );
+    // Merge in page order (newest first) without duplicates, and drop pages that
+    // start after the window has already ended on an earlier page.
+    const seenIds = new Set();
+    const entries = [];
+    for (const page of [firstPage, ...laterPages]) {
+      const fresh = page.filter((entry) => !seenIds.has(entry.id?.label));
+      if (fresh.length === 0) break;
+      for (const entry of fresh) {
+        seenIds.add(entry.id?.label);
+        entries.push(entry);
+      }
+      const oldest = Date.parse(page[page.length - 1]?.updated?.label);
+      if (Number.isFinite(oldest) && oldest < Date.now() - windowMs) break;
     }
     return entries
-      .slice(0, 100)
       .map((entry) => {
         const rating = Number(entry["im:rating"]?.label || 0);
         const text = String(entry.content?.label || "")
@@ -1080,60 +1160,23 @@ app.post("/api/translate", async (request, response) => {
   }
   translationGlobalRateLimit.count += 1;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  // Google's public web endpoint through google-translate-api-x: no key and no extra
+  // service to run (see TRANSLATION.md). It has no abort signal, so the 20 second
+  // limit is a race against a timer.
+  let timeout;
   try {
-    const translationUrl = (
-      process.env.LIBRETRANSLATE_URL || "http://127.0.0.1:5000"
-    ).replace(/\/$/, "");
-    const providerResponse = await fetch(`${translationUrl}/translate`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        q: text,
-        source: "auto",
-        target: "en",
-        format: "text",
+    const translated = await Promise.race([
+      translateToEnglish(text),
+      new Promise((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Translation timed out.")),
+          20000,
+        );
       }),
-      signal: controller.signal,
-    });
-    let providerData;
-    try {
-      providerData = await providerResponse.json();
-    } catch {
-      console.error("LibreTranslate returned an unreadable response.");
-      response.status(502).json({
-        error: "Translation service returned an unreadable response.",
-      });
-      return;
-    }
-    if (!providerResponse.ok) {
-      console.error(`LibreTranslate returned HTTP ${providerResponse.status}.`);
-      response
-        .status(502)
-        .json({ error: "Translation is temporarily unavailable." });
-      return;
-    }
-
-    const translation = providerData?.translatedText;
-    const detectedLanguage = providerData?.detectedLanguage?.language;
-    if (
-      typeof translation !== "string" ||
-      typeof detectedLanguage !== "string"
-    ) {
-      console.error("LibreTranslate returned an invalid response.");
-      response
-        .status(502)
-        .json({ error: "Translation service returned an invalid response." });
-      return;
-    }
-
+    ]);
     const result = {
-      translatedText: decodeTranslationEntities(translation),
-      detectedSourceLanguage: detectedLanguage,
+      translatedText: decodeTranslationEntities(translated.translatedText),
+      detectedSourceLanguage: translated.detectedSourceLanguage,
     };
     if (translationCache.size >= TRANSLATION_CACHE_MAX_ENTRIES) {
       const oldestKey = translationCache.keys().next().value;
@@ -1146,12 +1189,11 @@ app.post("/api/translate", async (request, response) => {
     response.json(result);
   } catch (error) {
     console.error(
-      "LibreTranslate request failed:",
-      error.name || "unknown error",
+      "Translation request failed:",
+      error.message || error.name || "unknown error",
     );
     response.status(502).json({
-      error:
-        "Translation is temporarily unavailable. Make sure LibreTranslate is running.",
+      error: "Translation is temporarily unavailable.",
     });
   } finally {
     clearTimeout(timeout);
@@ -1693,7 +1735,7 @@ app.get("/api/reviews", async (request, response) => {
       console.error(`Google Play collection failed for ${brand}:`, e.message);
       return [];
     }),
-    collectAppleReviews(brand, country).catch((e) => {
+    collectAppleReviews(brand, country, { months }).catch((e) => {
       console.error(`Apple collection failed for ${brand}:`, e.message);
       return [];
     }),

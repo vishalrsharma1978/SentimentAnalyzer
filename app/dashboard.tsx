@@ -30,6 +30,7 @@ import {
 import { buildBrandSummary, rankCompetitors } from "../src/data/brandSummary";
 import type { MarketRatings } from "../src/data/marketAnalytics";
 import { SentimentMindMap } from "../src/components/SentimentMindMap";
+import { AnalyticsBot } from "../src/components/AnalyticsBot";
 import { CustomerExperience } from "../src/components/CustomerExperience";
 import { FeatureMap } from "../src/components/FeatureMap";
 import { SectionToggle } from "../src/components/SectionToggle";
@@ -1201,10 +1202,17 @@ export default function Dashboard() {
   const googlePlayRating = platformRatings["Google Play"].rating;
   const appleStoreRating = platformRatings["Apple App Store"].rating;
   const liveSelectedCountry = { ...selectedCountry, score: brandRating ?? 0 };
+  // Reuse the memoized categories instead of re-categorising every review on each render.
   const topIssue =
-    categorizeSentimentReviews(customerReviews)
+    reviewInsights.issueCategories
       .filter((category) => category.negative > 0)
       .sort((left, right) => right.negative - left.negative)[0] ?? null;
+  const marketLadder = rankMarkets(
+    selectedMarkets,
+    marketRatings,
+    "Global",
+    "mobile",
+  );
   const brandSummary = buildBrandSummary({
     brand: brandName,
     countryName: selectedCountry.name,
@@ -1214,13 +1222,35 @@ export default function Dashboard() {
     topIssue: topIssue
       ? { label: topIssue.label, negative: topIssue.negative }
       : null,
-    marketLadder: rankMarkets(
-      selectedMarkets,
-      marketRatings,
-      "Global",
-      "mobile",
-    ),
+    marketLadder,
   });
+  // Snapshot for the assistant. React Compiler memoizes this automatically from its inputs, so
+  // no manual useMemo is needed (a manual one would stop the compiler optimizing this screen).
+  const analystContext = {
+    brand: brandName,
+    country: selectedCountry.name,
+    months: durationMonths,
+    loading: liveLoading,
+    ratings: modelMarket?.ratings ?? {
+      apple: {
+        rating: appleStoreRating,
+        reviewCount: platformRatings["Apple App Store"].reviewCount,
+      },
+      google: {
+        rating: googlePlayRating,
+        reviewCount: platformRatings["Google Play"].reviewCount,
+      },
+    },
+    reviews: customerReviews,
+    competitors: liveCompetitors,
+    quotes: competitorSharePrices,
+    transferFees: modelMarket?.transferFees ?? null,
+    marketScores: marketLadder.map(({ code, name, score }) => ({
+      code,
+      name,
+      score,
+    })),
+  };
   const legacyChart = useStoreChartRanks(
     brandName,
     selectedCountry.code,
@@ -1481,325 +1511,339 @@ export default function Dashboard() {
           />
         </SafeView>
         {!reviewsHidden && (
-        <>
-        {!liveLoading && (
-          <Text
-            style={{
-              marginTop: 2,
-              marginBottom: 10,
-              fontSize: 10,
-              lineHeight: 15,
-              color: colors.muted,
-            }}
-          >
-            {`${reviewSourceCounts.map(({ source, count }) => `${source} ${count}`).join(" · ")} · ${reviewDateRange}`}
-            {earliestReviewDate && earliestReviewDate > requestedWindowStart
-              ? " · partial history"
-              : ""}
-          </Text>
-        )}
-        {customerReviews.length > 0 && (
-          <SentimentMindMap
-            key={`voice-map-${activeSection}`}
-            country={selectedCountry.name}
-            total={customerReviews.length}
-            positive={positiveCount}
-            neutral={neutralCount}
-            negative={negativeCount}
-            words={sentimentWords}
-            onThemeSelect={handleThemeSelect}
-          />
-        )}
-        {issueCategories.length > 0 && (
-          <SentimentIssueFunnel
-            key={`issue-funnel-${activeSection}`}
-            categories={issueCategories}
-            selectedCategory={issueCategoryId}
-            onSelect={handleIssueCategorySelect}
-          />
-        )}
-        {liveLoading ? (
-          <SafeView style={styles.emptyReviews}>
-            <Ionicons name="sync-outline" size={24} color={colors.primary} />
-            <Text style={styles.emptyReviewTitle}>
-              Collecting customer feedback
-            </Text>
-            <Text style={styles.emptyReviewText}>
-              Retrieving recent verified reviews for {selectedCountry.name}.
-            </Text>
-          </SafeView>
-        ) : customerReviews.length ? (
           <>
-            <SafeView
-              onLayout={(event) => {
-                feedbackListOffset.current = event.nativeEvent.layout.y;
-              }}
-            >
-              <SafeView
+            {!liveLoading && (
+              <Text
                 style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 6,
-                  marginBottom: 4,
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
+                  marginTop: 2,
+                  marginBottom: 10,
+                  fontSize: 10,
+                  lineHeight: 15,
+                  color: colors.muted,
                 }}
               >
+                {`${reviewSourceCounts.map(({ source, count }) => `${source} ${count}`).join(" · ")} · ${reviewDateRange}`}
+                {earliestReviewDate &&
+                earliestReviewDate.getTime() >
+                  requestedWindowStart.getTime() + 24 * 60 * 60 * 1000
+                  ? " · partial history"
+                  : ""}
+              </Text>
+            )}
+            {customerReviews.length > 0 && (
+              <SentimentMindMap
+                key={`voice-map-${activeSection}`}
+                country={selectedCountry.name}
+                total={customerReviews.length}
+                positive={positiveCount}
+                neutral={neutralCount}
+                negative={negativeCount}
+                words={sentimentWords}
+                onThemeSelect={handleThemeSelect}
+              />
+            )}
+            {issueCategories.length > 0 && (
+              <SentimentIssueFunnel
+                key={`issue-funnel-${activeSection}`}
+                categories={issueCategories}
+                selectedCategory={issueCategoryId}
+                onSelect={handleIssueCategorySelect}
+              />
+            )}
+            {liveLoading ? (
+              <SafeView style={styles.emptyReviews}>
+                <Ionicons
+                  name="sync-outline"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={styles.emptyReviewTitle}>
+                  Collecting customer feedback
+                </Text>
+                <Text style={styles.emptyReviewText}>
+                  Retrieving recent verified reviews for {selectedCountry.name}.
+                </Text>
+              </SafeView>
+            ) : customerReviews.length ? (
+              <>
                 <SafeView
-                  style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    gap: 6,
-                    flex: 1,
+                  onLayout={(event) => {
+                    feedbackListOffset.current = event.nativeEvent.layout.y;
                   }}
                 >
-                  {(["all", "positive", "neutral", "negative"] as const).map(
-                    (filter) => (
-                      <Pressable
-                        key={filter}
-                        onPress={() => {
-                          setSentimentFilter(filter);
-                          setThemeFilter(null);
-                          setIssueCategoryId(null);
-                          setIssueCategoryLabel(null);
-                          setIssueReviewIdentities([]);
-                          setTargetReview(null);
-                          setShowAllReviews(false);
-                        }}
-                        style={{
-                          height: 30,
-                          paddingHorizontal: 10,
-                          borderRadius: 15,
-                          borderWidth: 1,
-                          borderColor:
-                            sentimentFilter === filter && !issueCategoryId
-                              ? colors.primary
-                              : colors.line,
-                          backgroundColor:
-                            sentimentFilter === filter && !issueCategoryId
-                              ? colors.primary
-                              : "#fff",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Text
+                  <SafeView
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 6,
+                      marginBottom: 4,
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <SafeView
+                      style={{
+                        flexDirection: "row",
+                        flexWrap: "wrap",
+                        gap: 6,
+                        flex: 1,
+                      }}
+                    >
+                      {(
+                        ["all", "positive", "neutral", "negative"] as const
+                      ).map((filter) => (
+                        <Pressable
+                          key={filter}
+                          onPress={() => {
+                            setSentimentFilter(filter);
+                            setThemeFilter(null);
+                            setIssueCategoryId(null);
+                            setIssueCategoryLabel(null);
+                            setIssueReviewIdentities([]);
+                            setTargetReview(null);
+                            setShowAllReviews(false);
+                          }}
                           style={{
-                            fontSize: 10,
-                            fontWeight: "800",
-                            color:
+                            height: 30,
+                            paddingHorizontal: 10,
+                            borderRadius: 15,
+                            borderWidth: 1,
+                            borderColor:
                               sentimentFilter === filter && !issueCategoryId
-                                ? colors.card
-                                : colors.muted,
+                                ? colors.primary
+                                : colors.line,
+                            backgroundColor:
+                              sentimentFilter === filter && !issueCategoryId
+                                ? colors.primary
+                                : "#fff",
+                            justifyContent: "center",
                           }}
                         >
-                          {filter === "all"
-                            ? `All · ${platformFiltered.length}`
-                            : `${filter[0].toUpperCase()}${filter.slice(1)} · ${platformFiltered.filter((review) => review.sentiment === filter).length}`}
-                        </Text>
-                      </Pressable>
-                    ),
-                  )}
-                </SafeView>
-                <SafeView
-                  accessibilityRole="radiogroup"
-                  accessibilityLabel="Filter feedback by platform"
-                  style={{
-                    flexDirection: "row",
-                    borderWidth: 1,
-                    borderColor: colors.line,
-                    borderRadius: 15,
-                    overflow: "hidden",
-                    height: 30,
-                    backgroundColor: "#fff",
-                  }}
-                >
-                  {PLATFORM_FILTER_OPTIONS.map((option, index) => {
-                    const isActive = platformFilter === option.id;
-                    const count =
-                      option.id === "all"
-                        ? customerReviews.length
-                        : customerReviews.filter(
-                            (review) => review.source === option.id,
-                          ).length;
-                    return (
-                      <Pressable
-                        key={option.id}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: isActive }}
-                        onPress={() => {
-                          setPlatformFilter(option.id);
-                          setShowAllReviews(false);
-                        }}
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontWeight: "800",
+                              color:
+                                sentimentFilter === filter && !issueCategoryId
+                                  ? colors.card
+                                  : colors.muted,
+                            }}
+                          >
+                            {filter === "all"
+                              ? `All · ${platformFiltered.length}`
+                              : `${filter[0].toUpperCase()}${filter.slice(1)} · ${platformFiltered.filter((review) => review.sentiment === filter).length}`}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </SafeView>
+                    <SafeView
+                      accessibilityRole="radiogroup"
+                      accessibilityLabel="Filter feedback by platform"
+                      style={{
+                        flexDirection: "row",
+                        borderWidth: 1,
+                        borderColor: colors.line,
+                        borderRadius: 15,
+                        overflow: "hidden",
+                        height: 30,
+                        backgroundColor: "#fff",
+                      }}
+                    >
+                      {PLATFORM_FILTER_OPTIONS.map((option, index) => {
+                        const isActive = platformFilter === option.id;
+                        const count =
+                          option.id === "all"
+                            ? customerReviews.length
+                            : customerReviews.filter(
+                                (review) => review.source === option.id,
+                              ).length;
+                        return (
+                          <Pressable
+                            key={option.id}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: isActive }}
+                            onPress={() => {
+                              setPlatformFilter(option.id);
+                              setShowAllReviews(false);
+                            }}
+                            style={{
+                              paddingHorizontal: 10,
+                              justifyContent: "center",
+                              backgroundColor: isActive
+                                ? colors.primary
+                                : colors.card,
+                              borderLeftWidth: index === 0 ? 0 : 1,
+                              borderLeftColor: colors.line,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontWeight: "800",
+                                color: isActive ? colors.card : colors.muted,
+                              }}
+                            >{`${option.label} · ${count}`}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </SafeView>
+                  </SafeView>
+                  {(themeFilter || issueCategoryId) && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        issueCategoryId
+                          ? `Clear ${selectedCategoryLabel} category filter`
+                          : "Clear " + themeFilter + " filter"
+                      }
+                      onPress={() => {
+                        setThemeFilter(null);
+                        setIssueCategoryId(null);
+                        setIssueCategoryLabel(null);
+                        setIssueReviewIdentities([]);
+                        setTargetReview(null);
+                        setSentimentFilter("all");
+                        setShowAllReviews(false);
+                      }}
+                      style={{
+                        alignSelf: "flex-start",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        height: 30,
+                        paddingHorizontal: 10,
+                        marginTop: 4,
+                        marginBottom: 6,
+                        borderRadius: 15,
+                        borderWidth: 1,
+                        borderColor:
+                          sentimentFilter === "negative"
+                            ? colors.red
+                            : colors.green,
+                        backgroundColor:
+                          sentimentFilter === "negative"
+                            ? colors.redSoft
+                            : colors.greenSoft,
+                      }}
+                    >
+                      <Text
                         style={{
-                          paddingHorizontal: 10,
-                          justifyContent: "center",
-                          backgroundColor: isActive
-                            ? colors.primary
-                            : colors.card,
-                          borderLeftWidth: index === 0 ? 0 : 1,
-                          borderLeftColor: colors.line,
+                          fontSize: 10,
+                          fontWeight: "800",
+                          color:
+                            sentimentFilter === "negative"
+                              ? colors.redText
+                              : colors.greenText,
                         }}
                       >
-                        <Text
-                          style={{
-                            fontSize: 10,
-                            fontWeight: "800",
-                            color: isActive ? colors.card : colors.muted,
-                          }}
-                        >{`${option.label} · ${count}`}</Text>
-                      </Pressable>
-                    );
-                  })}
+                        {issueCategoryId
+                          ? `${selectedCategoryLabel} · ${filteredReviews.length} comments`
+                          : '"' +
+                            themeFilter +
+                            '" · ' +
+                            filteredReviews.length +
+                            (filteredReviews.length === 1
+                              ? " review"
+                              : " reviews")}
+                      </Text>
+                      <Ionicons name="close" size={12} color={colors.faint} />
+                    </Pressable>
+                  )}
+                  {issueCategoryId && (
+                    <SafeView
+                      accessibilityLiveRegion="polite"
+                      style={{
+                        marginTop: 6,
+                        marginBottom: 4,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        borderLeftWidth: 3,
+                        borderLeftColor: "#FDB022",
+                        borderRadius: 6,
+                        backgroundColor: colors.orangeSoft,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "900",
+                          color: "#7A2E0E",
+                        }}
+                      >
+                        Showing feedback for {selectedCategoryLabel}
+                      </Text>
+                      <Text
+                        style={{ marginTop: 3, fontSize: 9, color: "#93370D" }}
+                      >
+                        {filteredReviews.length} matching{" "}
+                        {filteredReviews.length === 1 ? "comment" : "comments"}
+                      </Text>
+                    </SafeView>
+                  )}
+                  {filteredReviews.length === 0 && (
+                    <Text style={styles.emptyReviewText}>
+                      {issueCategoryId
+                        ? `No current comments match ${selectedCategoryLabel}.`
+                        : themeFilter
+                          ? "No reviews mention this theme."
+                          : platformFilter !== "all"
+                            ? `No ${PLATFORM_FILTER_OPTIONS.find((option) => option.id === platformFilter)?.label ?? "platform"} feedback returned for this market.`
+                            : "No reviews match the current filters."}
+                    </Text>
+                  )}
+                  <CustomerReviewFeed
+                    reviews={visibleReviews}
+                    highlightedReview={selectedTargetReview}
+                    autoTranslateReview={selectedTargetReview}
+                  />
                 </SafeView>
-              </SafeView>
-              {(themeFilter || issueCategoryId) && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    issueCategoryId
-                      ? `Clear ${selectedCategoryLabel} category filter`
-                      : "Clear " + themeFilter + " filter"
-                  }
-                  onPress={() => {
-                    setThemeFilter(null);
-                    setIssueCategoryId(null);
-                    setIssueCategoryLabel(null);
-                    setIssueReviewIdentities([]);
-                    setTargetReview(null);
-                    setSentimentFilter("all");
-                    setShowAllReviews(false);
-                  }}
-                  style={{
-                    alignSelf: "flex-start",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    height: 30,
-                    paddingHorizontal: 10,
-                    marginTop: 4,
-                    marginBottom: 6,
-                    borderRadius: 15,
-                    borderWidth: 1,
-                    borderColor:
-                      sentimentFilter === "negative"
-                        ? colors.red
-                        : colors.green,
-                    backgroundColor:
-                      sentimentFilter === "negative"
-                        ? colors.redSoft
-                        : colors.greenSoft,
-                  }}
-                >
-                  <Text
+                {filteredReviews.length > 4 && (
+                  <Pressable
+                    onPress={() => setShowAllReviews((current) => !current)}
                     style={{
-                      fontSize: 10,
-                      fontWeight: "800",
-                      color:
-                        sentimentFilter === "negative"
-                          ? colors.redText
-                          : colors.greenText,
+                      alignSelf: "flex-start",
+                      marginTop: 8,
+                      height: 34,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: colors.sky,
+                      paddingHorizontal: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {issueCategoryId
-                      ? `${selectedCategoryLabel} · ${filteredReviews.length} comments`
-                      : '"' +
-                        themeFilter +
-                        '" · ' +
-                        filteredReviews.length +
-                        (filteredReviews.length === 1 ? " review" : " reviews")}
-                  </Text>
-                  <Ionicons name="close" size={12} color={colors.faint} />
-                </Pressable>
-              )}
-              {issueCategoryId && (
-                <SafeView
-                  accessibilityLiveRegion="polite"
-                  style={{
-                    marginTop: 6,
-                    marginBottom: 4,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    borderLeftWidth: 3,
-                    borderLeftColor: "#FDB022",
-                    borderRadius: 6,
-                    backgroundColor: colors.orangeSoft,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: "900",
-                      color: "#7A2E0E",
-                    }}
-                  >
-                    Showing feedback for {selectedCategoryLabel}
-                  </Text>
-                  <Text style={{ marginTop: 3, fontSize: 9, color: "#93370D" }}>
-                    {filteredReviews.length} matching{" "}
-                    {filteredReviews.length === 1 ? "comment" : "comments"}
-                  </Text>
-                </SafeView>
-              )}
-              {filteredReviews.length === 0 && (
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: "900",
+                        color: "#3B82F6",
+                      }}
+                    >
+                      {showAllReviews
+                        ? "Show less"
+                        : `View all ${filteredReviews.length} sentiments`}
+                    </Text>
+                  </Pressable>
+                )}
+              </>
+            ) : (
+              <SafeView style={styles.emptyReviews}>
+                <Ionicons
+                  name="cloud-offline-outline"
+                  size={24}
+                  color={colors.faint}
+                />
+                <Text style={styles.emptyReviewTitle}>
+                  No recent reviews returned
+                </Text>
                 <Text style={styles.emptyReviewText}>
-                  {issueCategoryId
-                    ? `No current comments match ${selectedCategoryLabel}.`
-                    : themeFilter
-                      ? "No reviews mention this theme."
-                      : platformFilter !== "all"
-                        ? `No ${PLATFORM_FILTER_OPTIONS.find((option) => option.id === platformFilter)?.label ?? "platform"} feedback returned for this market.`
-                        : "No reviews match the current filters."}
+                  The source did not return usable verified feedback for this
+                  market. Start the review collector with “npm run
+                  review-server” for Playstore and Apple App Store coverage.
                 </Text>
-              )}
-              <CustomerReviewFeed
-                reviews={visibleReviews}
-                highlightedReview={selectedTargetReview}
-                autoTranslateReview={selectedTargetReview}
-              />
-            </SafeView>
-            {filteredReviews.length > 4 && (
-              <Pressable
-                onPress={() => setShowAllReviews((current) => !current)}
-                style={{
-                  alignSelf: "flex-start",
-                  marginTop: 8,
-                  height: 34,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: colors.sky,
-                  paddingHorizontal: 12,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text
-                  style={{ fontSize: 10, fontWeight: "900", color: "#3B82F6" }}
-                >
-                  {showAllReviews
-                    ? "Show less"
-                    : `View all ${filteredReviews.length} sentiments`}
-                </Text>
-              </Pressable>
+              </SafeView>
             )}
           </>
-        ) : (
-          <SafeView style={styles.emptyReviews}>
-            <Ionicons
-              name="cloud-offline-outline"
-              size={24}
-              color={colors.faint}
-            />
-            <Text style={styles.emptyReviewTitle}>
-              No recent reviews returned
-            </Text>
-            <Text style={styles.emptyReviewText}>
-              The source did not return usable verified feedback for this
-              market. Start the review collector with “npm run review-server”
-              for Playstore and Apple App Store coverage.
-            </Text>
-          </SafeView>
-        )}
-        </>
         )}
       </SafeView>
     );
@@ -3563,6 +3607,7 @@ export default function Dashboard() {
           </ScrollView>
         </SafeView>
       </Animated.View>
+      <AnalyticsBot context={analystContext} />
     </SafeAreaView>
   );
 }

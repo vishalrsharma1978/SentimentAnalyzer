@@ -27,10 +27,7 @@ import {
   isSameCorridor,
 } from "../data/transferCorridors";
 import type { TransferCountry } from "../data/transferCorridors";
-import {
-  isSectionHidden,
-  setSectionHidden,
-} from "../data/sectionVisibility";
+import { isSectionHidden, setSectionHidden } from "../data/sectionVisibility";
 import { SectionToggle } from "./SectionToggle";
 import { colors, fonts } from "../theme";
 
@@ -123,29 +120,29 @@ function CountryPicker({
               </Text>
             )}
             {shown.map((country) => {
-            const disabled = country.code === disabledCode;
-            return (
-              <Pressable
-                key={country.code}
-                accessibilityRole="button"
-                accessibilityLabel={`${label} option ${country.name}`}
-                disabled={disabled}
-                onPress={() => {
-                  onChange(country);
-                  setOpen(false);
-                  setQuery("");
-                }}
-                style={[
-                  styles.menuItem,
-                  country.code === value.code && styles.menuItemActive,
-                  disabled && styles.menuItemDisabled,
-                ]}
-              >
-                <Text style={styles.menuCode}>{country.code}</Text>
-                <Text style={styles.menuName}>{country.name}</Text>
-                <Text style={styles.menuCurrency}>{country.currency}</Text>
-              </Pressable>
-            );
+              const disabled = country.code === disabledCode;
+              return (
+                <Pressable
+                  key={country.code}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${label} option ${country.name}`}
+                  disabled={disabled}
+                  onPress={() => {
+                    onChange(country);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                  style={[
+                    styles.menuItem,
+                    country.code === value.code && styles.menuItemActive,
+                    disabled && styles.menuItemDisabled,
+                  ]}
+                >
+                  <Text style={styles.menuCode}>{country.code}</Text>
+                  <Text style={styles.menuName}>{country.name}</Text>
+                  <Text style={styles.menuCurrency}>{country.currency}</Text>
+                </Pressable>
+              );
             })}
           </ScrollView>
         </View>
@@ -318,7 +315,8 @@ function ProviderCard({
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Exchange rate applied</Text>
             <Text style={styles.breakdownValue}>
-              × {option.exchangeRate.toFixed(option.exchangeRate >= 100 ? 2 : 4)}
+              ×{" "}
+              {option.exchangeRate.toFixed(option.exchangeRate >= 100 ? 2 : 4)}
             </Text>
           </View>
           {option.midMarketRate !== null &&
@@ -378,18 +376,22 @@ export function CustomerExperience({ senderCode }: Props) {
   );
   const requestId = useRef(0);
 
-  // Follow the dashboard's selected market until the user picks their own sender.
-  useEffect(() => {
-    if (senderEdited) return;
-    const next = findTransferCountry(senderCode);
-    if (!next) return;
-    setSender(next);
-    setReceiver((current) =>
-      current.code === next.code ? defaultReceiverFor(next.code) : current,
-    );
-    setResult(null);
-    setStatus("idle");
-  }, [senderCode, senderEdited]);
+  // Follow the dashboard's selected market until the user picks their own sender. This adjusts
+  // state while rendering (React's documented pattern for a prop change) instead of in an effect,
+  // so the stale form is never painted and there is no second render pass.
+  const [followedCode, setFollowedCode] = useState(senderCode);
+  if (followedCode !== senderCode) {
+    setFollowedCode(senderCode);
+    const next = senderEdited ? null : findTransferCountry(senderCode);
+    if (next) {
+      setSender(next);
+      setReceiver((current) =>
+        current.code === next.code ? defaultReceiverFor(next.code) : current,
+      );
+      setResult(null);
+      setStatus("idle");
+    }
+  }
 
   const amount = Number(amountText.replace(/,/g, ""));
   const amountValid =
@@ -486,275 +488,288 @@ export function CustomerExperience({ senderCode }: Props) {
 
       {expanded && (
         <>
-      <View style={styles.row}>
-        <CountryPicker
-          label="Sender country"
-          value={sender}
-          disabledCode={receiver.code}
-          testID="sender-country"
-          onChange={(country) => {
-            setSenderEdited(true);
-            setSender(country);
-            reset();
-          }}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Swap sender and receiver"
-          onPress={swap}
-          style={styles.swap}
-        >
-          <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
-        </Pressable>
-        <CountryPicker
-          label="Receiver country"
-          value={receiver}
-          disabledCode={sender.code}
-          testID="receiver-country"
-          onChange={(country) => {
-            setReceiver(country);
-            reset();
-          }}
-        />
-        <View style={[styles.field, styles.convertedField]}>
-          <Text style={styles.fieldLabel}>
-            Receiver gets (approx, {receiver.currency})
-          </Text>
-          <View style={styles.convertedBox} testID="converted-amount">
-            {fxLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : fxRate !== null && amountValid ? (
-              <Text
-                style={styles.convertedValue}
-                accessibilityLabel={`Approximately ${formatMoney(amount * fxRate, receiver.currency)} at the mid-market rate`}
-              >
-                ≈ {formatMoney(amount * fxRate, receiver.currency)}
+          <View style={styles.row}>
+            <CountryPicker
+              label="Sender country"
+              value={sender}
+              disabledCode={receiver.code}
+              testID="sender-country"
+              onChange={(country) => {
+                setSenderEdited(true);
+                setSender(country);
+                reset();
+              }}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Swap sender and receiver"
+              onPress={swap}
+              style={styles.swap}
+            >
+              <Ionicons
+                name="swap-horizontal"
+                size={18}
+                color={colors.primary}
+              />
+            </Pressable>
+            <CountryPicker
+              label="Receiver country"
+              value={receiver}
+              disabledCode={sender.code}
+              testID="receiver-country"
+              onChange={(country) => {
+                setReceiver(country);
+                reset();
+              }}
+            />
+            <View style={[styles.field, styles.convertedField]}>
+              <Text style={styles.fieldLabel}>
+                Receiver gets (approx, {receiver.currency})
               </Text>
-            ) : (
-              <Text style={styles.convertedPlaceholder}>
-                {fxError ? "Rate unavailable" : "Enter an amount"}
+              <View style={styles.convertedBox} testID="converted-amount">
+                {fxLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : fxRate !== null && amountValid ? (
+                  <Text
+                    style={styles.convertedValue}
+                    accessibilityLabel={`Approximately ${formatMoney(amount * fxRate, receiver.currency)} at the mid-market rate`}
+                  >
+                    ≈ {formatMoney(amount * fxRate, receiver.currency)}
+                  </Text>
+                ) : (
+                  <Text style={styles.convertedPlaceholder}>
+                    {fxError ? "Rate unavailable" : "Enter an amount"}
+                  </Text>
+                )}
+              </View>
+              {fxRate !== null && !fxLoading && (
+                <Text style={styles.convertedNote}>
+                  Mid-market rate {fxRate.toFixed(fxRate >= 100 ? 2 : 4)},
+                  before provider fees
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.amountBlock}>
+            <Text style={styles.fieldLabel}>You send ({sender.currency})</Text>
+            <View style={styles.amountRow}>
+              <TextInput
+                accessibilityLabel="Amount to send"
+                keyboardType="decimal-pad"
+                value={amountText}
+                onChangeText={(text) => {
+                  setAmountText(text.replace(/[^0-9.,]/g, ""));
+                  reset();
+                }}
+                style={[
+                  styles.amountInput,
+                  !amountValid && styles.amountInvalid,
+                ]}
+              />
+              <View style={styles.quick}>
+                {QUICK_AMOUNTS.map((value) => (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Send ${value}`}
+                    onPress={() => {
+                      setAmountText(String(value));
+                      reset();
+                    }}
+                    style={[styles.chip, amount === value && styles.chipActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        amount === value && styles.chipTextActive,
+                      ]}
+                    >
+                      {value.toLocaleString("en-US")}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            {!amountValid && (
+              <Text style={styles.errorText}>
+                Enter an amount between 10 and 100,000.
               </Text>
             )}
           </View>
-          {fxRate !== null && !fxLoading && (
-            <Text style={styles.convertedNote}>
-              Mid-market rate {fxRate.toFixed(fxRate >= 100 ? 2 : 4)}, before
-              provider fees
+
+          <View style={styles.methods}>
+            <View style={styles.methodGroup}>
+              <Text style={styles.fieldLabel}>Pay in · changes the quotes</Text>
+              <View style={styles.segment}>
+                {PAY_IN_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pay in ${option.label}`}
+                    accessibilityState={{ selected: payIn === option.id }}
+                    onPress={() => {
+                      setPayIn(option.id);
+                      if (status === "done" || status === "error")
+                        void compare(option.id);
+                    }}
+                    style={[
+                      styles.segmentItem,
+                      payIn === option.id && styles.segmentActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        payIn === option.id && styles.segmentTextActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.segmentHint,
+                        payIn === option.id && styles.segmentHintActive,
+                      ]}
+                    >
+                      {option.hint}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View style={styles.methodGroup}>
+              <Text style={styles.fieldLabel}>Pay out · informational</Text>
+              <View style={styles.segment}>
+                {PAY_OUT_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pay out ${option.label}`}
+                    accessibilityState={{ selected: payOut === option.id }}
+                    onPress={() => setPayOut(option.id)}
+                    style={[
+                      styles.segmentItem,
+                      payOut === option.id && styles.segmentActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        payOut === option.id && styles.segmentTextActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.methodNote}>
+                Quotes do not change with how the recipient is paid, so confirm{" "}
+                {payOutLabel.toLowerCase()} availability with the provider you
+                pick.
+              </Text>
+            </View>
+          </View>
+
+          {sameCountry && (
+            <Text style={styles.errorText}>
+              Choose different sender and receiver countries.
             </Text>
           )}
-        </View>
-      </View>
 
-      <View style={styles.amountBlock}>
-        <Text style={styles.fieldLabel}>You send ({sender.currency})</Text>
-        <View style={styles.amountRow}>
-          <TextInput
-            accessibilityLabel="Amount to send"
-            keyboardType="decimal-pad"
-            value={amountText}
-            onChangeText={(text) => {
-              setAmountText(text.replace(/[^0-9.,]/g, ""));
-              reset();
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Compare price"
+            accessibilityState={{
+              disabled: !canCompare,
+              busy: status === "loading",
             }}
-            style={[styles.amountInput, !amountValid && styles.amountInvalid]}
-          />
-          <View style={styles.quick}>
-            {QUICK_AMOUNTS.map((value) => (
-              <Pressable
-                key={value}
-                accessibilityRole="button"
-                accessibilityLabel={`Send ${value}`}
-                onPress={() => {
-                  setAmountText(String(value));
-                  reset();
-                }}
-                style={[styles.chip, amount === value && styles.chipActive]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    amount === value && styles.chipTextActive,
-                  ]}
-                >
-                  {value.toLocaleString("en-US")}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        {!amountValid && (
-          <Text style={styles.errorText}>
-            Enter an amount between 10 and 100,000.
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.methods}>
-        <View style={styles.methodGroup}>
-          <Text style={styles.fieldLabel}>Pay in · changes the quotes</Text>
-          <View style={styles.segment}>
-            {PAY_IN_OPTIONS.map((option) => (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Pay in ${option.label}`}
-                accessibilityState={{ selected: payIn === option.id }}
-                onPress={() => {
-                  setPayIn(option.id);
-                  if (status === "done" || status === "error")
-                    void compare(option.id);
-                }}
-                style={[
-                  styles.segmentItem,
-                  payIn === option.id && styles.segmentActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    payIn === option.id && styles.segmentTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                <Text
-                  style={[
-                    styles.segmentHint,
-                    payIn === option.id && styles.segmentHintActive,
-                  ]}
-                >
-                  {option.hint}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <View style={styles.methodGroup}>
-          <Text style={styles.fieldLabel}>Pay out · informational</Text>
-          <View style={styles.segment}>
-            {PAY_OUT_OPTIONS.map((option) => (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Pay out ${option.label}`}
-                accessibilityState={{ selected: payOut === option.id }}
-                onPress={() => setPayOut(option.id)}
-                style={[
-                  styles.segmentItem,
-                  payOut === option.id && styles.segmentActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    payOut === option.id && styles.segmentTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={styles.methodNote}>
-            Quotes do not change with how the recipient is paid, so confirm{" "}
-            {payOutLabel.toLowerCase()} availability with the provider you pick.
-          </Text>
-        </View>
-      </View>
-
-      {sameCountry && (
-        <Text style={styles.errorText}>
-          Choose different sender and receiver countries.
-        </Text>
-      )}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Compare price"
-        accessibilityState={{
-          disabled: !canCompare,
-          busy: status === "loading",
-        }}
-        disabled={!canCompare}
-        onPress={() => void compare()}
-        style={[styles.compare, !canCompare && styles.compareDisabled]}
-        testID="compare-price"
-      >
-        {status === "loading" ? (
-          <ActivityIndicator color={colors.onPrimary} />
-        ) : (
-          <Ionicons
-            name="pricetags-outline"
-            size={16}
-            color={colors.onPrimary}
-          />
-        )}
-        <Text style={styles.compareText}>
-          {status === "loading" ? "Comparing live prices…" : "Compare price"}
-        </Text>
-      </Pressable>
-
-      {status === "error" && (
-        <View
-          accessibilityRole="alert"
-          style={styles.errorBox}
-          testID="compare-error"
-        >
-          <Text style={styles.errorTitle}>Could not compare prices</Text>
-          <Text style={styles.errorBody}>{error}</Text>
-        </View>
-      )}
-
-      {status === "done" && result && result.providers.length === 0 && (
-        <View style={styles.emptyBox} testID="compare-empty">
-          <Text style={styles.emptyTitle}>
-            No providers quoted this corridor
-          </Text>
-          <Text style={styles.emptyBody}>
-            Wise returned no current quotes for {sender.name} to {receiver.name}{" "}
-            paying by {result.request.payInLabel.toLowerCase()}. Try another
-            pay-in method or country.
-          </Text>
-        </View>
-      )}
-
-      {status === "done" && result && best && (
-        <View testID="compare-results">
-          <View style={styles.summary} testID="recommendation">
-            <Text style={styles.summaryLabel}>RECOMMENDATION</Text>
-            <Text style={styles.summaryTitle}>
-              {best.provider} gets {receiver.name} the most:{" "}
-              {formatMoney(best.receivedAmount, receiver.currency)}
+            disabled={!canCompare}
+            onPress={() => void compare()}
+            style={[styles.compare, !canCompare && styles.compareDisabled]}
+            testID="compare-price"
+          >
+            {status === "loading" ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Ionicons
+                name="pricetags-outline"
+                size={16}
+                color={colors.onPrimary}
+              />
+            )}
+            <Text style={styles.compareText}>
+              {status === "loading"
+                ? "Comparing live prices…"
+                : "Compare price"}
             </Text>
-            <Text style={styles.summaryBody}>
-              Sending {formatMoney(result.request.amount, sender.currency)} from{" "}
-              {sender.name} by {result.request.payInLabel.toLowerCase()}, after
-              a{" "}
-              {best.fee === 0 ? "zero" : formatMoney(best.fee, sender.currency)}{" "}
-              fee at{" "}
-              {best.exchangeRate.toFixed(best.exchangeRate >= 100 ? 2 : 4)}.
-              {result.providers.length > 1
-                ? ` That is ${formatMoney(result.providers[result.providers.length - 1].lessThanBest, receiver.currency)} more than the lowest of ${result.providers.length} providers.`
-                : ""}
-            </Text>
-          </View>
-          {result.providers.map((option) => (
-            <ProviderCard
-              key={option.provider}
-              option={option}
-              sendCurrency={sender.currency}
-              receiveCurrency={receiver.currency}
-            />
-          ))}
-          <Text style={styles.footnote}>
-            Live quotes from {result.source}, updated{" "}
-            {new Date(result.fetchedAt).toLocaleTimeString()}. The recipient
-            amount is after fees. Rating weights what the recipient gets (70%)
-            with delivery speed (30%) when the provider states a delivery time;
-            otherwise it uses the amount alone.
-          </Text>
-        </View>
-      )}
+          </Pressable>
+
+          {status === "error" && (
+            <View
+              accessibilityRole="alert"
+              style={styles.errorBox}
+              testID="compare-error"
+            >
+              <Text style={styles.errorTitle}>Could not compare prices</Text>
+              <Text style={styles.errorBody}>{error}</Text>
+            </View>
+          )}
+
+          {status === "done" && result && result.providers.length === 0 && (
+            <View style={styles.emptyBox} testID="compare-empty">
+              <Text style={styles.emptyTitle}>
+                No providers quoted this corridor
+              </Text>
+              <Text style={styles.emptyBody}>
+                Wise returned no current quotes for {sender.name} to{" "}
+                {receiver.name} paying by{" "}
+                {result.request.payInLabel.toLowerCase()}. Try another pay-in
+                method or country.
+              </Text>
+            </View>
+          )}
+
+          {status === "done" && result && best && (
+            <View testID="compare-results">
+              <View style={styles.summary} testID="recommendation">
+                <Text style={styles.summaryLabel}>RECOMMENDATION</Text>
+                <Text style={styles.summaryTitle}>
+                  {best.provider} gets {receiver.name} the most:{" "}
+                  {formatMoney(best.receivedAmount, receiver.currency)}
+                </Text>
+                <Text style={styles.summaryBody}>
+                  Sending {formatMoney(result.request.amount, sender.currency)}{" "}
+                  from {sender.name} by{" "}
+                  {result.request.payInLabel.toLowerCase()}, after a{" "}
+                  {best.fee === 0
+                    ? "zero"
+                    : formatMoney(best.fee, sender.currency)}{" "}
+                  fee at{" "}
+                  {best.exchangeRate.toFixed(best.exchangeRate >= 100 ? 2 : 4)}.
+                  {result.providers.length > 1
+                    ? ` That is ${formatMoney(result.providers[result.providers.length - 1].lessThanBest, receiver.currency)} more than the lowest of ${result.providers.length} providers.`
+                    : ""}
+                </Text>
+              </View>
+              {result.providers.map((option) => (
+                <ProviderCard
+                  key={option.provider}
+                  option={option}
+                  sendCurrency={sender.currency}
+                  receiveCurrency={receiver.currency}
+                />
+              ))}
+              <Text style={styles.footnote}>
+                Live quotes from {result.source}, updated{" "}
+                {new Date(result.fetchedAt).toLocaleTimeString()}. The recipient
+                amount is after fees. Rating weights what the recipient gets
+                (70%) with delivery speed (30%) when the provider states a
+                delivery time; otherwise it uses the amount alone.
+              </Text>
+            </View>
+          )}
         </>
       )}
     </View>

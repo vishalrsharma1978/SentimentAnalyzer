@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AnalyticsBot } from "../src/components/AnalyticsBot";
 import { SetupPicker } from "../src/components/SetupPicker";
 import { HeaderPulse } from "../src/components/HeaderPulse";
 import { useModelPreparation } from "../src/components/ModelPreparation";
@@ -666,6 +667,7 @@ export default function Onboarding() {
           </View>
         </View>
       </Modal>
+      <AnalyticsBot context={null} />
     </SafeAreaView>
   );
 }
